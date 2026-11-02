@@ -1,7 +1,7 @@
 public without sharing class HousieOperationService {
     public class WriteItem {
-        @AuraEnabled public String objectApiName;
-        @AuraEnabled public Map<String,Object> fields;
+        public String objectApiName;
+        public Map<String,Object> fields;
     }
     public class OperationResult {
         @AuraEnabled public String operationId;
@@ -9,19 +9,26 @@ public without sharing class HousieOperationService {
         @AuraEnabled public Integer written;
     }
 
+    // Serialize validation and writes that must not race with another command.
+    public static void lockForWrite() {
+        List<Housie_Operation_Lock__c> locks = [
+            SELECT Id, Lock_Key__c
+            FROM Housie_Operation_Lock__c
+            WHERE Lock_Key__c = 'GLOBAL'
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!locks.isEmpty(), 'Infrastructure lock is not initialized. Run bootstrap.apex.');
+    }
+
     // A single infrastructure row serializes all writes. Big Object records are
     // written immediately; the journal's COMMITTED marker is written last.
     // Readers must reject records whose Operation_Journal__b status is not COMMITTED.
-    @AuraEnabled
-    public static OperationResult commit(String operationType, List<WriteItem> writes) {
+    public static OperationResult executeOperation(String operationType, List<WriteItem> writes) {
         HousieErrors.require(String.isNotBlank(operationType), 'Operation type is required.');
         HousieErrors.require(writes != null && !writes.isEmpty(), 'At least one write is required.');
         HousieErrors.require(writes.size() <= 40, 'Operation exceeds the safe write batch size.');
-        List<Housie_Operation_Lock__c> locks = [
-            SELECT Id, Lock_Key__c FROM Housie_Operation_Lock__c
-            WHERE Lock_Key__c = 'GLOBAL' LIMIT 1 FOR UPDATE
-        ];
-        HousieErrors.require(!locks.isEmpty(), 'Infrastructure lock is not initialized. Run bootstrap.apex.');
+        lockForWrite();
         String opId = HousieIds.newId();
         Datetime nowAt = System.now();
         Map<String,Object> journal = new Map<String,Object>{
@@ -35,7 +42,12 @@ public without sharing class HousieOperationService {
         Integer ordinal = 0;
         for (WriteItem item : writes) {
             HousieErrors.require(item != null && item.fields != null, 'Malformed write item.');
-            String recordId = HousieIds.deterministicId(opId, ordinal++);
+            String recordId = (String)item.fields.get('Record_Id__c');
+            if (String.isBlank(recordId)) {
+                recordId = HousieIds.deterministicId(opId, ordinal);
+            }
+            ordinal++;
+            HousieErrors.require(recordId.length() == 32, 'Record identifiers must be 32 characters.');
             Map<String,Object> payload = new Map<String,Object>();
             payload.putAll(item.fields);
             payload.put('Record_Id__c', recordId);

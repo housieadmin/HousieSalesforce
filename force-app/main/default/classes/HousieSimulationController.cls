@@ -17,6 +17,6 @@ public with sharing class HousieSimulationController {
             'Reason__c' => 'Developer simulation request',
             'Created_At__c' => System.now()
         };
-        return HousieOperationService.commit('SIMULATION_' + scenario, new List<HousieOperationService.WriteItem>{item});
+        return HousieOperationService.executeOperation('SIMULATION_' + scenario, new List<HousieOperationService.WriteItem>{item});
     }
 }

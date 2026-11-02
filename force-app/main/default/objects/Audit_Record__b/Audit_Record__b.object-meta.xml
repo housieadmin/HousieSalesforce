@@ -9,9 +9,9 @@
 <fields><fullName>Scope_Type__c</fullName><label>Scope Type</label><length>20</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Scope_Id__c</fullName><label>Scope Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Action__c</fullName><label>Action</label><length>80</length><type>Text</type></fields>
-<fields><fullName>Before_State__c</fullName><label>Before State</label><length>32768</length><type>LongTextArea</type></fields>
-<fields><fullName>After_State__c</fullName><label>After State</label><length>32768</length><type>LongTextArea</type></fields>
+<fields><fullName>Before_State__c</fullName><label>Before State</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
+<fields><fullName>After_State__c</fullName><label>After State</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
 <fields><fullName>Reason__c</fullName><label>Reason</label><length>255</length><type>Text</type></fields>
 <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type><required>true</required></fields>
-<indexes><label>Primary Query Index</label><fields><name>Scope_Type__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Scope_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Created_At__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Scope_Type__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Scope_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Created_At__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
 </CustomObject>

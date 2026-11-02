@@ -9,8 +9,8 @@
 <fields><fullName>Account_Id__c</fullName><label>Account Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Response__c</fullName><label>Response</label><length>10</length><type>Text</type></fields>
 <fields><fullName>Eligibility_Role__c</fullName><label>Eligibility Role</label><length>30</length><type>Text</type></fields>
-<fields><fullName>Eligibility_Snapshot__c</fullName><label>Eligibility Snapshot</label><length>32768</length><type>LongTextArea</type></fields>
+<fields><fullName>Eligibility_Snapshot__c</fullName><label>Eligibility Snapshot</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
 <fields><fullName>Responded_At__c</fullName><label>Responded At</label><type>DateTime</type></fields>
 <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
-<indexes><label>Primary Query Index</label><fields><name>Request_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Request_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
 </CustomObject>

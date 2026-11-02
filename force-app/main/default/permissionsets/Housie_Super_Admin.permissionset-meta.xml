@@ -4,4 +4,5 @@
 <classAccesses><apexClass>HousieAccountService</apexClass><enabled>true</enabled></classAccesses>
 <classAccesses><apexClass>HousieGameService</apexClass><enabled>true</enabled></classAccesses>
 <classAccesses><apexClass>HousieRouteController</apexClass><enabled>true</enabled></classAccesses>
+<classAccesses><apexClass>HousieBoardService</apexClass><enabled>true</enabled></classAccesses>
 <objectPermissions><allowCreate>true</allowCreate><allowDelete>false</allowDelete><allowEdit>true</allowEdit><allowRead>true</allowRead><modifyAllRecords>false</modifyAllRecords><object>Housie_Account__c</object><viewAllRecords>true</viewAllRecords></objectPermissions><customPermissions><enabled>true</enabled><name>HOUSIE_SUPER_ADMIN</name></customPermissions></PermissionSet>

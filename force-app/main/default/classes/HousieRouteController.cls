@@ -1,4 +1,4 @@
-public with sharing class HousieRouteController {
+public without sharing class HousieRouteController {
     public class RouteContext {
         @AuraEnabled public String route;
         @AuraEnabled public String token;
@@ -6,7 +6,7 @@ public with sharing class HousieRouteController {
         @AuraEnabled public String accountName;
         @AuraEnabled public Boolean authenticated;
     }
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static RouteContext resolve(String token) {
         RouteContext ctx = new RouteContext();
         ctx.route = 'home';

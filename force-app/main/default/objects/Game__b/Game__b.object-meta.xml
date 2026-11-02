@@ -7,7 +7,7 @@
 <fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
 <fields><fullName>Board_Id__c</fullName><label>Board Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Config_Snapshot__c</fullName><label>Config Snapshot</label><length>32768</length><type>LongTextArea</type></fields>
+<fields><fullName>Config_Snapshot__c</fullName><label>Config Snapshot</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
 <fields><fullName>Current_Admin_Account_Id__c</fullName><label>Current Admin Account Id</label><length>36</length><type>Text</type></fields>
 <fields><fullName>Event_Sequence__c</fullName><label>Event Sequence</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
 <fields><fullName>Wallet_Total__c</fullName><label>Wallet Total</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
@@ -17,5 +17,5 @@
 <fields><fullName>Started_At__c</fullName><label>Started At</label><type>DateTime</type></fields>
 <fields><fullName>Completed_At__c</fullName><label>Completed At</label><type>DateTime</type></fields>
 <fields><fullName>Cancelled_At__c</fullName><label>Cancelled At</label><type>DateTime</type></fields>
-<indexes><label>Primary Query Index</label><fields><name>Board_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Status__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Board_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Status__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
 </CustomObject>

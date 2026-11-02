@@ -24,6 +24,6 @@ public with sharing class HousieGameService {
             'Payload__c' => JSON.serialize(eventPayload),
             'Created_At__c' => System.now()
         };
-        return HousieOperationService.commit('GAME_COMMAND_' + command.action, new List<HousieOperationService.WriteItem>{eventWrite});
+        return HousieOperationService.executeOperation('GAME_COMMAND_' + command.action, new List<HousieOperationService.WriteItem>{eventWrite});
     }
 }

@@ -30,11 +30,31 @@ public without sharing class HousieBigObjectStore {
         return result;
     }
     public static Boolean isCommitted(String operationId) {
+        if (String.isBlank(operationId)) return false;
         List<Operation_Journal__b> rows = [
-            SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = :operationId LIMIT 1
+            SELECT Status__c
+            FROM Operation_Journal__b
+            WHERE Operation_Id__c = :operationId
+            LIMIT 1
         ];
         return !rows.isEmpty() && rows[0].Status__c == 'COMMITTED';
     }
+
+    public static Set<String> committedOperationIds(Set<String> operationIds) {
+        Set<String> committed = new Set<String>();
+        if (operationIds == null || operationIds.isEmpty()) return committed;
+        List<Operation_Journal__b> rows = [
+            SELECT Operation_Id__c, Status__c
+            FROM Operation_Journal__b
+            WHERE Operation_Id__c IN :operationIds
+            LIMIT 2000
+        ];
+        for (Operation_Journal__b row : rows) {
+            if (row.Status__c == 'COMMITTED') committed.add(row.Operation_Id__c);
+        }
+        return committed;
+    }
+
     public static List<SObject> queryByLeadingKeys(String objectApiName, Map<String,Object> keyValues, Integer rowLimit) {
         HousieErrors.require(ALLOWED.contains(objectApiName), 'Unsupported Big Object.');
         List<String> clauses = new List<String>();

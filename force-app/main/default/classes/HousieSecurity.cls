@@ -1,4 +1,4 @@
-public with sharing class HousieSecurity {
+public without sharing class HousieSecurity {
     public static Housie_Account__c requireAccount(String accountId) {
         HousieErrors.require(String.isNotBlank(accountId), 'Account context is required.');
         List<Housie_Account__c> rows = [
