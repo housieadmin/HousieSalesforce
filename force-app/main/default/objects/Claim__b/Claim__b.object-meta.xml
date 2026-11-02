@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+<deploymentStatus>Deployed</deploymentStatus>
+<description>Housie append-oriented Big Object for Claim. All reads and writes are mediated by Apex.</description>
+<label>Housie Claim</label><pluralLabel>Housie Claim Records</pluralLabel>
+<fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
+<fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Ticket_Id__c</fullName><label>Ticket Id</label><length>32</length><type>Text</type></fields>
+<fields><fullName>Category_Key__c</fullName><label>Category Key</label><length>24</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Claimant_Account_Id__c</fullName><label>Claimant Account Id</label><length>32</length><type>Text</type></fields>
+<fields><fullName>Call_Sequence__c</fullName><label>Call Sequence</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
+<fields><fullName>Claim_Sequence__c</fullName><label>Claim Sequence</label><precision>18</precision><scale>2</scale><type>Number</type><required>true</required></fields>
+<fields><fullName>Validation_Status__c</fullName><label>Validation Status</label><length>20</length><type>Text</type></fields>
+<fields><fullName>Claim_Status__c</fullName><label>Claim Status</label><length>20</length><type>Text</type></fields>
+<fields><fullName>Rejection_Reason__c</fullName><label>Rejection Reason</label><length>255</length><type>Text</type></fields>
+<fields><fullName>Award_Amount__c</fullName><label>Award Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
+<fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
+<fields><fullName>Resolved_At__c</fullName><label>Resolved At</label><type>DateTime</type></fields>
+<indexes><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Category_Key__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Claim_Sequence__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+</CustomObject>

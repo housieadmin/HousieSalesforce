@@ -1,0 +1,22 @@
+<template>
+  <main class="shell">
+    <header class="hero">
+      <div><p class="eyebrow">HOUSIE</p><h1>Play together.</h1><p class="sub">Boards, games and tickets in one place.</p></div>
+    </header>
+    <template if:true={loading}><lightning-spinner alternative-text="Loading"></lightning-spinner></template>
+    <template if:true={error}><div class="error" role="alert">{error}</div></template>
+    <template if:true={context}>
+      <section class="panel">
+        <template if:true={context.authenticated}>
+          <h2>Welcome, {context.accountName}</h2>
+          <p>Your account context has been resolved.</p>
+          <p class="muted">Account key: {context.accountKey}</p>
+        </template>
+        <template if:false={context.authenticated}>
+          <h2>Welcome to Housie</h2>
+          <p>Open your account invitation link to enter your account context.</p>
+        </template>
+      </section>
+    </template>
+  </main>
+</template>

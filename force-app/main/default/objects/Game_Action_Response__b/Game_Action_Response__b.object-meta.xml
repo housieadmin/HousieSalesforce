@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+<deploymentStatus>Deployed</deploymentStatus>
+<description>Housie append-oriented Big Object for Game Action Response. All reads and writes are mediated by Apex.</description>
+<label>Housie Game Action Response</label><pluralLabel>Housie Game Action Response Records</pluralLabel>
+<fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
+<fields><fullName>Request_Id__c</fullName><label>Request Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Account_Id__c</fullName><label>Account Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Response__c</fullName><label>Response</label><length>10</length><type>Text</type></fields>
+<fields><fullName>Eligibility_Role__c</fullName><label>Eligibility Role</label><length>30</length><type>Text</type></fields>
+<fields><fullName>Eligibility_Snapshot__c</fullName><label>Eligibility Snapshot</label><length>32768</length><type>LongTextArea</type></fields>
+<fields><fullName>Responded_At__c</fullName><label>Responded At</label><type>DateTime</type></fields>
+<fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
+<indexes><label>Primary Query Index</label><fields><name>Request_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+</CustomObject>
