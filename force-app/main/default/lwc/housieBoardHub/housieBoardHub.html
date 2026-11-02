@@ -1,0 +1,82 @@
+<template>
+  <section class="hub">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">YOUR SPACE</p>
+        <h2>Boards</h2>
+        <p class="hint">Create a board or join one using its invitation details.</p>
+      </div>
+      <lightning-button-icon icon-name="utility:refresh" alternative-text="Refresh boards"
+        title="Refresh boards" onclick={refresh} disabled={loading}></lightning-button-icon>
+    </div>
+    <template if:true={error}><div class="message error" role="alert">{error}</div></template>
+    <template if:true={success}><div class="message success" role="status">{success}</div></template>
+    <div class="columns">
+      <article class="panel">
+        <h3>Create a board</h3>
+        <lightning-input label="Board name" value={boardName} maxlength="80"
+          onchange={handleName} required></lightning-input>
+        <lightning-combobox class="space-top" label="Visibility" value={visibility}
+          options={visibilityOptions} onchange={handleVisibility}></lightning-combobox>
+        <lightning-button class="space-top" variant="brand" label="Create board"
+          onclick={createBoard} disabled={loading}></lightning-button>
+      </article>
+      <article class="panel">
+        <h3>Join a board</h3>
+        <p class="hint">Use the board ID from the private invitation link.</p>
+        <lightning-input label="Invitation board ID" value={inviteBoardId}
+          onchange={handleInviteBoard}></lightning-input>
+        <lightning-button class="space-top" label="Join board" variant="neutral"
+          onclick={joinBoard} disabled={loading}></lightning-button>
+      </article>
+    </div>
+    <div class="board-list">
+      <h3>Your boards</h3>
+      <template if:true={loading}><lightning-spinner size="small" alternative-text="Loading boards"></lightning-spinner></template>
+      <template if:true={hasBoards}>
+        <template for:each={boards} for:item="board">
+          <article class="board-card" key={board.boardId}>
+            <div class="board-main">
+              <div class="board-title-row"><h4>{board.name}</h4><span class="pill">{board.visibility}</span></div>
+              <p class="hint">Game: {board.currentGameStatus} · Board: {board.status}</p>
+              <p class="id-line">Board ID: {board.boardId}</p>
+            </div>
+            <div class="actions">
+              <lightning-button label="Leave" variant="destructive-text"
+                data-board-id={board.boardId}
+                onclick={leaveOwnedBoard} disabled={loading}></lightning-button>
+            </div>
+          </article>
+        </template>
+      </template>
+      <template if:false={hasBoards}><p class="empty">No boards yet. Create your first board above.</p></template>
+    </div>
+    <div class="public-list">
+      <div class="section-heading public-heading">
+        <div>
+          <h3>Find public boards</h3>
+          <p class="hint">Search public boards and join without a private invitation.</p>
+        </div>
+        <lightning-input type="search" label="Search by board name" variant="label-hidden"
+          placeholder="Search public boards" value={publicSearch}
+          onchange={handlePublicSearch}></lightning-input>
+      </div>
+      <template if:true={hasPublicBoards}>
+        <template for:each={filteredPublicBoards} for:item="board">
+          <article class="board-card" key={board.boardId}>
+            <div class="board-main">
+              <div class="board-title-row"><h4>{board.name}</h4><span class="pill">{board.currentGameStatus}</span></div>
+              <p class="hint">Public board · {board.status}</p>
+            </div>
+            <lightning-button label={board.joinLabel} variant="brand"
+              data-board-id={board.boardId} onclick={joinPublicBoard}
+              disabled={board.alreadyMember}></lightning-button>
+          </article>
+        </template>
+      </template>
+      <template if:false={hasPublicBoards}>
+        <p class="empty">No matching public boards were found.</p>
+      </template>
+    </div>
+  </section>
+</template>

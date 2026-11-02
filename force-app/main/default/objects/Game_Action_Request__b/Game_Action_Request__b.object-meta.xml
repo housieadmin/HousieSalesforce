@@ -8,12 +8,12 @@
 <fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Action_Type__c</fullName><label>Action Type</label><length>15</length><type>Text</type></fields>
 <fields><fullName>Requester_Account_Id__c</fullName><label>Requester Account Id</label><length>36</length><type>Text</type></fields>
-<fields><fullName>Required_Approval_Rules__c</fullName><label>Required Approval Rules</label><length>32768</length><type>LongTextArea</type></fields>
+<fields><fullName>Required_Approval_Rules__c</fullName><label>Required Approval Rules</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
 <fields><fullName>Expected_Game_State__c</fullName><label>Expected Game State</label><length>20</length><type>Text</type></fields>
 <fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
 <fields><fullName>Expires_At__c</fullName><label>Expires At</label><type>DateTime</type></fields>
 <fields><fullName>Closed_At__c</fullName><label>Closed At</label><type>DateTime</type></fields>
 <fields><fullName>Executed_At__c</fullName><label>Executed At</label><type>DateTime</type></fields>
-<indexes><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Status__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Status__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
 </CustomObject>

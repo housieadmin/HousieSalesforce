@@ -54,7 +54,7 @@ public class HousieDomainRules {
         Decimal[] shares = new Decimal[]{};
         Decimal allocated = 0;
         for (Integer i=0; i<contributors; i++) { shares.add(each); allocated += each; }
-        Integer cents = Integer.valueOf(((total-allocated)*100).setScale(0).intValue());
+        Integer cents = ((total-allocated)*100).setScale(0).intValue();
         for (Integer i=0; i<cents; i++) shares[i] += 0.01;
         return shares;
     }

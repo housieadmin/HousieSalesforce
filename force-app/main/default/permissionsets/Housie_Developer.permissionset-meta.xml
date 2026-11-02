@@ -3,4 +3,5 @@
 <label>Housie Developer</label>
 <classAccesses><apexClass>HousieSimulationController</apexClass><enabled>true</enabled></classAccesses>
 <classAccesses><apexClass>HousieRouteController</apexClass><enabled>true</enabled></classAccesses>
+<classAccesses><apexClass>HousieBoardService</apexClass><enabled>true</enabled></classAccesses>
 <objectPermissions><allowCreate>false</allowCreate><allowDelete>false</allowDelete><allowEdit>false</allowEdit><allowRead>true</allowRead><modifyAllRecords>false</modifyAllRecords><object>Housie_Account__c</object><viewAllRecords>false</viewAllRecords></objectPermissions><customPermissions><enabled>true</enabled><name>HOUSIE_DEVELOPER</name></customPermissions></PermissionSet>

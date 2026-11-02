@@ -11,5 +11,5 @@
 <fields><fullName>Joined_At__c</fullName><label>Joined At</label><type>DateTime</type></fields>
 <fields><fullName>Withdrawn_At__c</fullName><label>Withdrawn At</label><type>DateTime</type></fields>
 <fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type></fields>
-<indexes><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
 </CustomObject>

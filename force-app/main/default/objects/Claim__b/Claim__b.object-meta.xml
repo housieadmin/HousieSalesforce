@@ -17,5 +17,5 @@
 <fields><fullName>Award_Amount__c</fullName><label>Award Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
 <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
 <fields><fullName>Resolved_At__c</fullName><label>Resolved At</label><type>DateTime</type></fields>
-<indexes><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Category_Key__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Claim_Sequence__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Category_Key__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Claim_Sequence__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
 </CustomObject>
