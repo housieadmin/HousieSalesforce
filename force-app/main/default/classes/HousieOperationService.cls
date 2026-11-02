@@ -13,7 +13,7 @@ public without sharing class HousieOperationService {
     // written immediately; the journal's COMMITTED marker is written last.
     // Readers must reject records whose Operation_Journal__b status is not COMMITTED.
     @AuraEnabled
-    public static OperationResult commit(String operationType, List<WriteItem> writes) {
+    public static OperationResult executeOperation(String operationType, List<WriteItem> writes) {
         HousieErrors.require(String.isNotBlank(operationType), 'Operation type is required.');
         HousieErrors.require(writes != null && !writes.isEmpty(), 'At least one write is required.');
         HousieErrors.require(writes.size() <= 40, 'Operation exceeds the safe write batch size.');
