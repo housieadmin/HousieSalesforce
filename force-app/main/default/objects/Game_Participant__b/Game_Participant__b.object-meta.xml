@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+<deploymentStatus>Deployed</deploymentStatus>
+<description>Housie append-oriented Big Object for Game Participant. All reads and writes are mediated by Apex.</description>
+<label>Housie Game Participant</label><pluralLabel>Housie Game Participant Records</pluralLabel>
+<fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
+<fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Account_Id__c</fullName><label>Account Id</label><length>32</length><type>Text</type><required>true</required></fields>
+<fields><fullName>Join_Sequence__c</fullName><label>Join Sequence</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
+<fields><fullName>Joined_At__c</fullName><label>Joined At</label><type>DateTime</type></fields>
+<fields><fullName>Withdrawn_At__c</fullName><label>Withdrawn At</label><type>DateTime</type></fields>
+<fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type></fields>
+<indexes><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+</CustomObject>
