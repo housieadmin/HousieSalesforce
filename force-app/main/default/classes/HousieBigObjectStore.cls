@@ -30,13 +30,16 @@ public without sharing class HousieBigObjectStore {
         return result;
     }
     public static Boolean isCommitted(String operationId) {
+        HousieErrors.require(String.isNotBlank(operationId), 'Operation id is required.');
         List<Operation_Journal__b> rows = [
-            SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = :operationId LIMIT 1
+            SELECT Status__c FROM Operation_Journal__b
+            WHERE Operation_Id__c = :operationId AND Record_Id__c = :operationId LIMIT 1
         ];
         return !rows.isEmpty() && rows[0].Status__c == 'COMMITTED';
     }
     public static List<SObject> queryByLeadingKeys(String objectApiName, Map<String,Object> keyValues, Integer rowLimit) {
         HousieErrors.require(ALLOWED.contains(objectApiName), 'Unsupported Big Object.');
+        HousieErrors.require(keyValues != null && !keyValues.isEmpty(), 'At least one indexed query key is required.');
         List<String> clauses = new List<String>();
         for (String key : keyValues.keySet()) clauses.add(key + ' = :' + key);
         // Build a bind-safe query using a map of named bind variables.
