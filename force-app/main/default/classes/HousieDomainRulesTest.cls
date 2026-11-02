@@ -8,7 +8,7 @@ private class HousieDomainRulesTest {
         String one = HousieIds.deterministicId('op-1', 2);
         String two = HousieIds.deterministicId('op-1', 2);
         System.assertEquals(one, two);
-        System.assertEquals(36, one.length());
+        System.assertEquals(32, one.length());
     }
     @IsTest static void equalSharesReconcile() {
         Decimal[] shares = HousieDomainRules.equalShares(10, 3);
