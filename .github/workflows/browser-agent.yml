@@ -44,13 +44,23 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node --test browser-agent/scripts/*.test.mjs
 
+      - name: Check out default branch for issue-comment parser
+        if: github.event_name == 'issue_comment'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          path: .browser-agent-tools
+
       - name: Parse and validate request
         if: github.event_name == 'issue_comment'
         id: request
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         shell: bash
-        run: node browser-agent/scripts/parse-request.mjs
+        run: |
+          node .browser-agent-tools/browser-agent/scripts/parse-request.mjs
+          cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
       - name: Check out requested ref
         if: github.event_name == 'issue_comment'
@@ -58,6 +68,7 @@ jobs:
         with:
           ref: ${{ steps.request.outputs.ref }}
           fetch-depth: 0
+          clean: false
           persist-credentials: false
 
       - name: Set up Node.js
@@ -92,7 +103,7 @@ jobs:
           chmod 600 "$RUNNER_TEMP/browser-agent-server.key"
           sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default >/dev/null
           sf org open --url-only --target-org housie-browser-agent --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
-          FRONTDOOR_URL="$(node browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/browser-agent-frontdoor.json")"
+          FRONTDOOR_URL="$(node "$RUNNER_TEMP/extract-frontdoor-url.mjs" "$RUNNER_TEMP/browser-agent-frontdoor.json")"
           echo "::add-mask::$FRONTDOOR_URL"
           echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
