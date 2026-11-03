@@ -112,9 +112,5 @@ jobs:
       - name: Deploy selected metadata
         run: sf project deploy start --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
 
-      - name: Bootstrap Housie infrastructure
-        if: env.DEPLOYMENT_SCOPE == 'application'
-        run: sf apex run --target-org housie-dev --file scripts/bootstrap.apex
-
       - name: Run all local Apex tests
         run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
