@@ -10,7 +10,8 @@ This guide explains how to operate the Salesforce workflows in this repository. 
 | **Salesforce Manual Validation** | Manually dispatched from `main` | Validates a selected branch or PR ref against a selected manifest; can optionally run local Apex tests | Does not deploy metadata |
 | **Salesforce AI Iteration Deploy** | Manually dispatched from `main` | Deploys explicitly selected source paths from a pushed feature branch or commit to Developer Edition | Does not merge code or write to `main`; does not deploy the whole project by default |
 | **Salesforce AI Iteration Restore** | Manually dispatched from `main` | Redeploys explicitly selected metadata paths from a known-good Git ref | Does not reverse data changes, Apex side effects, or destructive metadata changes |
-| **Salesforce Issue Commands** | Owner comments on issue #11 | Validates and dispatches the existing AI iteration deploy or restore workflow | Does not contain Salesforce credentials or deploy metadata itself |
+| **Salesforce Deploy and Verify** | Dispatched by the issue #11 command router | Deploys selected feature-branch metadata, runs selected local Apex tests, then runs specified public browser scenarios only after deployment succeeds | A browser pass covers only the selected scenarios; it does not merge code or prove unrelated features |
+| **Salesforce Issue Commands** | Owner comments on issue #11 | Validates and dispatches deploy, restore, or combined deploy-and-verify requests | Does not contain Salesforce credentials or deploy metadata itself |
 | **Salesforce Controlled Deployment** | Manually dispatched from `main` | Deploys one selected release manifest after explicit confirmation and pre-deployment checks | Does not deploy arbitrary feature branches; does not run automatically on merge |
 | **Salesforce Org Metadata Sync** | Manually dispatched from `main` | Retrieves an allowlisted manifest from Salesforce and opens a PR with changes | Does not write directly to `main` or approve/deploy retrieved changes |
 
@@ -82,9 +83,9 @@ This redeploys the selected source paths as they exist at the known-good ref. It
 
 Treat the Developer Edition org as shared mutable state. Concurrent AI sessions working on overlapping components can overwrite one another. The workflows serialize deployments, but they cannot prevent a later run from intentionally deploying a different version.
 
-## 5. Issue-comment commands for AI deploy and restore
+## 5. Issue-comment commands for AI deploy, restore and verification
 
-After `Salesforce Issue Commands` is merged to `main`, repository owners can trigger the two AI iteration workflows by commenting on [Salesforce command center issue #11](https://github.com/housieadmin/HousieSalesforce/issues/11). This is a command channel, not a PR review mechanism.
+After `Salesforce Issue Commands` is merged to `main`, repository owners can trigger AI iteration deploy, restore, and combined deploy-and-verify workflows by commenting on [Salesforce command center issue #11](https://github.com/housieadmin/HousieSalesforce/issues/11). This is a command channel, not a PR review mechanism.
 
 Deploy example:
 
@@ -96,6 +97,23 @@ paths:
 tests: none
 confirm: DEPLOY
 ```
+
+Combined deploy-and-verify example:
+
+```text
+/sf deploy-and-verify
+ref: feature/my-change
+paths:
+- force-app/main/default/classes/HousieAccountService.cls
+mode: standard
+tests: local
+scenarios:
+- browser-agent/scenarios/my-public-flow.spec.ts
+description: Verify the named public user flow and its expected result.
+confirm: DEPLOY
+```
+
+Use the combined command when a change needs both Salesforce deployment and public browser verification. The browser job runs only after deployment succeeds. Select scenarios that assert actual user-visible behaviour; deployment or Apex tests alone are not browser verification. A combined workflow is successful only when both deployment and browser verification succeed. The feature branch remains unmerged until a separate reviewed PR is merged.
 
 For `tests: specified`, add an `apex_test_classes:` list with one class name per line. The other supported test modes are `none` and `local`.
 
@@ -110,7 +128,7 @@ run_local_tests: false
 confirm: RESTORE
 ```
 
-The dispatcher is restricted to issue #11, ordinary issue comments (not PR comments), and repository owners. It validates the command, safe Git ref, existing ref, metadata paths, test selection, and exact confirmation before dispatching the existing workflow from `main`. It has no Salesforce credentials and does not perform deployment itself. The dispatched workflow remains responsible for checkout, deeper path validation, Salesforce authentication, dry-run, deployment, tests, and shared-org concurrency.
+The dispatcher is restricted to issue #11, ordinary issue comments (not PR comments), and repository owners. It validates the command, safe Git ref, existing ref, metadata paths, test selection, scenario paths and exact confirmation before dispatching the relevant workflow from `main`. It has no Salesforce credentials and does not perform deployment itself. The dispatched workflow remains responsible for checkout, deeper path validation, Salesforce authentication, dry-run, deployment, tests, browser execution and shared-org concurrency.
 
 The dispatcher requires the workflow to be merged to `main` before it can respond to issue comments. Do not use the issue command channel for controlled release deployments, org sync, or arbitrary workflows.
 
