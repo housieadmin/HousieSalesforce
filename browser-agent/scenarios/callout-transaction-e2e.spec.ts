@@ -16,8 +16,7 @@ test("public test-user ticket purchase reports exact failing transaction stage",
     pendingCaptures.push((async () => {
       const entry = { status: response.status(), method: request.method(), actionDescriptors: [], responseFields: [] };
       try {
-        const requestBody = request.postData() || "";
-        const requestJson = JSON.parse(requestBody);
+        const requestJson = JSON.parse(request.postData() || "");
         const collectDescriptors = value => {
           if (!value || typeof value !== "object") return;
           if (Array.isArray(value)) return value.forEach(collectDescriptors);
@@ -56,21 +55,20 @@ test("public test-user ticket purchase reports exact failing transaction stage",
   const finishPending = hub.getByRole("button", { name: /Finish ticket purchase/ }).first();
   if (await finishPending.count()) {
     await finishPending.click();
-    await expect.poll(async () => await hub.innerText(), { timeout: 60000 }).toMatch(/This ticket purchase was already completed|Ticket purchase failed during/);
+    await expect(hub.getByRole("button", { name: /Finish ticket purchase/ })).toHaveCount(0, { timeout: 60000 });
     const recovered = await hub.innerText();
     housie.note("Pending purchase finalization result: " + recovered.slice(0, 1200));
     expect(recovered, "Pending purchase must finalize without a transaction error").not.toMatch(/pending uncommitted work/i);
-    await expect(hub.getByRole("button", { name: /Finish ticket purchase/ })).toHaveCount(0, { timeout: 60000 });
   }
 
   let result = await hub.innerText();
-  let ticketId = result.match(/\\b(?:MANUAL|AUTO) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1]
-    || result.match(/Ticket:\\s*([a-f0-9]{32})/i)?.[1];
+  let ticketId = result.match(/\b(?:MANUAL|AUTO) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1]
+    || result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1];
 
   // Only create a ticket when this test account has none. This keeps hourly
   // reruns read-only after the first successful purchase and avoids exhausting
   // the account's ticket limit.
-  const activeMatch = result.match(/Active tickets:\\s*(\\d+)/);
+  const activeMatch = result.match(/Active tickets:\s*(\d+)/);
   if (!ticketId && Number(activeMatch?.[1] || 0) === 0) {
     const purchase = hub.getByRole("button", { name: /Buy ticket/ }).first();
     await expect(purchase, "A waiting game must be available for this account").toBeVisible({ timeout: 30000 });
@@ -91,18 +89,17 @@ test("public test-user ticket purchase reports exact failing transaction stage",
     });
     await expect.poll(async () => await hub.innerText(), { timeout: 60000 }).toMatch(/Ticket:|Ticket purchase failed during/);
     result = await hub.innerText();
-    ticketId = result.match(/Ticket:\\s*([a-f0-9]{32})/i)?.[1]
-      || result.match(/\\b(?:MANUAL|AUTO) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1];
+    ticketId = result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1]
+      || result.match(/\b(?:MANUAL|AUTO) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1];
   }
 
   expect(ticketId, "The public account must show an active ticket result").toMatch(/^[a-f0-9]{32}$/i);
-  result += "\\nTicket: " + ticketId;
+  result += "\nTicket: " + ticketId;
   await Promise.all(pendingCaptures);
   housie.note("Ticket purchase UI result: " + result.slice(0, 1500));
   housie.note("Salesforce Aura purchase diagnostics: " + JSON.stringify(auraDiagnostics).slice(0, 7000));
-  expect(result, "Ticket purchase must complete without a transaction-stage error").toMatch(/Ticket:/);
-  expect(result, "The pending-uncommitted-work failure must be absent").not.toMatch(/pending uncommitted work/i);
   await housie.screenshot("ticket-purchase-stage-diagnostic");
   expect(result, "Ticket purchase must complete without a transaction-stage error").toMatch(/Ticket:/);
   expect(result, "The pending-uncommitted-work failure must be absent").not.toMatch(/pending uncommitted work/i);
+  expect(JSON.stringify(auraDiagnostics), "No Salesforce Aura action may report pending uncommitted work").not.toMatch(/pending uncommitted work/i);
 });
