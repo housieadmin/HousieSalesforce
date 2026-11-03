@@ -13,7 +13,7 @@ chmod +x scripts/*.sh
 ./scripts/run-tests.sh housie-dev
 ```
 
-The deploy script deploys the manifest and initializes the singleton infrastructure lock record.
+The deploy script deploys the application manifest and initializes the singleton infrastructure lock record.
 
 After deployment:
 1. Assign `Housie_Super_Admin` only to trusted platform operators.
@@ -42,7 +42,9 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 - `force-app/main/default/classes`: Apex services and tests
 - `force-app/main/default/lwc`: Experience Cloud application, board hub, account admin and developer simulation
 - `force-app/main/default/permissionsets`: permission-set starting points
-- `manifest/package.xml`: deployment manifest
+- `manifest/package.xml`: routine application deployment (Apex, objects and LWC)
+- `manifest/package-org-setup.xml`: permission sets, custom tabs and custom permissions
+- `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
 - `scripts`: deploy, bootstrap and test scripts
 - `docs`: architecture, data mapping, deployment fixes and build status
 
@@ -50,13 +52,21 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 
 The repository includes `.github/workflows/salesforce.yml`:
 
-- Pull requests targeting `main` authenticate to the Developer Edition org, perform a metadata dry-run, and then run all local Apex tests.
-- A push to `main` deploys the manifest to the GitHub Environment named `development`, bootstraps the infrastructure lock, and runs all local Apex tests.
-- A manual workflow dispatch runs validation only; Developer Edition deployment remains restricted to pushes to `main`.
+- Pull requests targeting `main` validate only `manifest/package.xml` (application metadata) and then run all local Apex tests.
+- A push to `main` deploys only `manifest/package.xml` to the GitHub Environment named `development`, bootstraps the infrastructure lock, and runs all local Apex tests.
+- A manual workflow dispatch from `main` lets an operator choose `application`, `org-setup`, or `experience`. The selected manifest is dry-run validated first, then deployed. The bootstrap script runs only for the application scope; Apex tests run after every selected deployment.
+
+### Manifest boundaries and dependencies
+
+The routine application manifest intentionally contains Apex classes, custom objects and Lightning Web Components. Permission sets, custom tabs and custom permissions are separated into the org-setup manifest. ExperienceBundle and Network are separated into the Experience Cloud manifest so they are not pushed to the Developer Edition org on every application merge.
+
+These are release boundaries, not claims that the groups are dependency-free. Salesforce metadata validation catches many missing compile-time and metadata references when the selected package is validated against the target org. If validation reports a missing component or dependency, add that component to the same deployment manifest (or deliberately deploy its prerequisite first), then rerun validation.
+
+A successful dry run does not catch every runtime dependency. For example, Apex code that looks up a Custom Permission by a string API name, or application behavior that assumes a permission set/site is configured, may not create a deploy-time dependency that Salesforce can detect. Keep runtime configuration and access dependencies documented and test the actual user journeys after deployment. Do not treat a green metadata dry run as proof that permissions or Experience Cloud setup are complete.
 
 ### Test and coverage behavior
 
-This pipeline targets a Salesforce Developer Edition org. Developer Edition is a development environment, so the metadata deployment uses `NoTestRun`; Apex tests are then executed as a separate required step using `sf apex run test --test-level RunLocalTests`. This keeps test execution mandatory without making the deployment command enforce the org-wide 75% deployment coverage threshold.
+This pipeline targets a Salesforce Developer Edition org. Developer Edition is a development environment, so metadata deployment uses `NoTestRun`; Apex tests are executed as a separate required step using `sf apex run test --test-level RunLocalTests`. This keeps test execution mandatory without making the deployment command enforce the org-wide 75% deployment coverage threshold.
 
 This is an intentional development-org workflow, not a production deployment policy. Before deploying Apex to a production org, restore Salesforce's required deployment test level and satisfy the applicable 75% coverage requirements. A green CI run here does not certify production deployment readiness.
 
@@ -80,6 +90,6 @@ Create a Salesforce Connected App (or External Client App) configured for OAuth 
 
 ### First deployment
 
-After configuring the secrets/variable and environment, open a pull request to `main` to exercise validation. Merge only after validation succeeds. The merge push triggers the Developer Edition deployment. Review the GitHub Actions run and Salesforce deployment result before treating the release as successful.
+After configuring the secrets/variable and environment, open a pull request to `main` to exercise application validation. Merge only after validation succeeds. The merge push triggers the application deployment. Use manual workflow dispatch from `main` for the separately managed org-setup and Experience Cloud manifests. Review the GitHub Actions run and Salesforce deployment result before treating a release as successful.
 
-**Important:** the workflow deploys metadata plus the singleton infrastructure-lock bootstrap only. It does not create Experience Cloud sites, activate a site, provision users, configure domains, or set org-specific sharing/guest settings. Those remain manual org setup and security review tasks. The application is not production-ready until the outstanding functional and security blockers in `docs/BUILD_STATUS.md` are resolved.
+**Important:** the application workflow deploys application metadata plus the singleton infrastructure-lock bootstrap only. It does not create Experience Cloud sites, activate a site, provision users, configure domains, or set org-specific sharing/guest settings. Those remain controlled setup and security review tasks. The application is not production-ready until the outstanding functional and security blockers in `docs/BUILD_STATUS.md` are resolved.
