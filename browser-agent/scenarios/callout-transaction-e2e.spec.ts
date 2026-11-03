@@ -51,18 +51,25 @@ test("public test-user ticket purchase reports exact failing transaction stage",
   await expect(hub, "Public account page should render Board Hub").toHaveCount(1, { timeout: 60000 });
   await expect(hub.getByText("Your boards", { exact: true })).toBeVisible({ timeout: 60000 });
 
+  const visiblePageText = async () => {
+    const bodyText = await page.locator("body").innerText();
+    const activeText = await page.getByText(/Active tickets:\s*\d+/).first().innerText().catch(() => "");
+    const ticketText = await page.getByText(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*[a-f0-9]{32}/i).first().innerText().catch(() => "");
+    return [bodyText, activeText, ticketText].filter(Boolean).join("\n");
+  };
+
   capturePurchase = true;
-  const finishPending = hub.getByRole("button", { name: /Finish ticket purchase/ }).first();
+  const finishPending = page.getByRole("button", { name: /Finish ticket purchase/ }).first();
   if (await finishPending.count()) {
     await finishPending.click();
-    await expect(hub.getByRole("button", { name: /Finish ticket purchase/ })).toHaveCount(0, { timeout: 60000 });
-    const recovered = await hub.innerText();
-    housie.note("Pending purchase finalization result: " + recovered.slice(0, 1200));
+    await expect(page.getByRole("button", { name: /Finish ticket purchase/ })).toHaveCount(0, { timeout: 60000 });
+    const recovered = await visiblePageText();
+    housie.note("Pending purchase finalization result: " + recovered.slice(0, 1500));
     expect(recovered, "Pending purchase must finalize without a transaction error").not.toMatch(/pending uncommitted work/i);
   }
 
-  let result = await hub.innerText();
-  let ticketId = result.match(/\b(?:MANUAL|AUTO) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1]
+  let result = await visiblePageText();
+  let ticketId = result.match(/\b(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/i)?.[1]
     || result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1];
 
   // Only create a ticket when this test account has none. This keeps hourly
@@ -70,7 +77,7 @@ test("public test-user ticket purchase reports exact failing transaction stage",
   // the account's ticket limit.
   const activeMatch = result.match(/Active tickets:\s*(\d+)/);
   if (!ticketId && Number(activeMatch?.[1] || 0) === 0) {
-    const purchase = hub.getByRole("button", { name: /Buy ticket/ }).first();
+    const purchase = page.getByRole("button", { name: /Buy ticket/ }).first();
     await expect(purchase, "A waiting game must be available for this account").toBeVisible({ timeout: 30000 });
     await page.evaluate(() => {
       const w = window as any;
@@ -87,16 +94,16 @@ test("public test-user ticket purchase reports exact failing transaction stage",
       delete w.__housieE2eOriginalDateNow;
       delete w.__housieE2eOriginalRandom;
     });
-    await expect.poll(async () => await hub.innerText(), { timeout: 60000 }).toMatch(/Ticket:|Ticket purchase failed during/);
-    result = await hub.innerText();
+    await expect.poll(async () => await visiblePageText(), { timeout: 60000 }).toMatch(/Ticket:|Ticket purchase failed during/);
+    result = await visiblePageText();
     ticketId = result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1]
-      || result.match(/\b(?:MANUAL|AUTO) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1];
+      || result.match(/\b(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/i)?.[1];
   }
 
   expect(ticketId, "The public account must show an active ticket result").toMatch(/^[a-f0-9]{32}$/i);
   result += "\nTicket: " + ticketId;
   await Promise.all(pendingCaptures);
-  housie.note("Ticket purchase UI result: " + result.slice(0, 1500));
+  housie.note("Ticket purchase UI result: " + result.slice(0, 2000));
   housie.note("Salesforce Aura purchase diagnostics: " + JSON.stringify(auraDiagnostics).slice(0, 7000));
   await housie.screenshot("ticket-purchase-stage-diagnostic");
   expect(result, "Ticket purchase must complete without a transaction-stage error").toMatch(/Ticket:/);
