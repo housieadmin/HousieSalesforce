@@ -5,6 +5,7 @@ public with sharing class HousieAccountService {
 
         String normalizedEmail = String.isBlank(email) ? null : email.trim().toLowerCase();
         HousieErrors.require(String.isNotBlank(normalizedEmail), 'Email is required.');
+        HousieErrors.require(normalizedEmail.length() <= 80, 'Email cannot exceed 80 characters.');
         HousieErrors.require(Pattern.matches('^[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}$',
             normalizedEmail.toUpperCase()), 'Enter a valid email address.');
 
