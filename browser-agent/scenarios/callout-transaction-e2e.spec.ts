@@ -69,7 +69,7 @@ test("public test-user ticket purchase reports exact failing transaction stage",
   }
 
   let result = await visiblePageText();
-  const initialActiveCount = Number(result.match(/Active tickets:\s*(\\d+)/)?.[1] || 0);
+  const initialActiveCount = Number(result.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
   const initialTicketIds = [...result.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)]
     .map(match => match[1]);
   let ticketId = result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1]
@@ -97,7 +97,7 @@ test("public test-user ticket purchase reports exact failing transaction stage",
 
     await expect.poll(async () => {
       const text = await visiblePageText();
-      return Number(text.match(/Active tickets:\s*(\\d+)/)?.[1] || 0);
+      return Number(text.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
     }, { timeout: 60000 }).toBeGreaterThan(initialActiveCount);
   }
 
