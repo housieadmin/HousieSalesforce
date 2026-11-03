@@ -1,50 +1,37 @@
 import { test, expect } from "../core";
 
-const existingAccountRecordId = "a00g500001D7iIrAAJ";
+const site = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s";
+const superAdminUrl = site + "/housie-account/a00g500001D72UwAAJ/housie-super-admin";
+const playerUrl = site + "/housie-account/a00g500001D7iIrAAJ/housie-test-user-2";
 
-test("account administration completes signup grants without pending-work callout error", async ({ page, housie }) => {
-  await housie.login();
-  await housie.navigate("/lightning/r/Housie_Account__c/" + existingAccountRecordId + "/view");
-  await page.locator("records-record-layout, lightning-record-view-form, .slds-page-header")
-    .first().waitFor({ state: "visible", timeout: 60000 });
-
+test("public super-admin account creation completes signup grants", async ({ page, housie }) => {
+  await housie.navigate(superAdminUrl);
   const admin = page.locator("c-housie-account-admin");
-  await expect(admin, "Housie Account Admin must be present on the configured account page")
-    .toHaveCount(1, { timeout: 30000 });
+  await expect(admin, "Public super-admin page should render Account Administration").toHaveCount(1, { timeout: 60000 });
 
   const unique = Date.now().toString();
-  const email = `callout-e2e-${unique}@example.invalid`;
-  await admin.locator("lightning-input[data-email] input").fill(email);
-  await admin.locator("lightning-input:not([data-email]) input").last().fill("Callout E2E " + unique);
+  await admin.locator("lightning-input[data-email] input").fill("callout-e2e-" + unique + "@example.com");
+  await admin.locator("lightning-input:not([data-email]) input").fill("Callout E2E " + unique);
   await admin.getByRole("button", { name: "Create account" }).click();
 
-  await expect(admin.getByText(/Status: ACTIVE/)).toBeVisible({ timeout: 90000 });
+  await expect(admin.getByText(/Status:\s*ACTIVE/i)).toBeVisible({ timeout: 90000 });
   await expect(admin.getByText(/pending uncommitted work|callout was unsuccessful/i)).toHaveCount(0);
-  housie.note("Account signup created a new account and completed signup Big Object grants; UI displayed ACTIVE.");
-  await housie.screenshot("account-signup-grants-success");
+  housie.note("Public super-admin signup completed and displayed ACTIVE.");
+  await housie.screenshot("public-super-admin-signup-success");
 });
 
-test("ticket purchase commits Big Object writes without pending-work callout error", async ({ page, housie }) => {
-  await housie.login();
-  await housie.navigate("/lightning/r/Housie_Account__c/" + existingAccountRecordId + "/view");
-  await page.locator("records-record-layout, lightning-record-view-form, .slds-page-header")
-    .first().waitFor({ state: "visible", timeout: 60000 });
+test("public test-user account completes ticket purchase", async ({ page, housie }) => {
+  await housie.navigate(playerUrl);
+  const hub = page.locator("c-housie-board-hub");
+  await expect(hub, "Public account page should render Board Hub").toHaveCount(1, { timeout: 60000 });
+  await expect(hub.getByText("Your boards", { exact: true })).toBeVisible({ timeout: 60000 });
 
-  const recordText = await page.locator("body").innerText();
-  const keyMatch = recordText.match(/Account Key\s*[:\n]\s*([a-f0-9]{32})/i);
-  expect(keyMatch, "Existing account record must expose its Housie account key").not.toBeNull();
-  const accountKey = keyMatch![1];
-
-  await housie.navigate("/lightning/page/home?c__token=" + encodeURIComponent(accountKey));
-  await expect(page.getByText("Your boards", { exact: true })).toBeVisible({ timeout: 60000 });
-
-  const purchase = page.getByRole("button", { name: /Buy ticket/ }).first();
-  await expect(purchase, "At least one waiting game must be available for ticket purchase")
-    .toBeVisible({ timeout: 30000 });
+  const purchase = hub.getByRole("button", { name: /Buy ticket/ }).first();
+  await expect(purchase, "A waiting game must be available for this account").toBeVisible({ timeout: 30000 });
   await purchase.click();
 
-  await expect(page.getByText(/pending uncommitted work|callout was unsuccessful/i)).toHaveCount(0);
-  await expect(page.getByText(/Ticket:/i)).toBeVisible({ timeout: 90000 });
-  housie.note("Ticket purchase completed through the deployed Board Hub UI without the pending-work/callout error.");
-  await housie.screenshot("ticket-purchase-success");
+  await expect(hub.getByText(/pending uncommitted work|callout was unsuccessful/i)).toHaveCount(0);
+  await expect(hub.getByText(/Ticket:/i)).toBeVisible({ timeout: 90000 });
+  housie.note("Public ticket purchase returned a ticket result without pending-work callout error.");
+  await housie.screenshot("public-ticket-purchase-success");
 });
