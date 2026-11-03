@@ -83,9 +83,9 @@ export default class HousieBoardHub extends LightningElement {
       });
       const previousModes = new Map(this.boards.map(board => [board.boardId, board.ticketMode]));
       const boardsWithTickets = await Promise.all(myBoards.map(async board => {
-        const [tickets] = await Promise.all([
-          listMyTickets({ boardId: board.boardId, accountId: this.accountKey })
-        ]);
+        const tickets = await listMyTickets({
+          boardId: board.boardId, accountId: this.accountKey
+        });
         const hasTickets = tickets.length > 0;
         const pending = pendingByBoard[board.boardId] || [];
         return {
