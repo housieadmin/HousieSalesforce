@@ -315,7 +315,7 @@ public without sharing class HousieGameTicketService {
         } else if (command.Action_Type__c == 'WITHDRAW') {
             result = commitPreparedWithdrawal(command, actor.Account_Key__c);
         } else {
-            HousieErrors.require(false, 'Unsupported prepared ticket command type.');
+            throw new HousieErrors.HousieException('Unsupported prepared ticket command type.');
         }
         command.Status__c = 'COMMITTED';
         command.Updated_At__c = System.now();
@@ -447,7 +447,6 @@ public without sharing class HousieGameTicketService {
         List<Ticket__b> tickets = loadCommittedHumanTickets(command.Game_Id__c);
         Map<String,Wallet_Hold__b> latestHolds = loadLatestHolds(command.Game_Id__c, accountKey);
         Datetime nowAt = System.now();
-        Decimal eventOffset = 0;
         Decimal releaseTotal = 0;
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
 
@@ -480,7 +479,6 @@ public without sharing class HousieGameTicketService {
             writes.add(gameEvent(command.Game_Id__c, accountKey, 'TICKET_WITHDRAWN',
                 new Map<String,Object>{'ticketId' => ticket.Record_Id__c}, nowAt,
                 HousieIds.stableId('GAME_EVENT', ticket.Record_Id__c + ':TICKET_WITHDRAWN')));
-            eventOffset++;
         }
 
         ParticipantState participant = currentParticipant(command.Game_Id__c, accountKey);
