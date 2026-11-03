@@ -276,6 +276,17 @@ public without sharing class HousieBoardService {
         MembershipState current = currentMembership(boardId, actor.Account_Key__c);
         HousieErrors.require(current != null && current.status == 'ACTIVE', 'You are not an active member of this board.');
 
+        List<Housie_Ticket_Command__c> pendingTicketCommands = [
+            SELECT Id
+            FROM Housie_Ticket_Command__c
+            WHERE Board_Id__c = :boardId
+              AND Account_Key__c = :actor.Account_Key__c
+              AND Status__c = 'PREPARED'
+            LIMIT 1
+        ];
+        HousieErrors.require(pendingTicketCommands.isEmpty(),
+            'Finish the pending ticket or withdrawal action before leaving this board.');
+
         Game__b game = findGame(boardId, board.Current_Game_Id__c);
         if (game != null && new Set<String>{'WAITING','RUNNING','PAUSED'}.contains(game.Status__c)) {
             HousieErrors.require(!hasActiveParticipation(game.Record_Id__c, actor.Account_Key__c),
