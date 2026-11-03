@@ -128,13 +128,12 @@ Under **Settings → Secrets and variables → Actions**, configure:
 Also:
 
 - Create **Settings → Environments → development** and restrict it to deployments from `main`; use required reviewers for controlled release deployments.
-- Create **Settings → Environments → development-iteration** and restrict it to `main`. This environment is intentionally separate and should not require manual reviewers for every iteration; the workflow requires the explicit `DEPLOY` confirmation and serializes changes to the same Developer Edition org.
 - For org sync, enable **Settings → Actions → General → Workflow permissions → Read and write permissions** and allow GitHub Actions to create pull requests.
 - Use a dedicated integration user with only the permissions needed to deploy metadata and run Apex tests. Do not use a personal administrator account.
 - Configure Salesforce JWT bearer OAuth, upload the matching public certificate, enable the flow, and authorize the integration user.
 - Keep the private key only in GitHub Secrets. Never commit it to the repository.
 
-The secrets and variable are read at repository scope. The `development` Environment is an additional deployment gate; it does not replace secret hygiene or least-privilege Salesforce permissions.
+The iteration deploy and restore workflows read these repository-level secrets and variable directly, so they do not require a separate GitHub Environment or per-run environment approval. They remain gated by dispatching the trusted workflow from `main`, explicit `DEPLOY` / `RESTORE` confirmation, strict source-path validation, and shared deployment concurrency. The `development` Environment remains an additional approval gate for controlled release deployments; it does not replace secret hygiene or least-privilege Salesforce permissions.
 
 ## 8. Understanding validation and Apex test results
 
@@ -165,7 +164,7 @@ A green workflow is evidence only for the checks it actually ran. It does not pr
 ## Operating rules
 
 - Never commit directly to `main`; use a feature or automation branch and a PR.
-- Do not deploy unmerged feature branches into the shared Developer Edition org.
+- Use the AI iteration workflows to deploy only explicitly selected, pushed feature-branch metadata into the shared Developer Edition org; do not merge merely to test.
 - Do not broaden retrieve manifests casually.
 - Review org-sync diffs before merging.
 - Treat the Developer Edition org as shared mutable state; avoid overlapping deployments and manual changes during a release.
