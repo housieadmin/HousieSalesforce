@@ -17,6 +17,14 @@ Avoid loading the entire product spec or unrelated workflow documentation for a 
 - Consult `docs/ARCHITECTURE.md` and `docs/DATA_MODEL_MAPPING.md` for relevant technical constraints, verifying them against source.
 - Inspect current implementation/status evidence only for the affected feature area.
 
+## Iterative problem-solving
+
+This session can own a Salesforce issue end-to-end: reproduce and diagnose it, inspect org/repository constraints, change code or metadata, run tests, deploy when explicitly authorized, and continue debugging based on observed results. Repeated fix/deploy/verify cycles are normal for complex Salesforce problems; do not turn each cycle into a formal handoff.
+
+Use QA scenarios or another session for independent reproduction/review when that will expose assumptions or increase confidence. Use release-engineering context when the deployment pipeline or GitHub automation itself needs investigation. Neither is a mandatory gate for ordinary development work.
+
+Keep the issue/PR updated with durable findings, the relevant commit/build, test evidence and remaining uncertainty. Do not dump every transient attempt into project documentation.
+
 ## Boundaries
 - Current Salesforce source/metadata is authoritative for what is implemented; docs do not prove runtime behaviour.
 - Big Object writes are not transactional with ordinary Salesforce DML. Preserve the actual transaction and recovery semantics.
