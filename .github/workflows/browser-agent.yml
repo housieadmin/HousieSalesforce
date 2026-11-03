@@ -134,6 +134,43 @@ jobs:
           echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
 
+      - name: Enable Apex debug logging for the browser transaction
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
+        continue-on-error: true
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "APEX_DEBUG_ENABLED=false" >> "$GITHUB_ENV"
+          user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org housie-browser-agent --json)"
+          user_id="$(jq -r '.result.records[0].Id // empty' <<< "$user_json")"
+          test -n "$user_id"
+
+          level_json="$(sf data query --use-tooling-api --query "SELECT Id FROM DebugLevel WHERE DeveloperName = 'HousieBrowserE2E' LIMIT 1" --target-org housie-browser-agent --json)"
+          debug_id="$(jq -r '.result.records[0].Id // empty' <<< "$level_json")"
+          if [[ -z "$debug_id" ]]; then
+            level_create="$(sf data create record --use-tooling-api --sobject DebugLevel --values "DeveloperName=HousieBrowserE2E MasterLabel=HousieBrowserE2E ApexCode=FINEST ApexProfiling=FINE Callout=FINEST Database=FINEST System=DEBUG Validation=INFO Visualforce=NONE Workflow=FINE" --target-org housie-browser-agent --json)"
+            debug_id="$(jq -r '.result.id // .result.Id // empty' <<< "$level_create")"
+          fi
+          test -n "$debug_id"
+
+          trace_json="$(sf data query --use-tooling-api --query "SELECT Id FROM TraceFlag WHERE TracedEntityId = '$user_id' ORDER BY StartDate DESC LIMIT 1" --target-org housie-browser-agent --json)"
+          trace_id="$(jq -r '.result.records[0].Id // empty' <<< "$trace_json")"
+          start="$(date -u +%Y-%m-%dT%H:%M:%S.000+0000)"
+          expires="$(date -u -d '+60 minutes' +%Y-%m-%dT%H:%M:%S.000+0000)"
+          values="TracedEntityId=$user_id DebugLevelId=$debug_id LogType=DEVELOPER_LOG StartDate=$start ExpirationDate=$expires"
+          if [[ -n "$trace_id" ]]; then
+            sf data update record --use-tooling-api --sobject TraceFlag --record-id "$trace_id" --values "$values" --target-org housie-browser-agent --json >/dev/null
+          else
+            sf data create record --use-tooling-api --sobject TraceFlag --values "$values" --target-org housie-browser-agent --json >/dev/null
+          fi
+
+          echo "APEX_LOG_START=$start" >> "$GITHUB_ENV"
+          echo "APEX_TRACE_USER_ID=$user_id" >> "$GITHUB_ENV"
+          echo "APEX_DEBUG_ENABLED=true" >> "$GITHUB_ENV"
+          echo "Apex debug trace enabled for the browser integration user."
+
       - name: Execute selected scenarios
         if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         id: run
@@ -203,6 +240,30 @@ jobs:
           fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({ total: tests.length, passed: passed.length, failed: failed.length, failedTests: failed }, null, 2));
           NODE
           exit "$TEST_EXIT"
+
+      - name: Collect Apex debug logs
+        if: always() && (github.event_name == 'issue_comment' || github.event_name == 'workflow_call') && env.APEX_DEBUG_ENABLED == 'true'
+        working-directory: .browser-agent-source/browser-agent
+        env:
+          BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set +e
+          log_dir="$BROWSER_AGENT_ARTIFACT_DIR/apex-logs"
+          mkdir -p "$log_dir"
+          query="$(sf data query --use-tooling-api --query "SELECT Id, StartTime, LogUserId, Operation, Status, LogLength FROM ApexLog WHERE LogUserId = '$APEX_TRACE_USER_ID' ORDER BY StartTime DESC LIMIT 30" --target-org housie-browser-agent --json)"
+          query_status=$?
+          if [[ $query_status -ne 0 ]]; then
+            echo "ApexLog query failed with exit code $query_status" > "$log_dir/collection-error.txt"
+            exit 0
+          fi
+          printf '%s\n' "$query" > "$log_dir/index.json"
+          mapfile -t log_ids < <(jq -r --arg start "$APEX_LOG_START" '.result.records[]? | select(.StartTime >= $start) | .Id' <<< "$query")
+          for log_id in "${log_ids[@]}"; do
+            sf apex get log --log-id "$log_id" --output-dir "$log_dir" --target-org housie-browser-agent >/dev/null 2>&1
+          done
+          echo "Apex debug logs collected: ${#log_ids[@]}"
+          printf '%s\n' "Apex debug logs collected: ${#log_ids[@]}" >> "$BROWSER_AGENT_ARTIFACT_DIR/summary.md"
 
       - name: Upload execution artifacts
         if: always() && (github.event_name == 'issue_comment' || github.event_name == 'workflow_call')
