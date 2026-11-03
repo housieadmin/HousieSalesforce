@@ -142,10 +142,11 @@ jobs:
           DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
         run: |
           {
-            echo "### Salesforce AI iteration restore"
-            echo "- Restore ref: `$RESTORE_REF`"
-            echo "- Commit: `$(git rev-parse HEAD)`"
-            echo "- Selected paths:"
+            commit_sha="$(git rev-parse HEAD)"
+            printf '%s\n' "### Salesforce AI iteration restore"
+            printf '%s\n' "- Restore ref: `$RESTORE_REF`"
+            printf '%s\n' "- Commit: `$commit_sha`"
+            printf '%s\n' "- Selected paths:"
             if [[ -n "${DEPLOY_PATHS_JSON:-}" ]]; then
               jq -r '.[] | "- `" + . + "`"' <<< "$DEPLOY_PATHS_JSON"
             fi
