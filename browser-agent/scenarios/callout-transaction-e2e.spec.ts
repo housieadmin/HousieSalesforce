@@ -4,7 +4,7 @@ const existingAccountRecordId = "a00g500001D7iIrAAJ";
 
 test("account administration completes signup grants without pending-work callout error", async ({ page, housie }) => {
   await housie.login();
-  await housie.openRecord("Housie_Account__c", existingAccountRecordId);
+  await housie.navigate("/lightning/r/Housie_Account__c/" + existingAccountRecordId + "/view");
   await page.locator("records-record-layout, lightning-record-view-form, .slds-page-header")
     .first().waitFor({ state: "visible", timeout: 60000 });
 
@@ -26,7 +26,7 @@ test("account administration completes signup grants without pending-work callou
 
 test("ticket purchase commits Big Object writes without pending-work callout error", async ({ page, housie }) => {
   await housie.login();
-  await housie.openRecord("Housie_Account__c", existingAccountRecordId);
+  await housie.navigate("/lightning/r/Housie_Account__c/" + existingAccountRecordId + "/view");
   await page.locator("records-record-layout, lightning-record-view-form, .slds-page-header")
     .first().waitFor({ state: "visible", timeout: 60000 });
 
