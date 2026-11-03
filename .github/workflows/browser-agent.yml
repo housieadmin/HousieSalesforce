@@ -90,10 +90,9 @@ jobs:
           npm install --global @salesforce/cli
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/browser-agent-server.key"
           chmod 600 "$RUNNER_TEMP/browser-agent-server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default >/dev/null
-          sf org open --url-only --target-org housie-browser-agent > "$RUNNER_TEMP/browser-agent-frontdoor.txt"
-          FRONTDOOR_URL="$(tail -n 1 "$RUNNER_TEMP/browser-agent-frontdoor.txt" | tr -d '\r')"
-          [[ "$FRONTDOOR_URL" == https://* ]] || { echo "Could not obtain Salesforce frontdoor URL." >&2; exit 1; }
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default --json > "$RUNNER_TEMP/browser-agent-login.json"
+          sf org open --url-only --target-org housie-browser-agent --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
+          FRONTDOOR_URL="$(node -e "const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const u=p.result?.url || p.url; if (typeof u !== 'string' || !u.startsWith('https://')) process.exit(2); process.stdout.write(u);" "$RUNNER_TEMP/browser-agent-frontdoor.json")"
           echo "::add-mask::$FRONTDOOR_URL"
           echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
