@@ -3,6 +3,8 @@ name: Salesforce PR Validation
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'force-app/**'
 
 permissions:
   contents: read
