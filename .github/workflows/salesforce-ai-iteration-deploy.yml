@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       source_paths:
-        description: "One path per line, under force-app/ (class .cls, LWC bundle folder, object folder, etc.)"
+        description: "Comma-separated or newline-separated paths under force-app/ (class .cls, LWC bundle folder, object folder, etc.)"
         required: true
         type: string
       test_mode:
@@ -67,6 +67,7 @@ jobs:
         run: |
           set -euo pipefail
           declare -a deploy_paths=()
+          declare -a final_paths=()
           declare -A seen=()
           while IFS= read -r path || [[ -n "$path" ]]; do
             path="${path%$'\r'}"
@@ -149,7 +150,9 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
-          sf project deploy start --dry-run --source-dir "${deploy_paths[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
+          declare -a source_args=()
+          for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
+          sf project deploy start --dry-run "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
 
       - name: Deploy selected metadata
         env:
@@ -157,7 +160,9 @@ jobs:
         run: |
           set -euo pipefail
           mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
-          sf project deploy start --source-dir "${deploy_paths[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
+          declare -a source_args=()
+          for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
+          sf project deploy start "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
 
       - name: Run selected Apex tests
         if: inputs.test_mode != 'none'
