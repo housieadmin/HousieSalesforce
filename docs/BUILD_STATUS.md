@@ -6,7 +6,7 @@ This project is being delivered in small, reviewable vertical slices. The human 
 
 - Salesforce DX project layout, package manifest, deploy/bootstrap scripts and Apex test runner.
 - Housie account object, infrastructure-only operation lock and Big Object metadata for the 15 logical entities plus the technical operation journal.
-- Apex Big Object persistence, serialized write lock, operation journal and fail-closed committed-record reads.
+- Apex Big Object persistence, operation journal and fail-closed committed-record reads. The infrastructure row lock is not held across `insertImmediate()` as a durable cross-transaction mutex; mutation paths must provide their own durable command gate or idempotency/concurrency strategy.
 - Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), with a pending-setup state and four immutable signup grant ledger records written in a separate Apex request before a DML-only activation request.
 - Route-context lookup by opaque account key.
 - Board lifecycle:
@@ -63,4 +63,4 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 ## Consistency note
 
-Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. Apex serializes business commands through the infrastructure lock and writes a COMMITTED journal marker last. Application reads reject records belonging to non-committed operation IDs. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
+Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. The writer writes a COMMITTED journal marker last; application reads reject records belonging to non-committed operation IDs. The infrastructure row lock does not provide a mutex spanning `insertImmediate()`. Ticket purchase/withdrawal use a durable per-game command gate; other mutation paths still need an explicit concurrency review. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
