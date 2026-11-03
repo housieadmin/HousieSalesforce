@@ -209,7 +209,7 @@ jobs:
             runId: process.env.GITHUB_RUN_ID,
             attempt: process.env.GITHUB_RUN_ATTEMPT,
             sourceRef: process.env.REQUESTED_REF,
-            sourceCommit: require('node:child_process').execFileSync('git', ['-C', '../.browser-agent-source', 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+            sourceCommit: require('node:child_process').execFileSync('git', ['-C', '../../.browser-agent-source', 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
             scenarios: files,
             description: process.env.RUN_DESCRIPTION
           }, null, 2));
