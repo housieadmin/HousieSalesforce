@@ -104,6 +104,8 @@ public without sharing class HousieGameTicketService {
             return actionResultFromTicket(existingById[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
         }
 
+        acquireGameCommandLock(context.gameRow.Record_Id__c, ticketId);
+
         Decimal fee = decimalConfig(context.config, 'ticketEntryFee', 10);
         Integer maximumTickets = integerConfig(context.config, 'maximumHumanTicketsPerAccount', 2);
         HousieErrors.require(fee > 0 && maximumTickets > 0,
@@ -221,6 +223,8 @@ public without sharing class HousieGameTicketService {
             return actionResultFromCommand(prior);
         }
 
+        acquireGameCommandLock(context.gameRow.Record_Id__c, commandId);
+
         Set<String> withdrawn = withdrawnTicketIds(context.gameRow.Record_Id__c);
         List<Ticket__b> allTickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
         List<String> ticketIds = new List<String>();
@@ -245,9 +249,6 @@ public without sharing class HousieGameTicketService {
         }
 
         Datetime nowAt = System.now();
-        actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) - releaseTotal;
-        HousieDomainRules.assertWalletInvariant(actor);
-        update actor;
 
         Housie_Ticket_Command__c command = new Housie_Ticket_Command__c(
             Request_Key__c = commandId,
@@ -308,6 +309,7 @@ public without sharing class HousieGameTicketService {
         HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
         Housie_Ticket_Command__c command = commands[0];
         if (command.Status__c == 'COMMITTED') return commandResult(command);
+        requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
 
         TicketActionResult result;
         if (command.Action_Type__c == 'PURCHASE') {
@@ -341,6 +343,18 @@ public without sharing class HousieGameTicketService {
         Housie_Ticket_Command__c command = commands[0];
         if (command.Status__c == 'COMMITTED') return commandResult(command);
 
+        List<Housie_Game_Command_Lock__c> gameLocks = [
+            SELECT Id, Game_Id__c, Status__c, Active_Command_Key__c
+            FROM Housie_Game_Command_Lock__c
+            WHERE Game_Id__c = :command.Game_Id__c
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!gameLocks.isEmpty() &&
+            gameLocks[0].Status__c == 'PROCESSING' &&
+            gameLocks[0].Active_Command_Key__c == command.Request_Key__c,
+            'This command no longer owns the game command gate.');
+
         if (command.Action_Type__c == 'PURCHASE') {
             List<Ticket__b> rows = [
                 SELECT Record_Id__c, Operation_Id__c
@@ -372,6 +386,28 @@ public without sharing class HousieGameTicketService {
 
         // This request performs DML only. The Big Object insertImmediate writes
         // completed in commitTicketCommand in the preceding request.
+        if (command.Action_Type__c == 'WITHDRAW') {
+            List<Housie_Account__c> accountRows = [
+                SELECT Id, Points_Balance__c, Reserved_Points__c
+                FROM Housie_Account__c
+                WHERE Account_Key__c = :actor.Account_Key__c
+                LIMIT 1
+                FOR UPDATE
+            ];
+            HousieErrors.require(!accountRows.isEmpty(), 'Account not found while finalizing withdrawal.');
+            Housie_Account__c account = accountRows[0];
+            account.Reserved_Points__c =
+                (account.Reserved_Points__c == null ? 0 : account.Reserved_Points__c) -
+                (command.Entry_Fee__c == null ? 0 : command.Entry_Fee__c);
+            HousieDomainRules.assertWalletInvariant(account);
+            update account;
+        }
+
+        gameLocks[0].Status__c = 'IDLE';
+        gameLocks[0].Active_Command_Key__c = null;
+        gameLocks[0].Updated_At__c = System.now();
+        update gameLocks[0];
+
         command.Status__c = 'COMMITTED';
         command.Updated_At__c = System.now();
         command.Committed_At__c = command.Updated_At__c;
@@ -560,6 +596,48 @@ public without sharing class HousieGameTicketService {
         String boardId, String accountId, String requestId
     ) {
         return prepareWaitingGameWithdrawal(boardId, accountId, requestId);
+    }
+
+    private static void acquireGameCommandLock(String gameId, String commandKey) {
+        List<Housie_Game_Command_Lock__c> rows = [
+            SELECT Id, Game_Id__c, Status__c, Active_Command_Key__c
+            FROM Housie_Game_Command_Lock__c
+            WHERE Game_Id__c = :gameId
+            LIMIT 1
+            FOR UPDATE
+        ];
+        Datetime nowAt = System.now();
+        if (rows.isEmpty()) {
+            insert new Housie_Game_Command_Lock__c(
+                Game_Id__c = gameId,
+                Status__c = 'PROCESSING',
+                Active_Command_Key__c = commandKey,
+                Created_At__c = nowAt,
+                Updated_At__c = nowAt
+            );
+            return;
+        }
+
+        Housie_Game_Command_Lock__c gameLock = rows[0];
+        HousieErrors.require(gameLock.Status__c != 'PROCESSING',
+            'Another game command is still being finalized. Retry after that command completes.');
+        gameLock.Status__c = 'PROCESSING';
+        gameLock.Active_Command_Key__c = commandKey;
+        gameLock.Updated_At__c = nowAt;
+        update gameLock;
+    }
+
+    private static void requireGameCommandLock(String gameId, String commandKey) {
+        List<Housie_Game_Command_Lock__c> rows = [
+            SELECT Status__c, Active_Command_Key__c
+            FROM Housie_Game_Command_Lock__c
+            WHERE Game_Id__c = :gameId
+            LIMIT 1
+        ];
+        HousieErrors.require(!rows.isEmpty() &&
+            rows[0].Status__c == 'PROCESSING' &&
+            rows[0].Active_Command_Key__c == commandKey,
+            'This command does not own the current game command gate.');
     }
 
     private static TicketActionResult actionResultFromCommand(Housie_Ticket_Command__c command) {
