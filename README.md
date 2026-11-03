@@ -26,7 +26,7 @@ After deployment:
 
 - Account setup: admin account creation, default points/consumables and signup ledger grants. Account creation, Big Object grants and activation run in separate Apex requests.
 - Boards: create a board and initial WAITING game, owner membership, private board-ID invitation, public directory search/join, active membership listing and leave checks.
-- Human tickets: server-generated valid 90-ball layouts, manual/automatic purchase in WAITING games, account wallet holds, resource ledger entries, own-ticket display and pre-start human withdrawal/release. A DML-only command preparation, Big Object-only persistence and DML-only completion sequence keeps insertImmediate callouts out of transactions with pending record updates; prepared commands remain visible and retryable.
+- Human tickets: server-generated valid 90-ball layouts, manual/automatic purchase in WAITING games, account wallet holds, resource ledger entries, own-ticket display and pre-start human withdrawal/release. A DML-only command preparation, Big Object-only persistence and DML-only completion sequence keeps insertImmediate callouts out of transactions with pending record updates. A persistent per-game command gate prevents a second ticket/withdrawal command from running until the first is finalized; prepared commands remain visible and retryable. Withdrawal keeps points reserved until the Big Object hold releases are verified.
 
 A purchased ticket is not yet playable: game-start approvals, hold capture, number calls, marking, claims and settlement remain unimplemented. The full scope and release gate are tracked in docs/BUILD_STATUS.md.
 
