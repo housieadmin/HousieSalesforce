@@ -3,6 +3,8 @@
 Start with `.project/README.md` and use the relevant guide under `.project/workstreams/` as a context aid. The workstreams are not separate teams, ownership boundaries or mandatory workflow stages.
 
 For each task:
+- **PR-first Git rule:** Never commit or use the GitHub Contents API to write directly to `main`, including for documentation, session notes, or emergency cleanup. Create or use a task-specific feature branch from the latest `main`, make all related changes there, and open/update a PR targeting `main`. Keep follow-up edits on that PR branch. Do not rewrite or force-update `main`; do not merge without explicit authorization and required checks.
+- **Task-scope rule:** The user's stated objective defines the task scope. Do not expand the work into unrelated bug fixes, refactoring, or coding-practice improvements. If an unrelated issue is discovered, report it with evidence and wait for authorization before changing it.
 - Verify the current branch, working tree and commit before relying on prior notes.
 - Read the most relevant workstream guide, directly affected source files/tests, and exact SPEC/DATA_MODEL sections needed.
 - A session may investigate, implement, test and debug a task end-to-end. Do not force a handoff just because work crosses workstream categories.
