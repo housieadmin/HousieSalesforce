@@ -58,4 +58,5 @@ public class HousieDomainRules {
         for (Integer i=0; i<cents; i++) shares[i] += 0.01;
         return shares;
     }
+    // Temporary no-op marker for independent deploy/browser workflow round-trip verification.
 }
