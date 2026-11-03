@@ -41,6 +41,14 @@ private class HousieDomainRulesTest {
         System.assertEquals(15, countTicketNumbers(layout));
     }
 
+    @IsTest static void generatedTicketsPassAllStructuralRules() {
+        for (Integer attempt = 0; attempt < 30; attempt++) {
+            List<List<Integer>> generated = HousieTicketGenerator.generateLayout();
+            HousieDomainRules.validateTicketLayout(generated);
+            System.assertEquals(15, countTicketNumbers(generated));
+        }
+    }
+
     @IsTest static void malformedTicketLayoutIsRejected() {
         Boolean rejected = false;
         try {
