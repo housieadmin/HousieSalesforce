@@ -64,11 +64,9 @@ jobs:
             *) echo "Unsupported deployment scope: $DEPLOYMENT_SCOPE" >&2; exit 1 ;;
           esac
 
-      - name: Validate selected metadata without deployment coverage gate
-        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+      - name: Validate selected metadata and run candidate Apex tests
+        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level RunLocalTests --wait 60
 
-      - name: Run all local Apex tests
-        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
 
   deploy:
     name: Deploy selected metadata to Developer Edition
