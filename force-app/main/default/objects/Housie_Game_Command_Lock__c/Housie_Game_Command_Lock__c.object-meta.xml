@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+  <deploymentStatus>Deployed</deploymentStatus>
+  <description>Per-game command gate. A prepared game command owns the gate until its Big Object writes are verified and the command is finalized.</description>
+  <label>Housie Game Command Lock</label>
+  <pluralLabel>Housie Game Command Locks</pluralLabel>
+  <nameField>
+    <displayFormat>HGCL-{000000}</displayFormat>
+    <label>Game Command Lock Number</label>
+    <type>AutoNumber</type>
+  </nameField>
+  <sharingModel>Private</sharingModel>
+  <fields>
+    <fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required><unique>true</unique><externalId>true</externalId>
+  </fields>
+  <fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Active_Command_Key__c</fullName><label>Active Command Key</label><length>32</length><type>Text</type></fields>
+  <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type><required>true</required></fields>
+  <fields><fullName>Updated_At__c</fullName><label>Updated At</label><type>DateTime</type></fields>
+</CustomObject>
