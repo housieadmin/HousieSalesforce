@@ -1,6 +1,6 @@
 # Build status and release gate
 
-This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. It is not a verified production release: this environment has no Salesforce CLI or connected Developer Org, so Apex compilation, deployment and runtime tests have not been run here.
+This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. Validation and deployment are driven by the repository GitHub Actions pipeline. The current fix is awaiting a PR validation run; no successful Salesforce compilation/deployment is claimed yet.
 
 ## Implemented
 
