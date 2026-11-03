@@ -36,16 +36,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t refs < <(printf '%s\\n' "$COMPARE_REFS_INPUT" | sed 's/\\r$//' | sed '/^[[:space:]]*$/d')
+          mapfile -t refs < <(printf '%s\n' "$COMPARE_REFS_INPUT" | sed 's/\r$//' | sed '/^[[:space:]]*$/d')
           [[ ${#refs[@]} -gt 0 ]] || { echo "Provide at least one Git ref." >&2; exit 1; }
+          : > "$RUNNER_TEMP/compare-refs.txt"
           for ref in "${refs[@]}"; do
-            git rev-parse --verify "${ref}^{commit}" >/dev/null || {
+            if ref_sha="$(git rev-parse --verify "${ref}^{commit}" 2>/dev/null)"; then
+              :
+            else
               git fetch --no-tags origin "$ref"
-              git rev-parse --verify "FETCH_HEAD^{commit}" >/dev/null
-            }
-            echo "Comparison ref available: $ref"
+              ref_sha="$(git rev-parse --verify "FETCH_HEAD^{commit}")"
+            fi
+            echo "Comparison ref available: $ref ($ref_sha)"
+            printf '%s|%s\n' "$ref" "$ref_sha" >> "$RUNNER_TEMP/compare-refs.txt"
           done
-          printf '%s\\n' "${refs[@]}" > "$RUNNER_TEMP/compare-refs.txt"
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
@@ -109,9 +112,8 @@ jobs:
           paths+=("force-app/main/default/lwc/housieBoardHub")
 
           overall_drift=0
-          while IFS= read -r ref; do
+          while IFS='|' read -r ref ref_sha; do
             [[ -z "$ref" ]] && continue
-            ref_sha="$(git rev-parse --verify "${ref}^{commit}" 2>/dev/null || git rev-parse --verify "FETCH_HEAD^{commit}")"
             safe_ref="$(printf '%s' "$ref" | tr '/:' '__')"
             ref_dir="$RUNNER_TEMP/git-ref-$safe_ref"
             mkdir -p "$ref_dir"
@@ -125,7 +127,11 @@ jobs:
                 ref_drift=1
                 continue
               fi
-              git show "$ref_sha:$path" > "$ref_dir/$path"
+              if [[ "$path" == */housieBoardHub ]]; then
+                git archive "$ref_sha" "$path" | tar -x -C "$ref_dir"
+              else
+                git show "$ref_sha:$path" > "$ref_dir/$path"
+              fi
               org_path="$SNAPSHOT_DIR/${path#force-app/main/default/}"
               if [[ ! -e "$org_path" ]]; then
                 echo "- **MISSING IN ORG RETRIEVAL:** `$path`" >> "$report"
