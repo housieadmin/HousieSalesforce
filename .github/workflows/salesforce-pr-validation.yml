@@ -42,4 +42,3 @@ jobs:
 
       - name: Run local Apex tests
         run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
-
