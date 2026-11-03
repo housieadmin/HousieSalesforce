@@ -96,6 +96,8 @@ A successful dry run does not catch every runtime dependency. For example, Apex 
 This pipeline targets a Salesforce Developer Edition org. Developer Edition is a development environment, so metadata validation and deployment use `NoTestRun`; Apex tests are executed as a separate step using `sf apex run test --test-level RunLocalTests`. This keeps test execution mandatory without making the metadata command enforce the org-wide 75% deployment coverage threshold.
 
 This is an intentional development-org workflow, not a production deployment policy. Before deploying Apex to a production org, restore Salesforce's required deployment test level and satisfy the applicable 75% coverage requirements. A green CI run here does not certify production deployment readiness.
+
+**Important test-scope limitation:** `sf apex run test --test-level RunLocalTests` runs tests already deployed in the target org. It does not execute new or modified Apex test classes from an un-deployed branch/PR. The metadata dry run validates/compiles the selected metadata but does not run those branch test classes. Treat the separate test step as an org regression smoke test, not proof that the proposed branch's tests passed. To execute branch tests properly, use a disposable sandbox/scratch org or a `RunSpecifiedTests` deployment validation that includes the branch's test classes and accepts Salesforce's per-class coverage rules.
 ### One-time GitHub configuration
 
 Configure these repository or environment settings before enabling the workflow:
@@ -108,7 +110,7 @@ Configure these repository or environment settings before enabling the workflow:
 **Repository Actions variable**
 - `SF_INSTANCE_URL`: the Developer Edition org's My Domain login URL (for example, `https://your-domain.my.salesforce.com`).
 
-Set the three secrets and the variable under **Settings → Secrets and variables → Actions**. Also create **Settings → Environments → development** and restrict deployments to the `main` branch. The workflow reads the secrets and variable at repository scope; the environment is used to gate deployment to `main`. Use a dedicated integration user with only the permissions required to deploy metadata and execute tests. Do not use a personal admin account.
+Set the three secrets and the variable under **Settings → Secrets and variables → Actions**. Also create **Settings → Environments → development** and restrict deployments to the `main` branch. For org sync, enable **Settings → Actions → General → Workflow permissions → Read and write permissions** and allow GitHub Actions to create pull requests; the sync workflow requests only `contents: write` and `pull-requests: write`. The workflow reads the secrets and variable at repository scope; the environment is used to gate deployment to `main`. Use a dedicated integration user with only the permissions required to deploy metadata and execute tests. Do not use a personal admin account.
 
 ### Salesforce JWT setup
 
