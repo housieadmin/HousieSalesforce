@@ -6,4 +6,3 @@ if [[ -z "$ORG" ]]; then
   exit 2
 fi
 sf project deploy start --manifest manifest/package.xml --target-org "$ORG" --wait 60
-sf apex run --target-org "$ORG" --file scripts/bootstrap.apex
