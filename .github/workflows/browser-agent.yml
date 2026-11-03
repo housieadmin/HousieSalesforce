@@ -100,7 +100,7 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const path = require('node:path');
-          const sourceRoot = path.resolve('.browser-agent-runtime/browser-agent/scenarios');
+          const sourceRoot = path.resolve('.browser-agent-source/browser-agent/scenarios');
           const runtimeRoot = path.resolve('.browser-agent-runtime/browser-agent/scenarios');
           const files = JSON.parse(process.env.SCENARIOS_JSON || '[]');
           if (!Array.isArray(files) || files.length < 1 || files.length > 10) throw new Error('Invalid scenario list');
@@ -112,7 +112,7 @@ jobs:
             if (!rel || rel.startsWith('..' + path.sep) || path.isAbsolute(rel) || !fs.lstatSync(source).isFile() || fs.lstatSync(source).isSymbolicLink()) throw new Error('Scenario must be a regular file inside browser-agent/scenarios: ' + file);
             const target = path.join(runtimeRoot, rel);
             fs.mkdirSync(path.dirname(target), { recursive: true });
-            fs.copyFileSync(real, target, fs.constants.COPYFILE_EXCL);
+            fs.copyFileSync(real, target);
           }
           NODE
 
