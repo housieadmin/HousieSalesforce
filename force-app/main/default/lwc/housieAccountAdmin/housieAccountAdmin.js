@@ -1,6 +1,7 @@
 import { LightningElement } from 'lwc';
 import createAccount from '@salesforce/apex/HousieAccountService.createAccount';
-import initializeAccount from '@salesforce/apex/HousieAccountService.initializeAccount';
+import writeSignupGrants from '@salesforce/apex/HousieAccountService.writeSignupGrants';
+import activateAccount from '@salesforce/apex/HousieAccountService.activateAccount';
 
 export default class HousieAccountAdmin extends LightningElement {
   email = '';
@@ -29,7 +30,8 @@ export default class HousieAccountAdmin extends LightningElement {
       this.email = '';
       this.displayName = '';
       try {
-        this.created = await initializeAccount({ accountKey: account.Account_Key__c });
+        await writeSignupGrants({ accountKey: account.Account_Key__c });
+        this.created = await activateAccount({ accountKey: account.Account_Key__c });
       } catch (setupError) {
         this.setupPending = true;
         this.error = setupError?.body?.message || setupError?.message ||
@@ -47,7 +49,8 @@ export default class HousieAccountAdmin extends LightningElement {
     this.busy = true;
     this.error = undefined;
     try {
-      this.created = await initializeAccount({ accountKey: this.created.Account_Key__c });
+      await writeSignupGrants({ accountKey: this.created.Account_Key__c });
+      this.created = await activateAccount({ accountKey: this.created.Account_Key__c });
       this.setupPending = false;
     } catch (error) {
       this.error = error?.body?.message || error?.message ||
