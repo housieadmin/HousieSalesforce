@@ -1,6 +1,8 @@
 name: Salesforce Org Drift Check
 
 on:
+  push:
+    branches: [chore/salesforce-org-drift-check]
   workflow_dispatch:
     inputs:
       compare_refs:
@@ -32,7 +34,7 @@ jobs:
       - name: Validate comparison refs
         id: refs
         env:
-          COMPARE_REFS_INPUT: ${{ inputs.compare_refs }}
+          COMPARE_REFS_INPUT: ${{ inputs.compare_refs || 'main' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -181,6 +183,7 @@ jobs:
           cp "$report" "$GITHUB_WORKSPACE/org-drift-report.md"
           if [[ "$overall_drift" -eq 1 ]]; then
             echo "drift_detected=true" >> "$GITHUB_OUTPUT"
+            exit 1
           else
             echo "drift_detected=false" >> "$GITHUB_OUTPUT"
           fi
