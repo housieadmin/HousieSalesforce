@@ -3,6 +3,11 @@ name: Housie Browser Agent
 on:
   issue_comment:
     types: [created]
+  workflow_call:
+    inputs:
+      source_ref: { required: true, type: string }
+      scenarios_json: { required: true, type: string }
+      run_description: { required: false, type: string, default: Combined deploy and browser verification }
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -14,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: browser-agent-${{ github.event.issue.number || github.event.pull_request.number }}
+  group: browser-agent-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +27,7 @@ jobs:
     name: Browser agent validation
     if: >-
       github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_call' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 9 &&
        github.event.issue.pull_request == null &&
@@ -62,33 +68,45 @@ jobs:
           node .browser-agent-tools/browser-agent/scripts/parse-request.mjs
           cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
+      - name: Prepare reusable workflow request
+        if: github.event_name == 'workflow_call'
+        id: reusable-request
+        env:
+          REQUESTED_REF: ${{ inputs.source_ref }}
+          SCENARIOS_JSON: ${{ inputs.scenarios_json }}
+          RUN_DESCRIPTION: ${{ inputs.run_description }}
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!/^browser-agent\\/scenarios\\/[A-Za-z0-9._/-]+\\.spec\\.ts$/.test(x)||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"ref="+process.env.REQUESTED_REF+"\\n"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300)+"\\n"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"scenarios="+JSON.stringify(a)+"\\n");'
+          cp browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
+
       - name: Check out requested ref
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.request.outputs.ref }}
+          ref: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
           fetch-depth: 0
           persist-credentials: false
           path: .browser-agent-source
 
       - name: Set up Node.js
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         working-directory: .browser-agent-source/browser-agent
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         working-directory: .browser-agent-source/browser-agent
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Salesforce
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         env:
           SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
@@ -109,13 +127,13 @@ jobs:
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
 
       - name: Execute selected scenarios
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         id: run
         working-directory: .browser-agent-source/browser-agent
         env:
-          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios }}
-          RUN_DESCRIPTION: ${{ steps.request.outputs.description }}
-          REQUESTED_REF: ${{ steps.request.outputs.ref }}
+          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
+          RUN_DESCRIPTION: ${{ steps.request.outputs.description || steps.reusable-request.outputs.description }}
+          REQUESTED_REF: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
           BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
@@ -179,7 +197,7 @@ jobs:
           exit "$TEST_EXIT"
 
       - name: Upload execution artifacts
-        if: always() && github.event_name == 'issue_comment'
+        if: always() && (github.event_name == 'issue_comment' || github.event_name == 'workflow_call')
         uses: actions/upload-artifact@v4
         with:
           name: housie-browser-agent-${{ github.run_id }}-${{ github.run_attempt }}
@@ -196,8 +214,8 @@ jobs:
             const body = [
               'Browser execution finished.',
               '- Workflow run: ' + url,
-              '- Requested ref: ${{ steps.request.outputs.ref }}',
-              '- Scenarios: ${{ steps.request.outputs.scenarios }}',
+              '- Requested ref: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}',
+              '- Scenarios: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}',
               '- Evidence: download the artifact from the workflow run.'
             ].join('\n');
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 9, body });
