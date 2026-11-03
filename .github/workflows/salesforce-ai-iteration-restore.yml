@@ -1,0 +1,152 @@
+name: Salesforce AI Iteration Restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      restore_ref:
+        description: Known-good branch, tag, or commit SHA containing the version to restore
+        required: true
+        type: string
+      source_paths:
+        description: "Comma-separated or newline-separated paths under force-app/; select the same component paths that need restoring"
+        required: true
+        type: string
+      run_local_tests:
+        description: Run all local Apex tests after restoring metadata
+        required: true
+        type: boolean
+        default: false
+      confirm_restore:
+        description: Type RESTORE to redeploy selected metadata from the known-good ref
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salesforce-development-deployment
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Restore selected metadata from a known-good Git ref
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      RESTORE_REF: ${{ inputs.restore_ref }}
+      SOURCE_PATHS_INPUT: ${{ inputs.source_paths }}
+      CONFIRM_RESTORE: ${{ inputs.confirm_restore }}
+    steps:
+      - name: Verify explicit restore confirmation
+        run: |
+          set -euo pipefail
+          [[ "$CONFIRM_RESTORE" == "RESTORE" ]] || { echo "Type RESTORE to authorize this recovery deployment." >&2; exit 1; }
+          [[ -n "$RESTORE_REF" ]] || { echo "A known-good restore ref is required." >&2; exit 1; }
+
+      - name: Check out known-good Git ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.restore_ref }}
+          fetch-depth: 0
+
+      - name: Resolve and validate selected metadata paths
+        id: paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -a deploy_paths=()
+          declare -a final_paths=()
+          declare -A seen=()
+          while IFS= read -r path || [[ -n "$path" ]]; do
+            path="${path%$'\r'}"
+            [[ -z "$path" ]] && continue
+            if [[ ! "$path" =~ ^force-app/[A-Za-z0-9._/-]+$ || "$path" == *".."* ]]; then
+              echo "Rejected path (must be a literal path under force-app/): $path" >&2
+              exit 1
+            fi
+            [[ -e "$path" ]] || { echo "Path does not exist in restore ref $RESTORE_REF: $path" >&2; exit 1; }
+            resolved="$(realpath -e -- "$path")"
+            case "$resolved" in
+              "$GITHUB_WORKSPACE"/force-app/*) ;;
+              *) echo "Resolved path escapes force-app/: $path" >&2; exit 1 ;;
+            esac
+            if [[ -f "$path" ]]; then
+              git ls-files --error-unmatch "$path" >/dev/null 2>&1 || { echo "Path is not tracked in the restore ref: $path" >&2; exit 1; }
+              if [[ "$path" == *.cls || "$path" == *.trigger ]]; then
+                companion="${path}-meta.xml"
+                if [[ -f "$companion" ]]; then
+                  deploy_paths+=("$companion")
+                fi
+              fi
+            else
+              [[ -n "$(git ls-files "$path")" ]] || { echo "Directory has no tracked source files: $path" >&2; exit 1; }
+            fi
+            deploy_paths+=("$path")
+          done < <(printf "%s\n" "$SOURCE_PATHS_INPUT" | tr ',' '\n')
+
+          [[ ${#deploy_paths[@]} -gt 0 ]] || { echo "At least one metadata path is required." >&2; exit 1; }
+          for path in "${deploy_paths[@]}"; do
+            if [[ -z "${seen[$path]+x}" ]]; then
+              seen[$path]=1
+              final_paths+=("$path")
+              echo "Selected: $path"
+            fi
+          done
+          json="$(printf '%s\n' "${final_paths[@]}" | jq -R . | jq -s -c .)"
+          echo "paths=$json" >> "$GITHUB_OUTPUT"
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Developer Edition
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          chmod 600 "$RUNNER_TEMP/server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+
+      - name: Validate selected known-good metadata (dry run)
+        env:
+          DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
+        run: |
+          set -euo pipefail
+          mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
+          declare -a source_args=()
+          for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
+          sf project deploy start --dry-run "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Restore selected metadata
+        env:
+          DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
+        run: |
+          set -euo pipefail
+          mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
+          declare -a source_args=()
+          for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
+          sf project deploy start "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Run local Apex tests after restore
+        if: inputs.run_local_tests
+        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+
+      - name: Record restore details
+        if: always()
+        env:
+          DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
+        run: |
+          {
+            echo "### Salesforce AI iteration restore"
+            echo "- Restore ref: `$RESTORE_REF`"
+            echo "- Commit: `$(git rev-parse HEAD)`"
+            echo "- Selected paths:"
+            if [[ -n "${DEPLOY_PATHS_JSON:-}" ]]; then
+              jq -r '.[] | "- `" + . + "`"' <<< "$DEPLOY_PATHS_JSON"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
