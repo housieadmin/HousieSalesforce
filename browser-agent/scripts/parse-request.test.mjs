@@ -1,5 +1,5 @@
 // Regression coverage for failed run:
-// https://github.com/housieadmin/HousieSalesforce/actions/runs/41621170023
+ // https://github.com/housieadmin/HousieSalesforce/actions/runs/41622056652
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRequest } from './parse-request.mjs';
@@ -27,6 +27,10 @@ test('rejects traversal scenario paths', () => {
   assert.throws(() => parseRequest(valid.replace('inspect-housie-account.spec.ts', '../escape.spec.ts')), /Invalid scenario path/);
 });
 
-test('rejects duplicate scenarios', () => {
-  assert.throws(() => parseRequest(valid + '\n- browser-agent/scenarios/inspect-housie-account.spec.ts'), /1-10 unique/);
+test('rejects duplicate scenarios before the description', () => {
+  const duplicate = valid.replace(
+    'description: inspect account',
+    '- browser-agent/scenarios/inspect-housie-account.spec.ts\ndescription: inspect account'
+  );
+  assert.throws(() => parseRequest(duplicate), /1-10 unique/);
 });
