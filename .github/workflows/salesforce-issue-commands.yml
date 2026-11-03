@@ -1,0 +1,167 @@
+name: Salesforce Issue Commands
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: salesforce-issue-command-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Validate and dispatch Salesforce AI iteration command
+    if: >-
+      github.event.issue.number == 11 &&
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/sf ') &&
+      github.event.comment.author_association == 'OWNER'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate request and dispatch trusted workflow from main
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = context.issue.number;
+            const body = context.payload.comment.body || '';
+            const lines = body.split(/\r?\n/).map(line => line.trim());
+
+            const fail = async (message) => {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `<strong>Salesforce command rejected.</strong> ${message}\n\nSee the command formats in the issue description. No workflow was dispatched.`
+              });
+              core.setFailed(message);
+            };
+
+            try {
+              if (context.payload.comment.author_association !== 'OWNER') {
+                return await fail('Only repository owners may run Salesforce commands.');
+              }
+
+              const command = lines[0];
+              if (command !== '/sf deploy' && command !== '/sf restore') {
+                return await fail('Supported commands are `/sf deploy` and `/sf restore`.');
+              }
+
+              const allowed = command === '/sf deploy'
+                ? new Set(['ref', 'paths', 'tests', 'apex_test_classes', 'confirm'])
+                : new Set(['ref', 'paths', 'run_local_tests', 'confirm']);
+              const fields = {};
+              let listField = null;
+
+              for (const line of lines.slice(1)) {
+                if (!line) continue;
+                const match = line.match(/^([a-z_]+):\s*(.*)$/);
+                if (match) {
+                  const key = match[1];
+                  if (!allowed.has(key) || Object.hasOwn(fields, key)) {
+                    throw new Error(`Unknown or duplicate field: ${key}`);
+                  }
+                  fields[key] = match[2];
+                  listField = (key === 'paths' || key === 'apex_test_classes') ? key : null;
+                  if (listField && fields[key] !== '') {
+                    throw new Error(`Use a list under ${key}: with one "- value" per line.`);
+                  }
+                  continue;
+                }
+                if (line.startsWith('- ') && listField) {
+                  fields[listField] += (fields[listField] ? '\n' : '') + line.slice(2).trim();
+                  continue;
+                }
+                throw new Error('Unexpected command line. Use key: value fields and dash-prefixed list items.');
+              }
+
+              const ref = (fields.ref || '').trim();
+              if (!ref || ref.length > 200 || ref.startsWith('-') ||
+                  ref.includes('..') || ref.includes('//') ||
+                  !/^[A-Za-z0-9._/-]+$/.test(ref)) {
+                throw new Error('ref must be an existing branch, tag, or commit SHA using safe Git ref characters.');
+              }
+
+              const paths = (fields.paths || '').split('\n').map(x => x.trim()).filter(Boolean);
+              if (!paths.length || paths.length > 25 || new Set(paths).size !== paths.length) {
+                throw new Error('Provide 1–25 unique paths under force-app/.');
+              }
+              for (const path of paths) {
+                if (path.length > 240 || !/^force-app\/[A-Za-z0-9._/-]+$/.test(path) ||
+                    path.includes('..') || path.includes('//') || path.endsWith('/')) {
+                  throw new Error(`Invalid metadata path: ${path}`);
+                }
+              }
+
+              // Resolve the ref through GitHub before dispatching; the downstream workflow
+              // still checks out and validates the exact requested ref and paths.
+              await github.rest.repos.getCommit({ owner, repo, ref });
+
+              let workflowId;
+              let inputs;
+              if (command === '/sf deploy') {
+                const testMode = (fields.tests || 'none').trim();
+                if (!['none', 'specified', 'local'].includes(testMode)) {
+                  throw new Error('tests must be none, specified, or local.');
+                }
+                const testClasses = (fields.apex_test_classes || '').split('\n').map(x => x.trim()).filter(Boolean);
+                if (testMode === 'specified') {
+                  if (!testClasses.length || testClasses.length > 30 ||
+                      testClasses.some(x => !/^[A-Za-z][A-Za-z0-9_]*$/.test(x)) ||
+                      new Set(testClasses).size !== testClasses.length) {
+                    throw new Error('specified test mode requires 1–30 unique Apex test class names.');
+                  }
+                } else if (testClasses.length) {
+                  throw new Error('apex_test_classes is only valid when tests: specified.');
+                }
+                if ((fields.confirm || '').trim() !== 'DEPLOY') {
+                  throw new Error('Deployment requires the exact confirmation: confirm: DEPLOY.');
+                }
+                workflowId = '.github/workflows/salesforce-ai-iteration-deploy.yml';
+                inputs = {
+                  source_ref: ref,
+                  source_paths: paths.join('\n'),
+                  test_mode: testMode,
+                  apex_test_classes: testClasses.join('\n'),
+                  confirm_deployment: 'DEPLOY'
+                };
+              } else {
+                const runTests = (fields.run_local_tests || 'false').trim();
+                if (!['true', 'false'].includes(runTests)) {
+                  throw new Error('run_local_tests must be true or false.');
+                }
+                if ((fields.confirm || '').trim() !== 'RESTORE') {
+                  throw new Error('Restore requires the exact confirmation: confirm: RESTORE.');
+                }
+                workflowId = '.github/workflows/salesforce-ai-iteration-restore.yml';
+                inputs = {
+                  restore_ref: ref,
+                  source_paths: paths.join('\n'),
+                  run_local_tests: runTests,
+                  confirm_restore: 'RESTORE'
+                };
+              }
+
+              await github.rest.actions.createWorkflowDispatch({
+                owner, repo, workflow_id: workflowId, ref: 'main', inputs
+              });
+
+              const label = command === '/sf deploy' ? 'AI iteration deploy' : 'AI iteration restore';
+              const workflowUrl = `https://github.com/${owner}/${repo}/actions/workflows/${workflowId}`;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `<strong>${label} dispatched.</strong>\n\n- Requested ref: \`${ref}\`\n- Selected paths:\n${paths.map(p => `  - \`${p}\``).join('\n')}\n- Workflow definition: \`main\`\n\n[Open the workflow runs](${workflowUrl}). The workflow performs its own path validation, dry run, Salesforce authentication and deployment checks.`
+              });
+            } catch (error) {
+              const message = String(error.message || error).replace(/[\r\n]+/g, ' ').slice(0, 500);
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `<strong>Salesforce command rejected.</strong> ${message}\n\nNo successful dispatch was confirmed. Check the command format and the referenced Git ref.`
+              });
+              core.setFailed(message);
+            }
