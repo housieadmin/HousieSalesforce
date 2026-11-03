@@ -94,16 +94,17 @@ jobs:
               [[ -n "$(git ls-files "$path")" ]] || { echo "Directory has no tracked source files: $path" >&2; exit 1; }
             fi
             deploy_paths+=("$path")
-          done <<< "$SOURCE_PATHS_INPUT"
+          done < <(printf "%s\\n" "$SOURCE_PATHS_INPUT" | tr ',' '\\n')
 
           [[ ${#deploy_paths[@]} -gt 0 ]] || { echo "At least one metadata path is required." >&2; exit 1; }
           for path in "${deploy_paths[@]}"; do
             if [[ -z "${seen[$path]+x}" ]]; then
               seen[$path]=1
+              final_paths+=("$path")
               echo "Selected: $path"
             fi
           done
-          json="$(printf '%s\n' "${!seen[@]}" | jq -R . | jq -s -c .)"
+          json="$(printf '%s\n' "${final_paths[@]}" | jq -R . | jq -s -c .)"
           echo "paths=$json" >> "$GITHUB_OUTPUT"
 
       - name: Validate Apex test selection
