@@ -45,3 +45,37 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 - `manifest/package.xml`: deployment manifest
 - `scripts`: deploy, bootstrap and test scripts
 - `docs`: architecture, data mapping, deployment fixes and build status
+
+## GitHub Actions deployment
+
+The repository includes `.github/workflows/salesforce.yml`:
+
+- Pull requests targeting `main` authenticate to a Salesforce CI org and run a metadata deployment validation with local Apex tests.
+- A push to `main` deploys the manifest to the protected GitHub Environment named `production`, bootstraps the infrastructure lock, and runs the Housie Apex test class.
+- A manual workflow dispatch runs validation only; production deployment remains restricted to pushes to `main`.
+
+### One-time GitHub configuration
+
+Configure these repository or environment settings before enabling the workflow:
+
+**Actions secrets**
+- `SF_CLIENT_ID`: Salesforce Connected App / External Client App consumer key.
+- `SF_USERNAME`: Salesforce integration user username.
+- `SF_JWT_KEY`: the PEM private key matching the certificate uploaded to the Salesforce app.
+
+**Actions variable**
+- `SF_INSTANCE_URL`: `https://login.salesforce.com` for production/Developer Edition, or the org's My Domain login URL. Use `https://test.salesforce.com` for a sandbox.
+
+Set the three secrets and the variable under **Settings → Secrets and variables → Actions**. Also create **Settings → Environments → production** and restrict deployments to the `main` branch. Use a dedicated integration user with only the permissions required to deploy metadata and execute tests. Do not use a personal admin account.
+
+The CI validation target must be an org with the same required Salesforce features and licenses as the deployment target. For a sandbox-based workflow, configure a separate CI workflow/environment rather than pointing production credentials at the sandbox.
+
+### Salesforce JWT setup
+
+Create a Salesforce Connected App (or External Client App) configured for OAuth JWT bearer flow. Upload the public certificate corresponding to `SF_JWT_KEY`, enable the JWT bearer flow, and authorize the integration user for the app. Confirm the user's profile/permission sets allow metadata deployment and Apex test execution. The private key must exist only in GitHub Actions secrets, never in the repository.
+
+### First deployment
+
+After configuring the secrets/variable and environment, open a pull request to `main` to exercise validation. Merge only after validation succeeds. The merge push triggers the production deployment. Review the GitHub Actions run and Salesforce deployment result before treating the release as successful.
+
+**Important:** the workflow deploys metadata plus the singleton infrastructure-lock bootstrap only. It does not create Experience Cloud sites, activate a site, provision users, configure domains, or set org-specific sharing/guest settings. Those remain manual org setup and security review tasks. The application is not production-ready until the outstanding functional and security blockers in `docs/BUILD_STATUS.md` are resolved.
