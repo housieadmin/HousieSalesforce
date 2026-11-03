@@ -29,7 +29,7 @@ This project is being delivered in small, reviewable vertical slices. The human 
   - automatic-mode token consumed only for an automatic ticket and only as part of the committed purchase;
   - one distinct Game_Participant state for each participating account;
   - initial game-admin assignment event when the first eligible human participant purchases a ticket.
-- Purchase request IDs derive stable ticket/hold IDs and are reused as the Big Object operation ID, so retries of the same prepared command reuse the same journal and record identities.
+- Purchase request IDs derive stable ticket/hold IDs so a client retry of the same request does not reserve points twice.
 - The owning account can list its own current human tickets and view layouts.
 - WAITING-game withdrawal for human-ticket owners, using the same DML prepare / Big Object persist / DML complete sequence:
   - voids their active tickets through append-only withdrawal events;
