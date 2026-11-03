@@ -1,0 +1,99 @@
+name: Salesforce Manual Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch name or PR ref (for example feature/my-change or refs/pull/123/head)
+        required: true
+        type: string
+        default: main
+      manifest_scope:
+        description: Metadata manifest to validate
+        required: true
+        type: choice
+        default: application
+        options:
+          - application
+          - org-setup
+          - experience
+          - custom
+      custom_manifest:
+        description: Required only for custom scope; path under manifest/ ending in .xml
+        required: false
+        type: string
+      run_apex_tests:
+        description: Run all local Apex tests after metadata validation
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salesforce-manual-validation-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate selected ref and manifest
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_REF: ${{ inputs.source_ref }}
+      MANIFEST_SCOPE: ${{ inputs.manifest_scope }}
+      CUSTOM_MANIFEST: ${{ inputs.custom_manifest }}
+      RUN_APEX_TESTS: ${{ inputs.run_apex_tests }}
+    steps:
+      - name: Check out selected branch or pull request ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          fetch-depth: 0
+
+      - name: Resolve and validate manifest path
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$MANIFEST_SCOPE" in
+            application) path="manifest/package.xml" ;;
+            org-setup) path="manifest/package-org-setup.xml" ;;
+            experience) path="manifest/package-experience.xml" ;;
+            custom)
+              path="$CUSTOM_MANIFEST"
+              if [[ ! "$path" =~ ^manifest/[A-Za-z0-9._/-]+\.xml$ || "$path" == *".."* ]]; then
+                echo "Custom manifest must be a safe path under manifest/ ending in .xml" >&2
+                exit 1
+              fi
+              ;;
+            *) echo "Unsupported manifest scope: $MANIFEST_SCOPE" >&2; exit 1 ;;
+          esac
+          test -f "$path" || { echo "Manifest not found: $path" >&2; exit 1; }
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          echo "Validating ref: $SOURCE_REF"
+          git rev-parse HEAD
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Developer Edition
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          chmod 600 "$RUNNER_TEMP/server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+
+      - name: Validate selected metadata (dry run only)
+        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Run local Apex tests
+        if: env.RUN_APEX_TESTS == 'true'
+        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
