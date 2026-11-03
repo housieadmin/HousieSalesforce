@@ -2,7 +2,7 @@ import { test, expect } from "../core";
 
 test("inspect Housie Account record", async ({ page, housie }) => {
   await housie.login();
-  await housie.openRecord("Housie_Account__c", "a00g500001D5PSVAA3");
+  await housie.navigate("/lightning/r/Housie_Account__c/a00g500001D5PSVAA3/view");
   await expect(page).toHaveURL(/Housie_Account__c\/a00g500001D5PSVAA3\/view/);
   // Salesforce Lightning can keep <body> hidden while its shell bootstraps.
   // Wait for record-specific content instead of the document body.
