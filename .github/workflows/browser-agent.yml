@@ -85,7 +85,7 @@ jobs:
           RUN_DESCRIPTION: ${{ inputs.run_description }}
         run: |
           set -euo pipefail
-          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\\.spec\\.ts$/.test(x)||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"ref="+process.env.REQUESTED_REF+"\n"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300)+"\n"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"scenarios="+JSON.stringify(a)+"\n");'
+          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\.spec\\.ts$/.test(x)||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"ref="+process.env.REQUESTED_REF+"\n"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300)+"\n"); fs.appendFileSync(process.env.GITHUB_OUTPUT,"scenarios="+JSON.stringify(a)+"\n");'
           cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
       - name: Check out requested ref
