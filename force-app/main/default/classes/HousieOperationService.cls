@@ -28,8 +28,8 @@ public without sharing class HousieOperationService {
         return executeOperation(operationType, writes, null);
     }
 
-    // A stable operation ID makes retries of one prepared command idempotent,
-    // including retries that overlap an earlier insertImmediate sequence.
+    // A stable operation ID makes retries of one prepared command reuse the
+    // same journal identity. Concurrent duplicate persistence is not proven safe.
     public static OperationResult executeOperation(
         String operationType, List<WriteItem> writes, String requestedOperationId
     ) {
