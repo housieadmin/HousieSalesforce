@@ -9,14 +9,17 @@ public without sharing class HousieOperationService {
         @AuraEnabled public Integer written;
     }
 
-    // Serialize validation and writes that must not race with another command.
+    // Big Object insertImmediate is a callout-style operation and must not run
+    // in a transaction that has acquired DML row locks. This is deliberately a
+    // read-only bootstrap guard; it does NOT serialize writers. Mutating flows
+    // that need serialization must acquire a durable command gate in a prior
+    // DML-only request, then verify ownership by ordinary SOQL in this request.
     public static void lockForWrite() {
         List<Housie_Operation_Lock__c> locks = [
             SELECT Id, Lock_Key__c
             FROM Housie_Operation_Lock__c
             WHERE Lock_Key__c = 'GLOBAL'
             LIMIT 1
-            FOR UPDATE
         ];
         HousieErrors.require(!locks.isEmpty(), 'Infrastructure lock is not initialized. Run bootstrap.apex.');
     }
