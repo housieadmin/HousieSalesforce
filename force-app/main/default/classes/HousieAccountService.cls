@@ -45,7 +45,7 @@ public with sharing class HousieAccountService {
         HousieOperationService.lockForWrite();
 
         List<Housie_Account__c> rows = [
-            SELECT Id, Account_Key__c, Display_Name__c, Status__c, Updated_At__c
+            SELECT Id, Account_Key__c, Display_Name__c, Status__c, Created_At__c, Updated_At__c
             FROM Housie_Account__c
             WHERE Account_Key__c = :accountKey
             LIMIT 1
@@ -58,10 +58,10 @@ public with sharing class HousieAccountService {
             'Only an account pending setup can be initialized.');
 
         List<HousieOperationService.WriteItem> grants = new List<HousieOperationService.WriteItem>{
-            resourceGrant(account.Account_Key__c, 'POINTS', 100, 'SIGNUP_POINTS'),
-            resourceGrant(account.Account_Key__c, 'AUTO_MODE_TOKEN', 1, 'SIGNUP_AUTO_MODE'),
-            resourceGrant(account.Account_Key__c, 'FLIP', 1, 'SIGNUP_FLIP'),
-            resourceGrant(account.Account_Key__c, 'FIX', 1, 'SIGNUP_FIX')
+            resourceGrant(account.Account_Key__c, 'POINTS', 100, 'SIGNUP_POINTS', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'AUTO_MODE_TOKEN', 1, 'SIGNUP_AUTO_MODE', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'FLIP', 1, 'SIGNUP_FLIP', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'FIX', 1, 'SIGNUP_FIX', account.Created_At__c)
         };
         // All Big Object callouts happen before the activation DML below.
         HousieOperationService.executeOperation('ACCOUNT_SIGNUP_GRANTS', grants);
@@ -73,7 +73,7 @@ public with sharing class HousieAccountService {
     }
 
     private static HousieOperationService.WriteItem resourceGrant(
-        String accountKey, String resourceType, Decimal quantity, String grantKey
+        String accountKey, String resourceType, Decimal quantity, String grantKey, Datetime createdAt
     ) {
         HousieOperationService.WriteItem item = new HousieOperationService.WriteItem();
         item.objectApiName = 'Account_Resource_Transaction__b';
@@ -86,7 +86,7 @@ public with sharing class HousieAccountService {
             'Source_Type__c' => 'SIGNUP',
             'Source_Id__c' => accountKey,
             'Idempotency_Key__c' => HousieIds.stableId('ACCOUNT_GRANT', accountKey + ':' + grantKey),
-            'Created_At__c' => System.now(),
+            'Created_At__c' => createdAt,
             'Metadata__c' => JSON.serialize(new Map<String,Object>{'reason' => 'Initial account signup grant'})
         };
         return item;
