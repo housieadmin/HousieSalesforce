@@ -1,18 +1,16 @@
 # Repository guidance for AI contributors
 
-Before making changes, read:
+Start with `.project/README.md` and route the task to the relevant guide under `.project/workstreams/`. Do **not** read every continuity document by default.
 
-1. `.project/README.md`
-2. `.project/PROJECT_STATE.md`
-3. `.project/IMPLEMENTATION_STATUS.md`
-4. `.project/REQUIREMENTS_TRACEABILITY.md`
-5. `.project/ARCHITECTURE_DECISIONS.md`
-6. `.project/KNOWN_ISSUES.md`
-
-Treat `docs/SPEC.md` and `docs/DATA_MODEL.md` as the authoritative product and logical-data baselines. Treat the continuity files as dated snapshots: verify the current branch, commit, source and tests before relying on them.
-
-Do not claim that a feature is implemented because its schema or UI exists. Distinguish source implementation, automated test coverage, deployment and runtime verification. Do not deploy, merge, or change external systems without explicit authorization.
-
-When changing product behaviour, identify affected SPEC and DATA_MODEL requirements, preserve documented invariants, add appropriate tests, and update the relevant continuity/status documentation in the same change. Record unresolved discrepancies in `.project/KNOWN_ISSUES.md`.
-
-For incomplete work, add a concise handoff using `.project/sessions/SESSION_TEMPLATE.md`. Do not infer the status of separately managed workstreams; incorporate them only when their owner provides an explicit update.
+For each task:
+- Verify the current branch, working tree and commit before relying on prior notes.
+- Read only the relevant workstream guide, directly affected source files/tests, and exact SPEC/DATA_MODEL sections needed.
+- Expand to other workstream guides only when the change crosses those boundaries.
+- For architectural or cross-cutting changes, consult `.project/ARCHITECTURE_DECISIONS.md` and the relevant status/traceability/known-issue notes.
+- Distinguish source implementation, automated test coverage, deployment and runtime verification.
+- Do not claim a feature works because its schema, UI, placeholder method or audit event exists.
+- Preserve data integrity, idempotency, security and other documented invariants.
+- Update relevant continuity/status docs when evidence or project state materially changes; avoid documentation churn for trivial edits.
+- Do not deploy, merge, or change external systems without explicit authorization.
+- Do not infer the status of independently managed workstreams; incorporate them only after their owner supplies an explicit handoff.
+- For incomplete substantial work, use `.project/sessions/SESSION_TEMPLATE.md` to leave a concise handoff.
