@@ -27,8 +27,8 @@ public with sharing class HousieTicketGenerator {
         for (Integer strip = 0; strip < 3; strip++) {
             Integer singleRow = strip;
             Integer singleColumn = randomIndex(3);
-            Integer firstDoubleRow = (strip + 1) % 3;
-            Integer secondDoubleRow = (strip + 2) % 3;
+            Integer firstDoubleRow = Math.mod(strip + 1, 3);
+            Integer secondDoubleRow = Math.mod(strip + 2, 3);
             Boolean validCoverage = false;
 
             for (Integer attempt = 0; attempt < 100 && !validCoverage; attempt++) {
@@ -52,7 +52,7 @@ public with sharing class HousieTicketGenerator {
             Integer minimum = column == 0 ? 1 : column * 10;
             Integer maximum = column == 0 ? 9 : (column == 8 ? 90 : column * 10 + 9);
             List<Integer> pool = new List<Integer>();
-            for (Integer number = minimum; number <= maximum; number++) pool.add(number);
+            for (Integer ballNumber = minimum; ballNumber <= maximum; ballNumber++) pool.add(ballNumber);
             shuffle(pool);
 
             List<Integer> selected = new List<Integer>();
@@ -87,7 +87,7 @@ public with sharing class HousieTicketGenerator {
     }
 
     private static Integer randomIndex(Integer upperBound) {
-        Integer value = Crypto.getRandomInteger() % upperBound;
+        Integer value = Math.mod(Crypto.getRandomInteger(), upperBound);
         return value < 0 ? value + upperBound : value;
     }
 
