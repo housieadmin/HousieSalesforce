@@ -39,6 +39,13 @@ public without sharing class HousieOperationService {
         lockForWrite();
         String opId = String.isBlank(requestedOperationId) ? HousieIds.newId() : requestedOperationId;
         HousieErrors.require(opId.length() == 32, 'Operation identifiers must be 32 characters.');
+        if (!String.isBlank(requestedOperationId) && HousieBigObjectStore.isCommitted(opId)) {
+            OperationResult existing = new OperationResult();
+            existing.operationId = opId;
+            existing.status = 'COMMITTED';
+            existing.written = writes.size();
+            return existing;
+        }
         Datetime nowAt = System.now();
         Map<String,Object> journal = new Map<String,Object>{
             'Record_Id__c' => opId, 'Operation_Id__c' => opId,
