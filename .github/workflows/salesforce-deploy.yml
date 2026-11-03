@@ -27,12 +27,22 @@ concurrency:
 jobs:
   deploy:
     name: Deploy approved release to Developer Edition
-    if: github.ref == 'refs/heads/main' && inputs.confirm_deployment == 'DEPLOY'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: development
     env:
       DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope }}
     steps:
+      - name: Verify explicit deployment confirmation
+        env:
+          CONFIRM_DEPLOYMENT: ${{ inputs.confirm_deployment }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRM_DEPLOYMENT" != "DEPLOY" ]]; then
+            echo "Deployment not authorized. Type DEPLOY in the confirmation input." >&2
+            exit 1
+          fi
+
       - name: Check out main
         uses: actions/checkout@v4
         with:
