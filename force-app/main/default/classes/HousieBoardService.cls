@@ -276,6 +276,17 @@ public without sharing class HousieBoardService {
         MembershipState current = currentMembership(boardId, actor.Account_Key__c);
         HousieErrors.require(current != null && current.status == 'ACTIVE', 'You are not an active member of this board.');
 
+        List<Housie_Ticket_Command__c> pendingTicketCommands = [
+            SELECT Id
+            FROM Housie_Ticket_Command__c
+            WHERE Board_Id__c = :boardId
+              AND Account_Key__c = :actor.Account_Key__c
+              AND Status__c = 'PREPARED'
+            LIMIT 1
+        ];
+        HousieErrors.require(pendingTicketCommands.isEmpty(),
+            'Finish the pending ticket or withdrawal action before leaving this board.');
+
         Game__b game = findGame(boardId, board.Current_Game_Id__c);
         if (game != null && new Set<String>{'WAITING','RUNNING','PAUSED'}.contains(game.Status__c)) {
             HousieErrors.require(!hasActiveParticipation(game.Record_Id__c, actor.Account_Key__c),
@@ -382,16 +393,18 @@ public without sharing class HousieBoardService {
     }
 
     private static Boolean hasActiveParticipation(String gameId, String accountId) {
-        // The participant record is the authoritative human participation marker.
         List<Game_Participant__b> participants = [
-            SELECT Record_Id__c, Operation_Id__c, Withdrawn_At__c, Status__c
+            SELECT Record_Id__c, Operation_Id__c, Join_Sequence__c, Joined_At__c,
+                   Withdrawn_At__c, Status__c
             FROM Game_Participant__b
             WHERE Game_Id__c = :gameId AND Account_Id__c = :accountId
-            LIMIT 10
+            LIMIT 200
         ];
+        Set<String> operationIds = new Set<String>();
+        for (Game_Participant__b participant : participants) {
+            if (String.isNotBlank(participant.Operation_Id__c)) operationIds.add(participant.Operation_Id__c);
+        }
 
-        // Only two bot tickets are allowed by the confirmed initial config. Query them
-        // through the Ticket composite index (Game, Ticket Kind, Record Id).
         List<Ticket__b> botTickets = [
             SELECT Record_Id__c, Operation_Id__c, Status__c
             FROM Ticket__b
@@ -399,15 +412,10 @@ public without sharing class HousieBoardService {
             LIMIT 200
         ];
         Set<String> botTicketIds = new Set<String>();
-        Set<String> operationIds = new Set<String>();
-        for (Game_Participant__b participant : participants) {
-            if (String.isNotBlank(participant.Operation_Id__c)) operationIds.add(participant.Operation_Id__c);
-        }
         for (Ticket__b ticket : botTickets) {
             if (String.isNotBlank(ticket.Operation_Id__c)) operationIds.add(ticket.Operation_Id__c);
             if (ticket.Status__c == 'ACTIVE') botTicketIds.add(ticket.Record_Id__c);
         }
-
         List<Bot_Contribution__b> contributions = new List<Bot_Contribution__b>();
         if (!botTicketIds.isEmpty()) {
             contributions = [
@@ -423,10 +431,17 @@ public without sharing class HousieBoardService {
         }
 
         Set<String> committed = HousieBigObjectStore.committedOperationIds(operationIds);
+        ParticipantStateForLeave latestParticipant;
         for (Game_Participant__b participant : participants) {
-            if (committed.contains(participant.Operation_Id__c) &&
-                participant.Status__c == 'ACTIVE' && participant.Withdrawn_At__c == null) return true;
+            if (!committed.contains(participant.Operation_Id__c)) continue;
+            Datetime eventAt = participant.Status__c == 'WITHDRAWN'
+                ? participant.Withdrawn_At__c : participant.Joined_At__c;
+            if (eventAt != null && (latestParticipant == null || eventAt > latestParticipant.eventAt)) {
+                latestParticipant = new ParticipantStateForLeave(participant.Status__c, eventAt);
+            }
         }
+        if (latestParticipant != null && latestParticipant.status == 'ACTIVE') return true;
+
         for (Bot_Contribution__b contribution : contributions) {
             if (contribution.Contributor_Account_Id__c != accountId ||
                 !committed.contains(contribution.Operation_Id__c) ||
@@ -438,6 +453,15 @@ public without sharing class HousieBoardService {
             if (hasActiveHold || hasCapturedFunds) return true;
         }
         return false;
+    }
+
+    private class ParticipantStateForLeave {
+        String status;
+        Datetime eventAt;
+        ParticipantStateForLeave(String statusValue, Datetime eventValue) {
+            status = statusValue;
+            eventAt = eventValue;
+        }
     }
 
     private static BoardView toView(Board__b board) {

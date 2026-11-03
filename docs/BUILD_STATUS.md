@@ -1,46 +1,66 @@
 # Build status and release gate
 
-This branch adds the first usable board-management vertical slice and repairs the deployment failures reported in `deploy_errors.txt`. It is still not a verified production release: no Salesforce CLI or connected Developer Org was available in this environment, so compilation, deployment and Apex runtime tests remain unverified.
+This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. Validation and deployment are driven by the repository GitHub Actions pipeline. The current fix is awaiting a PR validation run; no successful Salesforce compilation/deployment is claimed yet.
 
-## Implemented in this branch
+## Implemented
 
-- Salesforce DX project layout, package manifest, deploy/bootstrap scripts and test runner.
-- Authenticated Housie account custom object and infrastructure-only operation-lock custom object.
-- Big Object metadata for the 15 non-account logical entities plus technical `Operation_Journal__b`.
-- Apex-generated 128-bit random account/context keys and 32-character record IDs.
-- Apex Big Object persistence, operation journal, single-row write lock and commit-status reads.
-- Account creation service and route-context resolver.
-- Board lifecycle slice:
-  - create board with a configuration snapshot;
-  - create its initial `WAITING` game;
-  - create the owner's `BOARD_ADMIN` membership;
+- Salesforce DX project layout, package manifest, deploy/bootstrap scripts and Apex test runner.
+- Housie account object, infrastructure-only operation lock and Big Object metadata for the 15 logical entities plus the technical operation journal.
+- Apex Big Object persistence, serialized write lock, operation journal and fail-closed committed-record reads.
+- Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), with a pending-setup state and four immutable signup grant ledger records written in a separate Apex request before a DML-only activation request.
+- Route-context lookup by opaque account key.
+- Board lifecycle:
+  - create a board with a game configuration snapshot and initial WAITING game;
+  - create the owner's BOARD_ADMIN membership;
   - list a user's active board memberships;
-  - join a board using its random board ID as the private invitation token;
-  - list and search public boards, then join without a private invitation;
-  - leave a board only when it has no active game participation.
-- Experience Cloud application shell and board hub LWC.
-- Developer-only simulation panel and permission-set starting points.
-- Ticket-layout and wallet/share helper tests.
+  - join private boards using the board ID invitation token;
+  - list/search public boards and join them;
+  - leave only when the latest committed participant state and bot contribution state allow it.
+- Durable ticket-command outbox using a DML-only preparation request, a Big Object-only persistence request and a DML-only completion request. Prepared commands remain visible and retryable if persistence or completion is interrupted.
+- Persistent per-game command gate held from command preparation until DML completion. This does not depend on a `FOR UPDATE` row lock surviving `insertImmediate`; Salesforce releases Apex `FOR UPDATE` locks when a callout occurs.
+- Withdrawal holds points reserved until committed Big Object hold releases and the DML-only completion step; only then are reserved points returned to the available balance.
+- Human ticket purchase while the current game is WAITING:
+  - server-generated 90-ball ticket layouts satisfying the existing layout validator;
+  - no identical layouts within the game's current human-ticket set;
+  - one or two human tickets per account according to the game snapshot;
+  - manual or automatic mode selection;
+  - fee reservation against available account points using append-only wallet-hold state;
+  - immutable account resource transactions for the point hold and automatic-token spend;
+  - automatic-mode token consumed only for an automatic ticket and only as part of the committed purchase;
+  - one distinct Game_Participant state for each participating account;
+  - initial game-admin assignment event when the first eligible human participant purchases a ticket.
+- Purchase request IDs derive stable ticket/hold IDs so a client retry of the same request does not reserve points twice.
+- The owning account can list its own current human tickets and view layouts.
+- WAITING-game withdrawal for human-ticket owners, using the same DML prepare / Big Object persist / DML complete sequence:
+  - voids their active tickets through append-only withdrawal events;
+  - appends RELEASED wallet-hold versions and immutable HOLD_RELEASE ledger transactions;
+  - returns reserved points to available balance;
+  - appends a withdrawn participant state;
+  - allows board leave after the participant withdrawal is committed.
+- Board Hub UI for ticket mode selection, purchase, ticket preview and pre-start withdrawal.
+- Developer domain tests now also generate and validate 30 random ticket layouts per test run.
 
-## Deployment errors addressed
+## Not yet implemented
 
-See `docs/DEPLOYMENT_ERRORS_FIXED.md`. The repair covers the reserved Apex method name, all callers, Big Object journal query/index alignment, malformed index metadata, duplicate journal field, LongTextArea visible-line metadata and the misnamed custom-object tab file.
+- Game start approval flow and capture of active holds into the Game Wallet. Until this exists, there is no playable game start or ticket-fee capture.
+- Bot offer creation, equal-share revision acceptance, bot contribution holds, and cancellation/release of all bot offers when a WAITING-game participant withdraws. Current withdrawal handles human ticket holds only.
+- Automatic marking and automatic claims. AUTOMATIC currently means mode selection plus token consumption; it does not yet auto-play.
+- Manual marking, number-call engine, admin presence/rotation beyond initial assignment, pause/recovery, claims, category closure, disqualification, payouts and settlement.
+- Account authentication/session lifecycle, secure URL token expiry/revocation and replay controls. The account key is currently a bearer secret. Do not expose it in rendered UI or grant broad guest read access.
+- Complete Experience Cloud site/ExperienceBundle, page routing, guest profile and sharing configuration; these are org-specific.
+- Paging beyond the current 200-board directory/membership query limits.
+- Durable repair worker for PENDING operation journals.
+- Integration, security, concurrency and load testing in the target Developer Org.
 
-## Not yet implemented / production blockers
+Do not describe the product as end-to-end playable, and do not process production points until start/capture, bot cancellation, settlement and the security controls are implemented and verified.
 
-- Full human ticket purchase, wallet holds, withdrawal and withdrawal-driven bot-offer cancellation.
-- Bot offer creation, equal-share revision acceptance, hold adjustment and conversion.
-- Start/pause/resume approval requests and frozen cancellation electorate/voting.
-- Number-call engine, admin presence/rotation and pause/recovery.
-- Manual/automatic ticket marking, claims, closure boundaries, disqualification and payouts.
-- Game-wallet ledger settlement, cancellations, refunds, rewards and reconciliation.
-- Experience Cloud site/ExperienceBundle, site activation, page routing, guest profile deployment and branding; site setup is org-specific.
-- Account URL token expiry, revocation, authentication and replay controls. The current random account key acts as a bearer secret and must be protected.
-- Durable repair worker for `PENDING` operation journals.
-- Full integration/security/concurrency/load testing in the target Developer Org.
+## Validation status
 
-Do not expose guest access or process points/financial-style operations until these workflows and controls are completed and verified.
+- Source and metadata have been reviewed statically in this feature branch.
+- HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
+- The repository GitHub Actions pipeline now validates Salesforce metadata and runs all local Apex tests for pull requests; deployment is gated to pushes or manual runs on main. This branch's pipeline result is still pending.
+- Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
 
 ## Consistency note
 
-Big Object writes are non-transactional and `Database.insertImmediate()` permits partial success. Apex serializes business commands through the infrastructure lock and writes a `COMMITTED` journal marker last. Application reads reject records belonging to non-committed operation IDs. This is fail-closed application visibility, not rollback or native multi-record atomicity. An interrupted operation can leave physically stored records behind under a `PENDING` journal entry.
+Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. Apex serializes business commands through the infrastructure lock and writes a COMMITTED journal marker last. Application reads reject records belonging to non-committed operation IDs. This provides fail-closed application visibility, not native rollback or multi-record atomicity.

@@ -41,10 +41,49 @@
               <p class="hint">Game: {board.currentGameStatus} · Board: {board.status}</p>
               <p class="id-line">Board ID: {board.boardId}</p>
             </div>
+            <template if:true={board.canPurchase}>
+              <div class="ticket-controls">
+                <lightning-combobox label="Ticket mode" value={board.ticketMode}
+                  options={ticketModeOptions} data-board-id={board.boardId}
+                  onchange={handleTicketMode} disabled={loading}></lightning-combobox>
+                <lightning-button label="Buy ticket · 10 points" variant="brand"
+                  data-board-id={board.boardId} onclick={buyTicket}
+                  disabled={loading}></lightning-button>
+              </div>
+            </template>
+            <template if:true={board.hasPendingActions}>
+              <div class="pending-actions">
+                <p class="hint">A previous action is prepared and needs to be finalized.</p>
+                <template for:each={board.pendingActions} for:item="action">
+                  <div class="pending-action" key={action.requestId}>
+                    <span>{action.actionType} · {action.entryFee} points</span>
+                    <lightning-button label={action.retryLabel} variant="brand"
+                      data-request-id={action.requestId} onclick={retryPendingAction}
+                      disabled={loading}></lightning-button>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template if:true={board.hasTickets}>
+              <p class="hint ticket-count">Active tickets: {board.ticketCount}</p>
+              <template if:true={board.canWithdraw}>
+                <lightning-button label="Withdraw from waiting game" variant="destructive-text"
+                  data-board-id={board.boardId} onclick={withdrawFromGame}
+                  disabled={loading}></lightning-button>
+              </template>
+              <div class="tickets">
+                <template for:each={board.tickets} for:item="ticket">
+                  <article class="ticket" key={ticket.ticketId}>
+                    <p class="hint">{ticket.mode} · {ticket.entryFee} points · {ticket.ticketId}</p>
+                    <pre>{ticket.layoutText}</pre>
+                  </article>
+                </template>
+              </div>
+            </template>
             <div class="actions">
-              <lightning-button label="Leave" variant="destructive-text"
-                data-board-id={board.boardId}
-                onclick={leaveOwnedBoard} disabled={loading}></lightning-button>
+              <lightning-button label="Leave board" variant="destructive-text"
+                data-board-id={board.boardId} onclick={leaveOwnedBoard}
+                disabled={board.disableLeave}></lightning-button>
             </div>
           </article>
         </template>

@@ -1,27 +1,139 @@
 public with sharing class HousieAccountService {
-    public class AccountInput {
-        @AuraEnabled public String email;
-        @AuraEnabled public String displayName;
-    }
     @AuraEnabled
-    public static Housie_Account__c createAccount(AccountInput input) {
+    public static Housie_Account__c createAccount(String email, String displayName) {
         HousieSecurity.requireSuperAdmin();
-        HousieErrors.require(input != null && String.isNotBlank(input.email), 'Email is required.');
-        Housie_Account__c a = new Housie_Account__c();
-        a.Name = String.isBlank(input.displayName) ? input.email : input.displayName.trim();
-        a.Account_Key__c = HousieIds.newId();
-        a.Email__c = input.email.trim().toLowerCase();
-        a.Display_Name__c = String.isBlank(input.displayName) ? input.email : input.displayName.trim();
-        a.Platform_Role__c = 'ACCOUNT';
-        a.Points_Balance__c = 100;
-        a.Reserved_Points__c = 0;
-        a.Auto_Mode_Tokens__c = 1;
-        a.Flips__c = 1;
-        a.Fixes__c = 1;
-        a.Status__c = 'ACTIVE';
-        a.Created_At__c = System.now();
-        a.Updated_At__c = System.now();
-        insert a;
-        return a;
+        HousieOperationService.lockForWrite();
+
+        String normalizedEmail = String.isBlank(email) ? null : email.trim().toLowerCase();
+        HousieErrors.require(String.isNotBlank(normalizedEmail), 'Email is required.');
+        HousieErrors.require(normalizedEmail.length() <= 80, 'Email cannot exceed 80 characters.');
+        HousieErrors.require(Pattern.matches('^[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}$',
+            normalizedEmail.toUpperCase()), 'Enter a valid email address.');
+        List<Housie_Account__c> existingAccounts = [
+            SELECT Id FROM Housie_Account__c WHERE Email__c = :normalizedEmail LIMIT 1
+        ];
+        HousieErrors.require(existingAccounts.isEmpty(), 'An account with this email already exists.');
+
+        String safeName = String.isBlank(displayName) ? normalizedEmail : displayName.trim();
+        HousieErrors.require(safeName.length() <= 80, 'Display name cannot exceed 80 characters.');
+
+        Datetime nowAt = System.now();
+        Housie_Account__c account = new Housie_Account__c(
+            Name = safeName,
+            Account_Key__c = HousieIds.newId(),
+            Email__c = normalizedEmail,
+            Display_Name__c = safeName,
+            Platform_Role__c = 'ACCOUNT',
+            Points_Balance__c = 100,
+            Reserved_Points__c = 0,
+            Auto_Mode_Tokens__c = 1,
+            Flips__c = 1,
+            Fixes__c = 1,
+            Status__c = 'PENDING_SETUP',
+            Created_At__c = nowAt,
+            Updated_At__c = nowAt
+        );
+        // This request performs ordinary DML only.
+        insert account;
+        return account;
+    }
+
+    @AuraEnabled
+    public static Housie_Account__c writeSignupGrants(String accountKey) {
+        HousieSecurity.requireSuperAdmin();
+        HousieOperationService.lockForWrite();
+        List<Housie_Account__c> rows = [
+            SELECT Id, Account_Key__c, Status__c, Created_At__c
+            FROM Housie_Account__c
+            WHERE Account_Key__c = :accountKey
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!rows.isEmpty(), 'Account not found.');
+        Housie_Account__c account = rows[0];
+        if (account.Status__c == 'ACTIVE') return account;
+        HousieErrors.require(account.Status__c == 'PENDING_SETUP',
+            'Only an account pending setup can receive signup grants.');
+
+        List<HousieOperationService.WriteItem> grants = new List<HousieOperationService.WriteItem>{
+            resourceGrant(account.Account_Key__c, 'POINTS', 100, 'SIGNUP_POINTS', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'AUTO_MODE_TOKEN', 1, 'SIGNUP_AUTO_MODE', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'FLIP', 1, 'SIGNUP_FLIP', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'FIX', 1, 'SIGNUP_FIX', account.Created_At__c)
+        };
+        // This request performs Big Object insertImmediate calls only.
+        HousieOperationService.executeOperation('ACCOUNT_SIGNUP_GRANTS', grants);
+        return account;
+    }
+
+    @AuraEnabled
+    public static Housie_Account__c activateAccount(String accountKey) {
+        HousieSecurity.requireSuperAdmin();
+        HousieOperationService.lockForWrite();
+        List<Housie_Account__c> rows = [
+            SELECT Id, Account_Key__c, Display_Name__c, Status__c, Created_At__c, Updated_At__c
+            FROM Housie_Account__c
+            WHERE Account_Key__c = :accountKey
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!rows.isEmpty(), 'Account not found.');
+        Housie_Account__c account = rows[0];
+        if (account.Status__c == 'ACTIVE') return account;
+        HousieErrors.require(account.Status__c == 'PENDING_SETUP',
+            'Only an account pending setup can be activated.');
+
+        HousieErrors.require(hasCommittedGrant(account, 'POINTS', 'SIGNUP_POINTS'),
+            'The initial points grant has not committed.');
+        HousieErrors.require(hasCommittedGrant(account, 'AUTO_MODE_TOKEN', 'SIGNUP_AUTO_MODE'),
+            'The initial auto-mode grant has not committed.');
+        HousieErrors.require(hasCommittedGrant(account, 'FLIP', 'SIGNUP_FLIP'),
+            'The initial flip grant has not committed.');
+        HousieErrors.require(hasCommittedGrant(account, 'FIX', 'SIGNUP_FIX'),
+            'The initial fix grant has not committed.');
+
+        // This request performs ordinary DML only, after the Big Object request has ended.
+        account.Status__c = 'ACTIVE';
+        account.Updated_At__c = System.now();
+        update account;
+        return account;
+    }
+
+    private static Boolean hasCommittedGrant(
+        Housie_Account__c account, String resourceType, String grantKey
+    ) {
+        String recordId = HousieIds.stableId(
+            'ACCOUNT_GRANT', account.Account_Key__c + ':' + grantKey
+        );
+        List<Account_Resource_Transaction__b> rows = [
+            SELECT Operation_Id__c, Resource_Type__c, Quantity__c
+            FROM Account_Resource_Transaction__b
+            WHERE Account_Id__c = :account.Account_Key__c
+              AND Created_At__c = :account.Created_At__c
+              AND Record_Id__c = :recordId
+            LIMIT 1
+        ];
+        return !rows.isEmpty() && rows[0].Resource_Type__c == resourceType &&
+            HousieBigObjectStore.isCommitted(rows[0].Operation_Id__c);
+    }
+
+    private static HousieOperationService.WriteItem resourceGrant(
+        String accountKey, String resourceType, Decimal quantity, String grantKey, Datetime createdAt
+    ) {
+        HousieOperationService.WriteItem item = new HousieOperationService.WriteItem();
+        item.objectApiName = 'Account_Resource_Transaction__b';
+        item.fields = new Map<String,Object>{
+            'Record_Id__c' => HousieIds.stableId('ACCOUNT_GRANT', accountKey + ':' + grantKey),
+            'Account_Id__c' => accountKey,
+            'Resource_Type__c' => resourceType,
+            'Transaction_Type__c' => 'GRANT',
+            'Quantity__c' => quantity,
+            'Source_Type__c' => 'SIGNUP',
+            'Source_Id__c' => accountKey,
+            'Idempotency_Key__c' => HousieIds.stableId('ACCOUNT_GRANT', accountKey + ':' + grantKey),
+            'Created_At__c' => createdAt,
+            'Metadata__c' => JSON.serialize(new Map<String,Object>{'reason' => 'Initial account signup grant'})
+        };
+        return item;
     }
 }

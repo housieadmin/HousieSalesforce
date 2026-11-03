@@ -25,9 +25,13 @@ After deployment:
 6. Do not grant guest users account creation, wallet, admin or simulation permissions.
 7. Configure account invitation/session security before public launch.
 
-## Current vertical slice
+## Current vertical slices
 
-The board hub supports board creation, initial WAITING-game creation, owner membership, current membership listing, private board-ID invitations, public board search/join and leaving when no active game participation exists. The board ID is the invitation secret; do not share an account key as a board invitation.
+- Account setup: admin account creation, default points/consumables and signup ledger grants. Account creation, Big Object grants and activation run in separate Apex requests.
+- Boards: create a board and initial WAITING game, owner membership, private board-ID invitation, public directory search/join, active membership listing and leave checks.
+- Human tickets: server-generated valid 90-ball layouts, manual/automatic purchase in WAITING games, account wallet holds, resource ledger entries, own-ticket display and pre-start human withdrawal/release. A DML-only command preparation, Big Object-only persistence and DML-only completion sequence keeps `insertImmediate` callouts out of transactions with pending record updates. A persistent per-game command gate prevents a second ticket/withdrawal command from running until the first is finalized; prepared commands remain visible and retryable. Withdrawal keeps points reserved until the Big Object hold releases are verified.
+
+A purchased ticket is not yet playable: game-start approvals, hold capture, number calls, marking, claims and settlement remain unimplemented. The full scope and release gate are tracked in `docs/BUILD_STATUS.md`.
 
 ## Deployment errors
 
@@ -48,7 +52,6 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 - `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
 - `scripts`: deploy, bootstrap and test scripts
 - `docs`: architecture, data mapping, deployment fixes and build status
-
 
 ## GitHub Actions
 

@@ -3,4 +3,5 @@
 <label>Housie Public Experience</label>
 <classAccesses><apexClass>HousieRouteController</apexClass><enabled>true</enabled></classAccesses>
 <classAccesses><apexClass>HousieBoardService</apexClass><enabled>true</enabled></classAccesses>
+<classAccesses><apexClass>HousieGameTicketService</apexClass><enabled>true</enabled></classAccesses>
 <objectPermissions><allowCreate>false</allowCreate><allowDelete>false</allowDelete><allowEdit>false</allowEdit><allowRead>false</allowRead><modifyAllRecords>false</modifyAllRecords><object>Housie_Operation_Lock__c</object><viewAllRecords>false</viewAllRecords></objectPermissions></PermissionSet>

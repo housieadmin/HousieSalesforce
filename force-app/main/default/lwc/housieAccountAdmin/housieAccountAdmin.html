@@ -1,11 +1,22 @@
 <template>
   <lightning-card title="Housie Account Administration" icon-name="standard:people">
     <div class="slds-p-around_medium">
-      <lightning-input type="email" label="Email" value={email} onchange={onEmail} required></lightning-input>
+      <lightning-input data-email type="email" label="Email" value={email}
+        onchange={onEmail} required></lightning-input>
       <lightning-input label="Display name" value={displayName} onchange={onName}></lightning-input>
-      <lightning-button class="slds-m-top_medium" variant="brand" label="Create account" onclick={create} disabled={busy}></lightning-button>
-      <template if:true={created}><p class="slds-m-top_medium">Created: {created.Display_Name__c} · Account key: {created.Account_Key__c}</p></template>
-      <template if:true={error}><p class="slds-text-color_error slds-m-top_small">{error}</p></template>
+      <lightning-button class="slds-m-top_medium" variant="brand" label="Create account"
+        onclick={create} disabled={busy}></lightning-button>
+      <template if:true={created}>
+        <p class="slds-m-top_medium">Created: {created.Display_Name__c} · Account key: {created.Account_Key__c}</p>
+        <p class="slds-m-top_x-small">Status: {created.Status__c}</p>
+      </template>
+      <template if:true={setupPending}>
+        <lightning-button class="slds-m-top_small" label="Retry initial account setup"
+          onclick={retrySetup} disabled={busy}></lightning-button>
+      </template>
+      <template if:true={error}>
+        <p class="slds-text-color_error slds-m-top_small">{error}</p>
+      </template>
     </div>
   </lightning-card>
 </template>
