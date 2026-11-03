@@ -51,7 +51,7 @@ The workflow reuses the Salesforce JWT configuration used by the deployment work
 - Environment secret SF_USERNAME
 - Environment variable SF_INSTANCE_URL
 
-These must be available in the GitHub Actions environment named development. That environment must not require manual reviewers if unattended execution is desired. Salesforce CLI JWT login generates a temporary frontdoor URL; it is masked and kept only in the runner environment.
+These must be available as repository-level GitHub Actions secrets and variables, matching the scope used by the existing Salesforce AI iteration deployment workflow. Salesforce CLI JWT login generates a temporary frontdoor URL; it is masked and kept only in the runner environment. The browser workflow intentionally does not depend on an environment approval gate.
 
 The workflow has contents:read and issues:write permissions. The browser runner does not have repository write permission.
 
