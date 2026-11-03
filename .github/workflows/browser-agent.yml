@@ -51,13 +51,13 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node --test browser-agent/scripts/*.test.mjs
 
-      - name: Check out default branch for issue-comment parser
-        if: github.event_name == 'issue_comment'
+      - name: Check out trusted browser-agent runtime and tooling
+        if: github.event_name == 'issue_comment' || inputs.source_ref != ''
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: main
           persist-credentials: false
-          path: .browser-agent-tools
+          path: .browser-agent-runtime
 
       - name: Parse and validate request
         if: github.event_name == 'issue_comment'
@@ -66,16 +66,8 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
         shell: bash
         run: |
-          node .browser-agent-tools/browser-agent/scripts/parse-request.mjs
-          cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
-
-      - name: Check out trusted browser-agent tooling for reusable call
-        if: inputs.source_ref != ''
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          persist-credentials: false
-          path: .browser-agent-tools
+          node .browser-agent-runtime/browser-agent/scripts/parse-request.mjs
+          cp .browser-agent-runtime/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
       - name: Prepare reusable workflow request
         if: inputs.source_ref != ''
@@ -87,7 +79,7 @@ jobs:
         run: |
           set -euo pipefail
           node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!x.startsWith("browser-agent/scenarios/")||!x.endsWith(".spec.ts")||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); const nl=String.fromCharCode(10); fs.appendFileSync(process.env.GITHUB_OUTPUT,["ref="+process.env.REQUESTED_REF,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300),"scenarios="+JSON.stringify(a)].join(nl)+nl);'
-          cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
+          cp .browser-agent-runtime/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
       - name: Check out requested ref
         if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
@@ -98,6 +90,32 @@ jobs:
           persist-credentials: false
           path: .browser-agent-source
 
+      - name: Stage requested scenarios into trusted runtime
+        if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
+        env:
+          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const sourceRoot = path.resolve('.browser-agent-runtime/browser-agent/scenarios');
+          const runtimeRoot = path.resolve('.browser-agent-runtime/browser-agent/scenarios');
+          const files = JSON.parse(process.env.SCENARIOS_JSON || '[]');
+          if (!Array.isArray(files) || files.length < 1 || files.length > 10) throw new Error('Invalid scenario list');
+          for (const file of files) {
+            if (typeof file !== 'string' || !/^browser-agent\\/scenarios\\/[A-Za-z0-9._/-]+\\.spec\\.ts$/.test(file) || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
+            const source = path.resolve('.browser-agent-source', file);
+            const real = fs.realpathSync(source);
+            const rel = path.relative(sourceRoot, real);
+            if (!rel || rel.startsWith('..' + path.sep) || path.isAbsolute(rel) || !fs.lstatSync(source).isFile() || fs.lstatSync(source).isSymbolicLink()) throw new Error('Scenario must be a regular file inside browser-agent/scenarios: ' + file);
+            const target = path.join(runtimeRoot, rel);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(real, target, fs.constants.COPYFILE_EXCL);
+          }
+          NODE
+
       - name: Set up Node.js
         if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
         uses: actions/setup-node@v4
@@ -106,12 +124,12 @@ jobs:
 
       - name: Install dependencies
         if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
-        working-directory: .browser-agent-source/browser-agent
+        working-directory: .browser-agent-runtime/browser-agent
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
         if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
-        working-directory: .browser-agent-source/browser-agent
+        working-directory: .browser-agent-runtime/browser-agent
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Salesforce
@@ -163,7 +181,7 @@ jobs:
       - name: Execute selected scenarios
         if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
         id: run
-        working-directory: .browser-agent-source/browser-agent
+        working-directory: .browser-agent-runtime/browser-agent
         env:
           SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
           RUN_DESCRIPTION: ${{ steps.request.outputs.description || steps.reusable-request.outputs.description }}
@@ -181,7 +199,7 @@ jobs:
           const files = JSON.parse(process.env.SCENARIOS_JSON || '[]');
           const root = path.resolve('scenarios') + path.sep;
           for (const file of files) {
-            const resolved = path.resolve('..', file);
+            const resolved = path.resolve('scenarios', path.relative('browser-agent/scenarios', file));
             if (!resolved.startsWith(root) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
               console.error('Scenario missing or outside scenario directory: ' + file);
               process.exit(2);
@@ -191,11 +209,11 @@ jobs:
             runId: process.env.GITHUB_RUN_ID,
             attempt: process.env.GITHUB_RUN_ATTEMPT,
             sourceRef: process.env.REQUESTED_REF,
-            sourceCommit: require('node:child_process').execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+            sourceCommit: require('node:child_process').execFileSync('git', ['-C', '../.browser-agent-source', 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
             scenarios: files,
             description: process.env.RUN_DESCRIPTION
           }, null, 2));
-          const args = ['node_modules/@playwright/test/cli.js', 'test', ...files.map(f => path.relative(process.cwd(), path.resolve('..', f)))];
+          const args = ['node_modules/@playwright/test/cli.js', 'test', ...files.map(f => path.relative(process.cwd(), path.resolve('scenarios', path.relative('browser-agent/scenarios', f))))];
           const result = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
           process.exit(result.status === null ? 1 : result.status);
           NODE
@@ -232,7 +250,7 @@ jobs:
 
       - name: Collect Apex debug logs
         if: always() && (github.event_name == 'issue_comment' || inputs.source_ref != '') && env.APEX_DEBUG_ENABLED == 'true'
-        working-directory: .browser-agent-source/browser-agent
+        working-directory: .browser-agent-runtime/browser-agent
         env:
           BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
@@ -254,7 +272,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: housie-browser-agent-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .browser-agent-source/browser-agent/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
+          path: .browser-agent-runtime/browser-agent/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: warn
           retention-days: 14
 
