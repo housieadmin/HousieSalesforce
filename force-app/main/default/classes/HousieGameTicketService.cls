@@ -1,6 +1,9 @@
 public without sharing class HousieGameTicketService {
     public class TicketView {
         @AuraEnabled public String ticketId { get; set; }
+        @AuraEnabled public String requestId { get; set; }
+        @AuraEnabled public String boardId { get; set; }
+        @AuraEnabled public String actionType { get; set; }
         @AuraEnabled public String mode { get; set; }
         @AuraEnabled public String status { get; set; }
         @AuraEnabled public Decimal entryFee { get; set; }
@@ -52,38 +55,54 @@ public without sharing class HousieGameTicketService {
     }
 
     @AuraEnabled
-    public static TicketActionResult purchaseTicket(
+    public static TicketActionResult prepareTicketPurchase(
         String boardId, String accountId, String mode, String requestId
     ) {
         HousieOperationService.lockForWrite();
         Housie_Account__c actor = lockAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
         requireMember(boardId, actor.Account_Key__c);
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'Tickets can only be purchased while the game is waiting.');
         HousieErrors.require(String.isNotBlank(requestId) && requestId.length() <= 120,
             'A valid ticket purchase request id is required.');
 
         String safeMode = String.isBlank(mode) ? 'MANUAL' : mode.trim().toUpperCase();
         HousieErrors.require(new Set<String>{'MANUAL','AUTOMATIC'}.contains(safeMode),
             'Ticket mode must be MANUAL or AUTOMATIC.');
-
         String ticketId = HousieIds.stableId('HUMAN_TICKET',
             context.gameRow.Record_Id__c + ':' + actor.Account_Key__c + ':' + requestId);
-        List<Ticket__b> priorRows = [
+
+        List<Housie_Ticket_Command__c> priorCommands = [
+            SELECT Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
+                   Action_Type__c, Ticket_Id__c, Hold_Id__c, Mode__c,
+                   Entry_Fee__c, Layout__c, Status__c
+            FROM Housie_Ticket_Command__c
+            WHERE Request_Key__c = :ticketId
+            LIMIT 1
+        ];
+        if (!priorCommands.isEmpty()) {
+            Housie_Ticket_Command__c prior = priorCommands[0];
+            HousieErrors.require(prior.Account_Key__c == actor.Account_Key__c &&
+                prior.Board_Id__c == boardId && prior.Mode__c == safeMode,
+                'This purchase request id was already used for a different request.');
+            return actionResultFromCommand(prior);
+        }
+
+        List<Ticket__b> existingById = [
             SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Mode__c, Layout__c,
-                   Status__c, Entry_Fee__c
+                   Status__c, Entry_Fee__c, Wallet_Hold_Id__c
             FROM Ticket__b
             WHERE Game_Id__c = :context.gameRow.Record_Id__c
               AND Ticket_Kind__c = 'HUMAN'
               AND Record_Id__c = :ticketId
             LIMIT 1
         ];
-        if (!priorRows.isEmpty() &&
-            priorRows[0].Owner_Account_Id__c == actor.Account_Key__c &&
-            HousieBigObjectStore.isCommitted(priorRows[0].Operation_Id__c)) {
-            return actionResultFromTicket(priorRows[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
+        if (!existingById.isEmpty() &&
+            existingById[0].Owner_Account_Id__c == actor.Account_Key__c &&
+            HousieBigObjectStore.isCommitted(existingById[0].Operation_Id__c)) {
+            return actionResultFromTicket(existingById[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
         }
-        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
-            'Tickets can only be purchased while the game is waiting.');
 
         Decimal fee = decimalConfig(context.config, 'ticketEntryFee', 10);
         Integer maximumTickets = integerConfig(context.config, 'maximumHumanTicketsPerAccount', 2);
@@ -98,6 +117,20 @@ public without sharing class HousieGameTicketService {
             if (String.isNotBlank(ticket.Layout__c)) usedLayouts.add(ticket.Layout__c);
             if (ticket.Status__c == 'ACTIVE' && !withdrawn.contains(ticket.Record_Id__c) &&
                 ticket.Owner_Account_Id__c == actor.Account_Key__c) activeCount++;
+        }
+
+        List<Housie_Ticket_Command__c> pendingForAccount = [
+            SELECT Layout__c
+            FROM Housie_Ticket_Command__c
+            WHERE Game_Id__c = :context.gameRow.Record_Id__c
+              AND Account_Key__c = :actor.Account_Key__c
+              AND Action_Type__c = 'PURCHASE'
+              AND Status__c = 'PREPARED'
+            LIMIT 200
+        ];
+        activeCount += pendingForAccount.size();
+        for (Housie_Ticket_Command__c pending : pendingForAccount) {
+            if (String.isNotBlank(pending.Layout__c)) usedLayouts.add(pending.Layout__c);
         }
         HousieErrors.require(activeCount < maximumTickets,
             'You have reached the maximum number of tickets for this game.');
@@ -126,111 +159,313 @@ public without sharing class HousieGameTicketService {
         HousieDomainRules.assertWalletInvariant(actor);
         update actor;
 
-        List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
-        writes.add(writeItem('Ticket__b', new Map<String,Object>{
-            'Record_Id__c' => ticketId,
-            'Game_Id__c' => context.gameRow.Record_Id__c,
-            'Ticket_Kind__c' => 'HUMAN',
-            'Owner_Account_Id__c' => actor.Account_Key__c,
-            'Mode__c' => safeMode,
-            'Layout__c' => layoutJson,
-            'Marked_Numbers__c' => '[]',
-            'Status__c' => 'ACTIVE',
-            'Entry_Fee__c' => fee,
-            'Wallet_Hold_Id__c' => holdId,
-            'Created_At__c' => nowAt,
-            'Purchased_At__c' => nowAt
-        }));
-        writes.add(writeItem('Wallet_Hold__b', new Map<String,Object>{
-            'Record_Id__c' => holdId,
-            'Hold_Id__c' => holdId,
-            'Account_Id__c' => actor.Account_Key__c,
-            'Game_Id__c' => context.gameRow.Record_Id__c,
-            'Source_Type__c' => 'HUMAN_TICKET',
-            'Source_Id__c' => ticketId,
-            'Amount__c' => fee,
-            'Status__c' => 'ACTIVE',
-            'Created_At__c' => nowAt,
-            'Updated_At__c' => nowAt
-        }));
-        writes.add(resourceTransaction(actor.Account_Key__c, 'POINTS', 'HOLD_RESERVE', fee,
-            'HUMAN_TICKET', ticketId, 'TICKET_HOLD:' + holdId));
-        if (safeMode == 'AUTOMATIC') {
-            writes.add(resourceTransaction(actor.Account_Key__c, 'AUTO_MODE_TOKEN', 'SPEND', -1,
-                'HUMAN_TICKET', ticketId, 'TICKET_AUTO_TOKEN:' + ticketId));
-        }
-
-        ParticipantState participant = currentParticipant(context.gameRow.Record_Id__c, actor.Account_Key__c);
-        if (participant == null || participant.status != 'ACTIVE') {
-            Boolean isFirstActiveParticipant = !hasActiveHumanParticipants(context.gameRow.Record_Id__c);
-            writes.add(writeItem('Game_Participant__b', new Map<String,Object>{
-                'Record_Id__c' => HousieIds.newId(),
-                'Game_Id__c' => context.gameRow.Record_Id__c,
-                'Account_Id__c' => actor.Account_Key__c,
-                'Join_Sequence__c' => nowAt.getTime(),
-                'Joined_At__c' => nowAt,
-                'Status__c' => 'ACTIVE'
-            }));
-            if (isFirstActiveParticipant) {
-                writes.add(gameEvent(context.gameRow.Record_Id__c, actor.Account_Key__c, 'GAME_ADMIN_ASSIGNED',
-                    new Map<String,Object>{
-                        'adminAccountId' => actor.Account_Key__c,
-                        'reason' => 'FIRST_ELIGIBLE_PARTICIPANT'
-                    }, nowAt, Decimal.valueOf(String.valueOf(nowAt.getTime()))));
-            }
-        }
-        writes.add(gameEvent(context.gameRow.Record_Id__c, actor.Account_Key__c, 'TICKET_PURCHASED',
-            new Map<String,Object>{'ticketId' => ticketId, 'mode' => safeMode, 'entryFee' => fee},
-            nowAt, Decimal.valueOf(String.valueOf(nowAt.getTime())) + 1));
-        HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes);
+        // This request deliberately performs DML only. The client invokes
+        // commitTicketCommand in a new Apex transaction for all insertImmediate calls.
+        Housie_Ticket_Command__c command = new Housie_Ticket_Command__c(
+            Request_Key__c = ticketId,
+            Account_Key__c = actor.Account_Key__c,
+            Board_Id__c = boardId,
+            Game_Id__c = context.gameRow.Record_Id__c,
+            Action_Type__c = 'PURCHASE',
+            Ticket_Id__c = ticketId,
+            Hold_Id__c = holdId,
+            Mode__c = safeMode,
+            Entry_Fee__c = fee,
+            Layout__c = layoutJson,
+            Status__c = 'PREPARED',
+            Created_At__c = nowAt,
+            Updated_At__c = nowAt
+        );
+        insert command;
 
         TicketActionResult result = new TicketActionResult();
+        result.requestId = ticketId;
         result.ticketId = ticketId;
+        result.boardId = boardId;
+        result.actionType = 'PURCHASE';
         result.mode = safeMode;
-        result.status = 'ACTIVE';
+        result.status = 'PREPARED';
         result.entryFee = fee;
         result.layoutText = HousieTicketGenerator.layoutText(layout);
-        result.message = 'Ticket purchased. ' + String.valueOf(fee) +
-            ' points are reserved until the game starts or you withdraw.';
+        result.message = 'Ticket fee reserved. Finalizing ticket record.';
         return result;
     }
 
     @AuraEnabled
-    public static TicketActionResult withdrawFromWaitingGame(String boardId, String accountId) {
+    public static TicketActionResult prepareWaitingGameWithdrawal(
+        String boardId, String accountId, String requestId
+    ) {
         HousieOperationService.lockForWrite();
         Housie_Account__c actor = lockAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
         requireMember(boardId, actor.Account_Key__c);
         HousieErrors.require(context.gameRow.Status__c == 'WAITING',
             'You can only withdraw before the game starts.');
+        HousieErrors.require(String.isNotBlank(requestId) && requestId.length() <= 120,
+            'A valid withdrawal request id is required.');
+
+        String commandId = HousieIds.stableId('GAME_WITHDRAWAL',
+            context.gameRow.Record_Id__c + ':' + actor.Account_Key__c + ':' + requestId);
+        List<Housie_Ticket_Command__c> priorCommands = [
+            SELECT Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
+                   Action_Type__c, Entry_Fee__c, Payload__c, Status__c
+            FROM Housie_Ticket_Command__c
+            WHERE Request_Key__c = :commandId
+            LIMIT 1
+        ];
+        if (!priorCommands.isEmpty()) {
+            Housie_Ticket_Command__c prior = priorCommands[0];
+            HousieErrors.require(prior.Account_Key__c == actor.Account_Key__c &&
+                prior.Board_Id__c == boardId && prior.Action_Type__c == 'WITHDRAW',
+                'This request id was already used for a different command.');
+            return actionResultFromCommand(prior);
+        }
 
         Set<String> withdrawn = withdrawnTicketIds(context.gameRow.Record_Id__c);
         List<Ticket__b> allTickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
-        List<Ticket__b> mine = new List<Ticket__b>();
+        List<String> ticketIds = new List<String>();
         for (Ticket__b ticket : allTickets) {
             if (ticket.Owner_Account_Id__c == actor.Account_Key__c &&
-                ticket.Status__c == 'ACTIVE' && !withdrawn.contains(ticket.Record_Id__c)) mine.add(ticket);
+                ticket.Status__c == 'ACTIVE' && !withdrawn.contains(ticket.Record_Id__c)) {
+                ticketIds.add(ticket.Record_Id__c);
+            }
         }
-        HousieErrors.require(!mine.isEmpty(), 'You do not have an active ticket in this game.');
+        HousieErrors.require(!ticketIds.isEmpty(), 'You do not have an active ticket in this game.');
 
         Map<String,Wallet_Hold__b> latestHolds = loadLatestHolds(
             context.gameRow.Record_Id__c, actor.Account_Key__c
         );
+        Decimal releaseTotal = 0;
+        for (Ticket__b ticket : allTickets) {
+            if (!ticketIds.contains(ticket.Record_Id__c)) continue;
+            Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
+            HousieErrors.require(hold != null && hold.Status__c == 'ACTIVE',
+                'An active ticket wallet hold is missing or already released.');
+            releaseTotal += hold.Amount__c == null ? 0 : hold.Amount__c;
+        }
+
         Datetime nowAt = System.now();
+        actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) - releaseTotal;
+        HousieDomainRules.assertWalletInvariant(actor);
+        update actor;
+
+        Housie_Ticket_Command__c command = new Housie_Ticket_Command__c(
+            Request_Key__c = commandId,
+            Account_Key__c = actor.Account_Key__c,
+            Board_Id__c = boardId,
+            Game_Id__c = context.gameRow.Record_Id__c,
+            Action_Type__c = 'WITHDRAW',
+            Entry_Fee__c = releaseTotal,
+            Payload__c = JSON.serialize(new Map<String,Object>{'ticketIds' => ticketIds}),
+            Status__c = 'PREPARED',
+            Created_At__c = nowAt,
+            Updated_At__c = nowAt
+        );
+        insert command;
+
+        TicketActionResult result = new TicketActionResult();
+        result.requestId = commandId;
+        result.boardId = boardId;
+        result.actionType = 'WITHDRAW';
+        result.status = 'PREPARED';
+        result.entryFee = releaseTotal;
+        result.message = 'Withdrawal prepared. Releasing ticket holds.';
+        return result;
+    }
+
+    @AuraEnabled
+    public static List<TicketActionResult> listMyPendingActions(String accountId) {
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        List<Housie_Ticket_Command__c> commands = [
+            SELECT Request_Key__c, Board_Id__c, Action_Type__c, Ticket_Id__c,
+                   Mode__c, Entry_Fee__c, Status__c
+            FROM Housie_Ticket_Command__c
+            WHERE Account_Key__c = :actor.Account_Key__c AND Status__c = 'PREPARED'
+            ORDER BY Created_At__c ASC
+            LIMIT 200
+        ];
+        List<TicketActionResult> results = new List<TicketActionResult>();
+        for (Housie_Ticket_Command__c command : commands) {
+            results.add(actionResultFromCommand(command));
+        }
+        return results;
+    }
+
+    @AuraEnabled
+    public static TicketActionResult commitTicketCommand(String requestId, String accountId) {
+        HousieOperationService.lockForWrite();
+        HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        List<Housie_Ticket_Command__c> commands = [
+            SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
+                   Action_Type__c, Ticket_Id__c, Hold_Id__c, Mode__c,
+                   Entry_Fee__c, Layout__c, Payload__c, Status__c, Updated_At__c
+            FROM Housie_Ticket_Command__c
+            WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
+        Housie_Ticket_Command__c command = commands[0];
+        if (command.Status__c == 'COMMITTED') return commandResult(command);
+
+        TicketActionResult result;
+        if (command.Action_Type__c == 'PURCHASE') {
+            result = commitPreparedPurchase(command, actor.Account_Key__c);
+        } else if (command.Action_Type__c == 'WITHDRAW') {
+            result = commitPreparedWithdrawal(command, actor.Account_Key__c);
+        } else {
+            HousieErrors.require(false, 'Unsupported prepared ticket command type.');
+        }
+        command.Status__c = 'COMMITTED';
+        command.Updated_At__c = System.now();
+        command.Committed_At__c = command.Updated_At__c;
+        // This DML deliberately follows the final Big Object insertImmediate call.
+        update command;
+        result.requestId = command.Request_Key__c;
+        result.boardId = command.Board_Id__c;
+        result.actionType = command.Action_Type__c;
+        result.status = 'COMMITTED';
+        return result;
+    }
+
+    private static TicketActionResult commitPreparedPurchase(
+        Housie_Ticket_Command__c command, String accountKey
+    ) {
+        GameContext context = loadCurrentGame(command.Board_Id__c);
+        HousieErrors.require(context.gameRow.Record_Id__c == command.Game_Id__c,
+            'The prepared ticket belongs to a game that is no longer current.');
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'Tickets can only be finalized while the game is waiting.');
+        requireMember(command.Board_Id__c, accountKey);
+
+        List<Ticket__b> priorRows = [
+            SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Mode__c, Layout__c,
+                   Status__c, Entry_Fee__c, Wallet_Hold_Id__c
+            FROM Ticket__b
+            WHERE Game_Id__c = :command.Game_Id__c
+              AND Ticket_Kind__c = 'HUMAN'
+              AND Record_Id__c = :command.Ticket_Id__c
+            LIMIT 1
+        ];
+        if (!priorRows.isEmpty() && HousieBigObjectStore.isCommitted(priorRows[0].Operation_Id__c)) {
+            return actionResultFromTicket(priorRows[0], withdrawnTicketIds(command.Game_Id__c));
+        }
+
+        List<List<Integer>> layout = (List<List<Integer>>)JSON.deserialize(
+            command.Layout__c, List<List<Integer>>.class
+        );
+        Datetime nowAt = System.now();
+        List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
+        writes.add(writeItem('Ticket__b', new Map<String,Object>{
+            'Record_Id__c' => command.Ticket_Id__c,
+            'Game_Id__c' => command.Game_Id__c,
+            'Ticket_Kind__c' => 'HUMAN',
+            'Owner_Account_Id__c' => accountKey,
+            'Mode__c' => command.Mode__c,
+            'Layout__c' => command.Layout__c,
+            'Marked_Numbers__c' => '[]',
+            'Status__c' => 'ACTIVE',
+            'Entry_Fee__c' => command.Entry_Fee__c,
+            'Wallet_Hold_Id__c' => command.Hold_Id__c,
+            'Created_At__c' => command.Created_At__c,
+            'Purchased_At__c' => nowAt
+        }));
+        writes.add(writeItem('Wallet_Hold__b', new Map<String,Object>{
+            'Record_Id__c' => command.Hold_Id__c,
+            'Hold_Id__c' => command.Hold_Id__c,
+            'Account_Id__c' => accountKey,
+            'Game_Id__c' => command.Game_Id__c,
+            'Source_Type__c' => 'HUMAN_TICKET',
+            'Source_Id__c' => command.Ticket_Id__c,
+            'Amount__c' => command.Entry_Fee__c,
+            'Status__c' => 'ACTIVE',
+            'Created_At__c' => command.Created_At__c,
+            'Updated_At__c' => nowAt
+        }));
+        writes.add(resourceTransaction(accountKey, 'POINTS', 'HOLD_RESERVE',
+            command.Entry_Fee__c, 'HUMAN_TICKET', command.Ticket_Id__c,
+            'TICKET_HOLD:' + command.Hold_Id__c));
+        if (command.Mode__c == 'AUTOMATIC') {
+            writes.add(resourceTransaction(accountKey, 'AUTO_MODE_TOKEN', 'SPEND', -1,
+                'HUMAN_TICKET', command.Ticket_Id__c, 'TICKET_AUTO_TOKEN:' + command.Ticket_Id__c));
+        }
+
+        ParticipantState participant = currentParticipant(command.Game_Id__c, accountKey);
+        if (participant == null || participant.status != 'ACTIVE') {
+            Boolean isFirstActiveParticipant = !hasActiveHumanParticipants(command.Game_Id__c);
+            writes.add(writeItem('Game_Participant__b', new Map<String,Object>{
+                'Record_Id__c' => HousieIds.stableId('GAME_PARTICIPANT', command.Ticket_Id__c),
+                'Game_Id__c' => command.Game_Id__c,
+                'Account_Id__c' => accountKey,
+                'Join_Sequence__c' => command.Created_At__c.getTime(),
+                'Joined_At__c' => command.Created_At__c,
+                'Status__c' => 'ACTIVE'
+            }));
+            if (isFirstActiveParticipant) {
+                writes.add(gameEvent(command.Game_Id__c, accountKey, 'GAME_ADMIN_ASSIGNED',
+                    new Map<String,Object>{
+                        'adminAccountId' => accountKey,
+                        'reason' => 'FIRST_ELIGIBLE_PARTICIPANT'
+                    }, nowAt,
+                    HousieIds.stableId('GAME_EVENT', command.Game_Id__c + ':GAME_ADMIN_ASSIGNED')));
+            }
+        }
+        writes.add(gameEvent(command.Game_Id__c, accountKey, 'TICKET_PURCHASED',
+            new Map<String,Object>{
+                'ticketId' => command.Ticket_Id__c,
+                'mode' => command.Mode__c,
+                'entryFee' => command.Entry_Fee__c
+            }, nowAt, HousieIds.stableId('GAME_EVENT', command.Ticket_Id__c + ':TICKET_PURCHASED')));
+        HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes);
+
+        TicketActionResult result = new TicketActionResult();
+        result.ticketId = command.Ticket_Id__c;
+        result.mode = command.Mode__c;
+        result.entryFee = command.Entry_Fee__c;
+        result.layoutText = HousieTicketGenerator.layoutText(layout);
+        result.message = 'Ticket purchased. ' + String.valueOf(command.Entry_Fee__c) +
+            ' points are reserved until the game starts or you withdraw.';
+        return result;
+    }
+
+    private static TicketActionResult commitPreparedWithdrawal(
+        Housie_Ticket_Command__c command, String accountKey
+    ) {
+        GameContext context = loadCurrentGame(command.Board_Id__c);
+        HousieErrors.require(context.gameRow.Record_Id__c == command.Game_Id__c,
+            'The prepared withdrawal belongs to a game that is no longer current.');
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'You can only withdraw before the game starts.');
+        requireMember(command.Board_Id__c, accountKey);
+
+        Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
+        List<Object> rawIds = (List<Object>)payload.get('ticketIds');
+        Set<String> requestedTicketIds = new Set<String>();
+        for (Object rawId : rawIds) requestedTicketIds.add(String.valueOf(rawId));
+        Set<String> withdrawn = withdrawnTicketIds(command.Game_Id__c);
+        List<Ticket__b> tickets = loadCommittedHumanTickets(command.Game_Id__c);
+        Map<String,Wallet_Hold__b> latestHolds = loadLatestHolds(command.Game_Id__c, accountKey);
+        Datetime nowAt = System.now();
+        Decimal eventOffset = 0;
         Decimal releaseTotal = 0;
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
-        Decimal withdrawalEventOffset = 0;
-        for (Ticket__b ticket : mine) {
+
+        for (Ticket__b ticket : tickets) {
+            if (!requestedTicketIds.contains(ticket.Record_Id__c) || withdrawn.contains(ticket.Record_Id__c)) continue;
+            HousieErrors.require(ticket.Owner_Account_Id__c == accountKey,
+                'A withdrawal command contains a ticket owned by another account.');
             Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
             HousieErrors.require(hold != null && hold.Status__c == 'ACTIVE',
                 'An active ticket wallet hold is missing or already released.');
             Decimal amount = hold.Amount__c == null ? 0 : hold.Amount__c;
             releaseTotal += amount;
+            String releaseRecordId = HousieIds.stableId('HOLD_RELEASE', hold.Hold_Id__c);
             writes.add(writeItem('Wallet_Hold__b', new Map<String,Object>{
-                'Record_Id__c' => HousieIds.newId(),
+                'Record_Id__c' => releaseRecordId,
                 'Hold_Id__c' => hold.Hold_Id__c,
-                'Account_Id__c' => actor.Account_Key__c,
-                'Game_Id__c' => context.gameRow.Record_Id__c,
+                'Account_Id__c' => accountKey,
+                'Game_Id__c' => command.Game_Id__c,
                 'Source_Type__c' => 'HUMAN_TICKET',
                 'Source_Id__c' => ticket.Record_Id__c,
                 'Amount__c' => amount,
@@ -239,36 +474,81 @@ public without sharing class HousieGameTicketService {
                 'Updated_At__c' => nowAt,
                 'Released_At__c' => nowAt
             }));
-            writes.add(resourceTransaction(actor.Account_Key__c, 'POINTS', 'HOLD_RELEASE', -amount,
-                'HUMAN_TICKET', ticket.Record_Id__c, 'TICKET_HOLD_RELEASE:' + ticket.Wallet_Hold_Id__c));
-            writes.add(gameEvent(context.gameRow.Record_Id__c, actor.Account_Key__c, 'TICKET_WITHDRAWN',
-                new Map<String,Object>{'ticketId' => ticket.Record_Id__c},
-                nowAt, Decimal.valueOf(String.valueOf(nowAt.getTime())) + withdrawalEventOffset));
-            withdrawalEventOffset++;
+            writes.add(resourceTransaction(accountKey, 'POINTS', 'HOLD_RELEASE', -amount,
+                'HUMAN_TICKET', ticket.Record_Id__c,
+                'TICKET_HOLD_RELEASE:' + ticket.Wallet_Hold_Id__c));
+            writes.add(gameEvent(command.Game_Id__c, accountKey, 'TICKET_WITHDRAWN',
+                new Map<String,Object>{'ticketId' => ticket.Record_Id__c}, nowAt,
+                HousieIds.stableId('GAME_EVENT', ticket.Record_Id__c + ':TICKET_WITHDRAWN')));
+            eventOffset++;
         }
-        actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) - releaseTotal;
-        HousieDomainRules.assertWalletInvariant(actor);
 
-        ParticipantState participant = currentParticipant(context.gameRow.Record_Id__c, actor.Account_Key__c);
+        ParticipantState participant = currentParticipant(command.Game_Id__c, accountKey);
         if (participant != null && participant.status == 'ACTIVE') {
             writes.add(writeItem('Game_Participant__b', new Map<String,Object>{
-                'Record_Id__c' => HousieIds.newId(),
-                'Game_Id__c' => context.gameRow.Record_Id__c,
-                'Account_Id__c' => actor.Account_Key__c,
+                'Record_Id__c' => HousieIds.stableId('GAME_PARTICIPANT_WITHDRAWAL', command.Request_Key__c),
+                'Game_Id__c' => command.Game_Id__c,
+                'Account_Id__c' => accountKey,
                 'Join_Sequence__c' => participant.joinSequence,
                 'Joined_At__c' => participant.joinedAt,
                 'Withdrawn_At__c' => nowAt,
                 'Status__c' => 'WITHDRAWN'
             }));
         }
-        update actor;
-        HousieOperationService.executeOperation('WITHDRAW_FROM_WAITING_GAME', writes);
 
+        if (!writes.isEmpty()) {
+            HousieOperationService.executeOperation('WITHDRAW_FROM_WAITING_GAME', writes);
+        }
         TicketActionResult result = new TicketActionResult();
         result.status = 'WITHDRAWN';
-        result.entryFee = releaseTotal;
+        result.entryFee = command.Entry_Fee__c;
         result.message = 'Withdrawn from the waiting game. All ticket holds were released; points are available again.';
         return result;
+    }
+
+    @AuraEnabled
+    public static TicketActionResult withdrawFromWaitingGame(
+        String boardId, String accountId, String requestId
+    ) {
+        return prepareWaitingGameWithdrawal(boardId, accountId, requestId);
+    }
+
+    private static TicketActionResult actionResultFromCommand(Housie_Ticket_Command__c command) {
+        TicketActionResult result = new TicketActionResult();
+        result.requestId = command.Request_Key__c;
+        result.ticketId = command.Ticket_Id__c;
+        result.boardId = command.Board_Id__c;
+        result.actionType = command.Action_Type__c;
+        result.mode = command.Mode__c;
+        result.entryFee = command.Entry_Fee__c;
+        result.status = command.Status__c;
+        result.message = command.Status__c == 'COMMITTED'
+            ? 'Command already completed.' : 'Command is prepared and ready to retry.';
+        if (String.isNotBlank(command.Layout__c)) {
+            List<List<Integer>> layout = (List<List<Integer>>)JSON.deserialize(
+                command.Layout__c, List<List<Integer>>.class
+            );
+            result.layoutText = HousieTicketGenerator.layoutText(layout);
+        }
+        return result;
+    }
+
+    private static TicketActionResult commandResult(Housie_Ticket_Command__c command) {
+        if (command.Action_Type__c == 'PURCHASE') {
+            List<Ticket__b> rows = [
+                SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Mode__c, Layout__c,
+                       Status__c, Entry_Fee__c, Wallet_Hold_Id__c
+                FROM Ticket__b
+                WHERE Game_Id__c = :command.Game_Id__c
+                  AND Ticket_Kind__c = 'HUMAN'
+                  AND Record_Id__c = :command.Ticket_Id__c
+                LIMIT 1
+            ];
+            if (!rows.isEmpty() && HousieBigObjectStore.isCommitted(rows[0].Operation_Id__c)) {
+                return actionResultFromTicket(rows[0], withdrawnTicketIds(command.Game_Id__c));
+            }
+        }
+        return actionResultFromCommand(command);
     }
 
     private static TicketActionResult actionResultFromTicket(
@@ -503,7 +783,7 @@ public without sharing class HousieGameTicketService {
         String sourceType, String sourceId, String idempotencyKey
     ) {
         return writeItem('Account_Resource_Transaction__b', new Map<String,Object>{
-            'Record_Id__c' => HousieIds.newId(),
+            'Record_Id__c' => HousieIds.stableId('RESOURCE_TX', idempotencyKey),
             'Account_Id__c' => accountKey,
             'Resource_Type__c' => resource,
             'Transaction_Type__c' => type,
@@ -518,12 +798,12 @@ public without sharing class HousieGameTicketService {
 
     private static HousieOperationService.WriteItem gameEvent(
         String gameId, String actorId, String type, Map<String,Object> payload,
-        Datetime eventAt, Decimal sequence
+        Datetime eventAt, String eventRecordId
     ) {
         return writeItem('Game_Event__b', new Map<String,Object>{
-            'Record_Id__c' => HousieIds.newId(),
+            'Record_Id__c' => eventRecordId,
             'Game_Id__c' => gameId,
-            'Sequence__c' => sequence,
+            'Sequence__c' => eventAt.getTime(),
             'Event_Type__c' => type,
             'Actor_Account_Id__c' => actorId,
             'Payload__c' => JSON.serialize(payload),
