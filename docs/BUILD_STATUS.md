@@ -1,12 +1,12 @@
 # Build status and release gate
 
-This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. Validation and deployment are driven by the repository GitHub Actions pipeline. The current fix is awaiting a PR validation run; no successful Salesforce compilation/deployment is claimed yet.
+This project is being delivered in small, reviewable vertical slices. The human ticket-purchase/withdrawal slice is implemented in source. A later ticket-purchase transaction-order correction was deployed and browser-verified from `test/callout-transaction-e2e-v2`, but had not been merged to `main` at the 2026-11-03 review. Do not treat that feature-branch deployment as a merged release. See [PR #22](https://github.com/housieadmin/HousieSalesforce/pull/22) for the source correction and review history.
 
 ## Implemented
 
 - Salesforce DX project layout, package manifest, deploy/bootstrap scripts and Apex test runner.
 - Housie account object, infrastructure-only operation lock and Big Object metadata for the 15 logical entities plus the technical operation journal.
-- Apex Big Object persistence, serialized write lock, operation journal and fail-closed committed-record reads.
+- Apex Big Object persistence, operation journal and fail-closed committed-record reads. The infrastructure row lock is not held across `insertImmediate()` as a durable cross-transaction mutex; mutation paths must provide their own durable command gate or idempotency/concurrency strategy.
 - Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), with a pending-setup state and four immutable signup grant ledger records written in a separate Apex request before a DML-only activation request.
 - Route-context lookup by opaque account key.
 - Board lifecycle:
@@ -56,11 +56,11 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 ## Validation status
 
-- Source and metadata have been reviewed statically in this feature branch.
 - HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
-- The repository GitHub Actions pipeline now validates Salesforce metadata and runs all local Apex tests for pull requests; deployment is gated to pushes or manual runs on main. This branch's pipeline result is still pending.
-- Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
+- The ticket-purchase completion-order fix (`e1aaac7e1f95c031033c8c7869048b901c919b1b`) was deployed from `test/callout-transaction-e2e-v2` through issue #11's combined `/sf deploy-and-verify` action. Combined run [41660185471](https://github.com/housieadmin/HousieSalesforce/actions/runs/41660185471) reports deployment success, local Apex test step success and browser verification success (one scenario passed).
+- Public browser run [41658822433](https://github.com/housieadmin/HousieSalesforce/actions/runs/41658822433) recovered a prepared purchase and created a distinct second ticket; repeat stability run [41659285721](https://github.com/housieadmin/HousieSalesforce/actions/runs/41659285721) confirmed the two-ticket final state without a pending transaction error.
+- These are narrow feature-branch deployment/runtime checks, not proof of all ticket, withdrawal or gameplay paths. The correction was not merged to `main` in the reviewed repository state. Mainline PR validation/release remains a separate step.
 
 ## Consistency note
 
-Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. Apex serializes business commands through the infrastructure lock and writes a COMMITTED journal marker last. Application reads reject records belonging to non-committed operation IDs. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
+Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. The writer writes a COMMITTED journal marker last; application reads reject records belonging to non-committed operation IDs. The infrastructure row lock does not provide a mutex spanning `insertImmediate()`. Ticket purchase/withdrawal use a durable per-game command gate; other mutation paths still need an explicit concurrency review. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
