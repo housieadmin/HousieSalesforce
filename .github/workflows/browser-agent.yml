@@ -146,29 +146,17 @@ jobs:
           echo "APEX_DEBUG_ENABLED=false" >> "$GITHUB_ENV"
           user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org housie-browser-agent --json)"
           user_id="$(jq -r '.result.records[0].Id // empty' <<< "$user_json")"
-          test -n "$user_id"
-
-          level_json="$(sf data query --use-tooling-api --query "SELECT Id FROM DebugLevel WHERE DeveloperName = 'HousieBrowserE2E' LIMIT 1" --target-org housie-browser-agent --json)"
-          debug_id="$(jq -r '.result.records[0].Id // empty' <<< "$level_json")"
-          if [[ -z "$debug_id" ]]; then
-            level_create="$(sf data create record --use-tooling-api --sobject DebugLevel --values "DeveloperName=HousieBrowserE2E MasterLabel=HousieBrowserE2E ApexCode=FINEST ApexProfiling=FINE Callout=FINEST Database=FINEST System=DEBUG Validation=INFO Visualforce=NONE Workflow=FINE" --target-org housie-browser-agent --json)"
-            debug_id="$(jq -r '.result.id // .result.Id // empty' <<< "$level_create")"
+          if [[ -z "$user_id" ]]; then
+            echo "Could not resolve the authenticated Salesforce user ID for Apex tracing." >&2
+            exit 1
           fi
-          test -n "$debug_id"
 
-          trace_json="$(sf data query --use-tooling-api --query "SELECT Id FROM TraceFlag WHERE TracedEntityId = '$user_id' ORDER BY StartDate DESC LIMIT 1" --target-org housie-browser-agent --json)"
-          trace_id="$(jq -r '.result.records[0].Id // empty' <<< "$trace_json")"
-          start="$(date -u +%Y-%m-%dT%H:%M:%S.000+0000)"
-          expires="$(date -u -d '+60 minutes' +%Y-%m-%dT%H:%M:%S.000+0000)"
-          values="TracedEntityId=$user_id DebugLevelId=$debug_id LogType=DEVELOPER_LOG StartDate=$start ExpirationDate=$expires"
+          trace_json="$(sf apex trace list --target-org housie-browser-agent --json)"
+          trace_id="$(jq -r --arg user "$user_id" '(.result.records // .result // [])[]? | select((.tracedEntityId // .TracedEntityId) == $user) | (.id // .Id)' <<< "$trace_json" | head -n 1)"
           if [[ -n "$trace_id" ]]; then
-            sf data update record --use-tooling-api --sobject TraceFlag --record-id "$trace_id" --values "$values" --target-org housie-browser-agent --json >/dev/null
-          else
-            sf data create record --use-tooling-api --sobject TraceFlag --values "$values" --target-org housie-browser-agent --json >/dev/null
+            sf apex trace delete --trace-flag-id "$trace_id" --target-org housie-browser-agent --json >/dev/null
           fi
-
-          echo "APEX_LOG_START=$start" >> "$GITHUB_ENV"
-          echo "APEX_TRACE_USER_ID=$user_id" >> "$GITHUB_ENV"
+          sf apex trace create --traced-entity-id "$user_id" --debug-level SFDC_DevConsole --duration 45 --target-org housie-browser-agent --json >/dev/null
           echo "APEX_DEBUG_ENABLED=true" >> "$GITHUB_ENV"
           echo "Apex debug trace enabled for the browser integration user."
 
@@ -252,19 +240,14 @@ jobs:
           set +e
           log_dir="$BROWSER_AGENT_ARTIFACT_DIR/apex-logs"
           mkdir -p "$log_dir"
-          query="$(sf data query --use-tooling-api --query "SELECT Id, StartTime, LogUserId, Operation, Status, LogLength FROM ApexLog WHERE LogUserId = '$APEX_TRACE_USER_ID' ORDER BY StartTime DESC LIMIT 30" --target-org housie-browser-agent --json)"
-          query_status=$?
-          if [[ $query_status -ne 0 ]]; then
-            echo "ApexLog query failed with exit code $query_status" > "$log_dir/collection-error.txt"
-            exit 0
+          sf apex log get --number 20 --output-dir "$log_dir" --target-org housie-browser-agent > "$log_dir/fetch-output.txt" 2>&1
+          status=$?
+          if [[ $status -ne 0 ]]; then
+            echo "Apex log retrieval failed with exit code $status" >> "$log_dir/collection-error.txt"
           fi
-          printf '%s\n' "$query" > "$log_dir/index.json"
-          mapfile -t log_ids < <(jq -r --arg start "$APEX_LOG_START" '.result.records[]? | select(.StartTime >= $start) | .Id' <<< "$query")
-          for log_id in "${log_ids[@]}"; do
-            sf apex get log --log-id "$log_id" --output-dir "$log_dir" --target-org housie-browser-agent >/dev/null 2>&1
-          done
-          echo "Apex debug logs collected: ${#log_ids[@]}"
-          printf '%s\n' "Apex debug logs collected: ${#log_ids[@]}" >> "$BROWSER_AGENT_ARTIFACT_DIR/summary.md"
+          count="$(find "$log_dir" -type f -name '*.log' | wc -l | tr -d ' ')"
+          echo "Apex debug logs collected: $count"
+          printf '%s\n' "Apex debug logs collected: $count" >> "$BROWSER_AGENT_ARTIFACT_DIR/summary.md"
 
       - name: Upload execution artifacts
         if: always() && (github.event_name == 'issue_comment' || inputs.source_ref != '')
