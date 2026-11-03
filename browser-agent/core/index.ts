@@ -46,8 +46,15 @@ export const test = base.extend<Fixtures>({
         const expectedOrigin = new URL(instanceUrl).origin;
         await page.goto(url, { waitUntil: "commit" });
         await page.waitForURL(current => current.origin === expectedOrigin, { timeout: 60000 });
+        await page.waitForLoadState("load", { timeout: 60000 });
+        // Salesforce can launch a second top-level contentDoor redirect after the
+        // initial org response. Wait for that navigation and its network activity
+        // to settle before starting a scenario navigation of our own.
+        await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+        await page.waitForURL(current => current.origin === expectedOrigin, { timeout: 60000 });
         await page.waitForLoadState("domcontentloaded");
-        record("login-complete", "Salesforce frontdoor redirect reached the configured org.", { url: safeUrl(page.url()) });
+        record("login-complete", "Salesforce frontdoor and follow-up redirects settled at the configured org.", { url: safeUrl(page.url()) });
       },
       async navigate(value) {
         const baseUrl = new URL(page.url()).origin + "/";
