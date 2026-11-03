@@ -33,7 +33,7 @@ jobs:
     name: Restore selected metadata from a known-good Git ref
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: development
+    environment: development-iteration
     env:
       RESTORE_REF: ${{ inputs.restore_ref }}
       SOURCE_PATHS_INPUT: ${{ inputs.source_paths }}
