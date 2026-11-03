@@ -7,6 +7,9 @@ import listMyBoards from '@salesforce/apex/HousieBoardService.listMyBoards';
 import listPublicBoards from '@salesforce/apex/HousieBoardService.listPublicBoards';
 import joinBoardAction from '@salesforce/apex/HousieBoardService.joinBoard';
 import leaveBoardAction from '@salesforce/apex/HousieBoardService.leaveBoard';
+import listMyTickets from '@salesforce/apex/HousieGameTicketService.listMyTickets';
+import purchaseTicketAction from '@salesforce/apex/HousieGameTicketService.purchaseTicket';
+import withdrawFromGameAction from '@salesforce/apex/HousieGameTicketService.withdrawFromWaitingGame';
 
 export default class HousieBoardHub extends LightningElement {
   @api recordId;
@@ -20,23 +23,31 @@ export default class HousieBoardHub extends LightningElement {
   loading = false;
   error;
   success;
+  pendingPurchaseRequests = {};
 
-  @wire(getRecord, {
-      recordId: '$recordId',
-      fields: [ACCOUNT_KEY_FIELD]
-  })
+  @wire(getRecord, { recordId: '$recordId', fields: [ACCOUNT_KEY_FIELD] })
   wiredAccount({ data, error }) {
-      if (data) {
-          this.accountKey = getFieldValue(data, ACCOUNT_KEY_FIELD);
+    if (data) {
+      const accountKey = getFieldValue(data, ACCOUNT_KEY_FIELD);
+      if (accountKey && accountKey !== this.accountKey) {
+        this.accountKey = accountKey;
+        this.boards = [];
+        this.refresh();
       }
+    } else if (error) {
+      this.error = error?.body?.message || error?.message || 'Unable to resolve this Housie account.';
+    }
   }
 
   visibilityOptions = [
     { label: 'Private · invitation link', value: 'PRIVATE' },
     { label: 'Public · searchable directory', value: 'PUBLIC' }
   ];
+  ticketModeOptions = [
+    { label: 'Manual', value: 'MANUAL' },
+    { label: 'Automatic · uses 1 token', value: 'AUTOMATIC' }
+  ];
 
-  connectedCallback() { this.refresh(); }
   get hasBoards() { return this.boards.length > 0; }
   get filteredPublicBoards() {
     const term = this.publicSearch.trim().toLowerCase();
@@ -51,7 +62,7 @@ export default class HousieBoardHub extends LightningElement {
   handlePublicSearch(event) { this.publicSearch = event.target.value; }
 
   async refresh() {
-    if (!this.accountKey) return;
+    if (!this.accountKey || this.loading) return;
     this.loading = true;
     this.error = undefined;
     try {
@@ -59,20 +70,37 @@ export default class HousieBoardHub extends LightningElement {
         listMyBoards({ accountId: this.accountKey }),
         listPublicBoards()
       ]);
-      this.boards = myBoards;
-      this.publicBoards = publicBoards.map(board => {
-        const joined = myBoards.some(memberBoard => memberBoard.boardId === board.boardId);
+      const previousModes = new Map(this.boards.map(board => [board.boardId, board.ticketMode]));
+      const boardsWithTickets = await Promise.all(myBoards.map(async board => {
+        const tickets = await listMyTickets({ boardId: board.boardId, accountId: this.accountKey });
+        const hasTickets = tickets.length > 0;
         return {
           ...board,
-          alreadyMember: joined,
-          joinLabel: joined ? 'Joined' : 'Join board'
+          tickets,
+          hasTickets,
+          ticketMode: previousModes.get(board.boardId) || 'MANUAL',
+          ticketCount: tickets.length,
+          canPurchase: board.currentGameStatus === 'WAITING',
+          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING'
         };
+      }));
+      this.boards = boardsWithTickets;
+      this.publicBoards = publicBoards.map(board => {
+        const joined = myBoards.some(memberBoard => memberBoard.boardId === board.boardId);
+        return { ...board, alreadyMember: joined, joinLabel: joined ? 'Joined' : 'Join board' };
       });
     } catch (e) {
       this.error = e?.body?.message || e?.message || 'Unable to load boards.';
     } finally {
       this.loading = false;
     }
+  }
+
+  handleTicketMode(event) {
+    const boardId = event.currentTarget.dataset.boardId;
+    this.boards = this.boards.map(board =>
+      board.boardId === boardId ? { ...board, ticketMode: event.detail.value } : board
+    );
   }
 
   async createBoard() {
@@ -85,30 +113,26 @@ export default class HousieBoardHub extends LightningElement {
       });
       this.success = result.message + ' Board ID: ' + result.boardId;
       this.boardName = '';
+      this.loading = false;
       await this.refresh();
     } catch (e) {
       this.error = e?.body?.message || e?.message || 'Unable to create board.';
-    } finally {
       this.loading = false;
     }
   }
 
   async joinBoard() {
     this.clearMessages();
-    if (!this.inviteBoardId) {
-      this.error = 'Enter the invitation board ID.'; return;
-    }
+    if (!this.inviteBoardId) { this.error = 'Enter the invitation board ID.'; return; }
     this.loading = true;
     try {
-      const result = await joinBoardAction({
-        boardId: this.inviteBoardId, accountId: this.accountKey
-      });
+      const result = await joinBoardAction({ boardId: this.inviteBoardId, accountId: this.accountKey });
       this.success = result.message;
       this.inviteBoardId = '';
+      this.loading = false;
       await this.refresh();
     } catch (e) {
       this.error = e?.body?.message || e?.message || 'Unable to join board.';
-    } finally {
       this.loading = false;
     }
   }
@@ -120,10 +144,10 @@ export default class HousieBoardHub extends LightningElement {
     try {
       const result = await joinBoardAction({ boardId, accountId: this.accountKey });
       this.success = result.message;
+      this.loading = false;
       await this.refresh();
     } catch (e) {
       this.error = e?.body?.message || e?.message || 'Unable to join public board.';
-    } finally {
       this.loading = false;
     }
   }
@@ -133,14 +157,56 @@ export default class HousieBoardHub extends LightningElement {
     const boardId = event.currentTarget.dataset.boardId;
     this.loading = true;
     try {
-      const result = await leaveBoardAction({
-        boardId, accountId: this.accountKey
-      });
+      const result = await leaveBoardAction({ boardId, accountId: this.accountKey });
       this.success = result.message;
+      this.loading = false;
       await this.refresh();
     } catch (e) {
       this.error = e?.body?.message || e?.message || 'Unable to leave board.';
-    } finally {
+      this.loading = false;
+    }
+  }
+
+  async buyTicket(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    const board = this.boards.find(item => item.boardId === boardId);
+    const requestId = this.pendingPurchaseRequests[boardId] ||
+      (String(Date.now()) + '-' + Math.random().toString(36).slice(2));
+    this.pendingPurchaseRequests = { ...this.pendingPurchaseRequests, [boardId]: requestId };
+    this.loading = true;
+    try {
+      const result = await purchaseTicketAction({
+        boardId,
+        accountId: this.accountKey,
+        mode: board?.ticketMode || 'MANUAL',
+        requestId
+      });
+      const remainingRequests = { ...this.pendingPurchaseRequests };
+      delete remainingRequests[boardId];
+      this.pendingPurchaseRequests = remainingRequests;
+      this.success = result.message + ' Ticket: ' + result.ticketId;
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      // Keep the same request id so retrying after an ambiguous network failure
+      // returns the original purchase instead of reserving points twice.
+      this.error = e?.body?.message || e?.message || 'Unable to purchase ticket.';
+      this.loading = false;
+    }
+  }
+
+  async withdrawFromGame(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    this.loading = true;
+    try {
+      const result = await withdrawFromGameAction({ boardId, accountId: this.accountKey });
+      this.success = result.message;
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      this.error = e?.body?.message || e?.message || 'Unable to withdraw from this game.';
       this.loading = false;
     }
   }
