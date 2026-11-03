@@ -1,41 +1,64 @@
-# Housie project continuity
+# Housie project context router
 
-This directory is the operational continuity layer for work across ChatGPT sessions and contributors. It is not a replacement for product or technical source documents.
+This directory helps contributors resume work without loading the entire project history. Start from the task, not from every status document.
 
-## Read order for a new session
+## Start here
 
-1. Read this file.
-2. Read [PROJECT_STATE.md](PROJECT_STATE.md) for the current verified baseline and active work.
-3. Read [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md) before proposing structural changes.
-4. Read [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) and [REQUIREMENTS_TRACEABILITY.md](REQUIREMENTS_TRACEABILITY.md) before selecting work.
-5. Read [KNOWN_ISSUES.md](KNOWN_ISSUES.md) before changing affected areas.
-6. Read the relevant source files and tests. These project notes are an index, not a substitute for source inspection.
+1. Read this file and the repository rules in `AGENTS.md`.
+2. Verify the current branch, working tree and commit. Do not assume a recorded baseline is current.
+3. Select the **one primary workstream** below. Read its guide.
+4. Inspect only the source files, tests and exact requirement sections touched by the task.
+5. Expand context only when evidence shows the task crosses workstreams or changes an architectural invariant.
+
+## Workstream routing
+
+| Task concerns | Read |
+|---|---|
+| Product behaviour, requirements, scope, UX decisions, logical entities | [Product](workstreams/product.md) |
+| Apex, LWC, Salesforce metadata, permissions, data access | [Salesforce development](workstreams/salesforce.md) |
+| Test strategy, browser agent, QA scenarios, regression evidence | [QA & automation](workstreams/qa.md) |
+| GitHub Actions, issues/PR commands, branching, validation and release | [Release engineering](workstreams/release-engineering.md) |
+
+For a task spanning multiple areas, read the primary guide first and only the additional guide(s) needed. Do not load all four by default.
 
 ## Source-of-truth hierarchy
 
 1. `docs/SPEC.md` — authoritative product behaviour and requirements.
 2. `docs/DATA_MODEL.md` — authoritative logical entities, relationships and integrity rules.
-3. Current source code and metadata under `force-app/` — authoritative implementation.
-4. `docs/ARCHITECTURE.md`, `docs/DATA_MODEL_MAPPING.md` — technical mapping and architecture, subject to verification against current source.
-5. `docs/BUILD_STATUS.md`, this `.project/` directory and other operational docs — status/continuity aids. Update them when implementation changes; they do not override the sources above.
+3. Current source and metadata — authoritative implementation.
+4. Technical/operational docs — useful explanations and snapshots; verify them against current source.
 
-If sources conflict, do not silently choose one. Record the conflict in `KNOWN_ISSUES.md`, identify the correct authority, and propose a correction.
+Read relevant sections of SPEC and DATA_MODEL, not the entire files, unless the task is broad or cross-cutting. If sources conflict, identify the conflict and resolve it explicitly; do not silently pick one.
+
+## Context expansion rules
+
+- **Small/local change:** read this router, the relevant workstream guide, directly affected files and nearby tests. Avoid broad status/history reads.
+- **Feature or multi-file change:** also inspect relevant SPEC/DATA_MODEL sections, callers, dependencies, permissions and related tests.
+- **Cross-cutting or architectural change:** read `ARCHITECTURE_DECISIONS.md`, relevant portions of `IMPLEMENTATION_STATUS.md`, `REQUIREMENTS_TRACEABILITY.md`, `KNOWN_ISSUES.md`, and the applicable technical docs.
+- **Unclear task:** ask one focused clarification rather than preloading the repository.
+
+## Durable project notes
+
+These are reference material, not a mandatory startup bundle:
+
+- `PROJECT_STATE.md` — compact repository/product snapshot; verify its baseline.
+- `ARCHITECTURE_DECISIONS.md` — invariants and accepted design decisions.
+- `IMPLEMENTATION_STATUS.md` — feature-level implementation status.
+- `REQUIREMENTS_TRACEABILITY.md` — requirement-to-implementation index.
+- `KNOWN_ISSUES.md` — confirmed documentation/implementation discrepancies.
+- `sessions/SESSION_TEMPLATE.md` — handoff format for incomplete or substantial work.
+- `TASK_BRIEF_TEMPLATE.md` — optional way to scope a task before handing it to another session.
 
 ## Working rules
 
-- Work from the current repository state and branch. Verify the current default-branch SHA before relying on a recorded baseline.
-- Separate **implemented**, **partially implemented**, **not implemented**, **verified at runtime**, and **not verified**. Compilation or PR validation is not runtime verification.
-- Do not mark a feature complete because a schema, field, UI control, placeholder method or audit event exists.
-- For each change, inspect callers, data model implications, permissions, tests, deployment workflow and runtime verification path.
-- Preserve append-only history, idempotency, wallet integrity and Big Object consistency constraints.
-- Do not claim org-side configuration or runtime behaviour has been inspected unless evidence is available.
-- Keep session notes short and durable. Record decisions and state changes, not a transcript.
-- Before ending a work session, update the relevant status/issue docs and add a handoff using `sessions/SESSION_TEMPLATE.md` when work is incomplete.
+- Distinguish source implementation, automated test coverage, deployment and runtime verification.
+- A schema, UI control, placeholder method or audit event does not prove a feature works.
+- Inspect callers and affected dependencies; preserve documented data-integrity and security invariants.
+- Never claim org-side configuration or runtime behaviour was inspected without evidence.
+- Update only the relevant status/continuity notes when the change materially changes them. Do not create documentation churn for trivial edits.
+- Do not deploy, merge, or change external systems without explicit authorization.
+- Do not infer the status of independently managed workstreams. Incorporate them only after their owner supplies an explicit handoff.
 
-## Scope boundary
+## Fresh-session prompt
 
-This continuity layer tracks the repository's product and engineering work. Separate debugging efforts are not automatically in scope. Only incorporate an external workstream when its owner supplies a status update and evidence; label it as externally managed rather than inferring its state.
-
-## Starting prompt for a fresh session
-
-> Continue work on Housie Salesforce. First read `.project/README.md`, `.project/PROJECT_STATE.md`, `.project/IMPLEMENTATION_STATUS.md`, `.project/REQUIREMENTS_TRACEABILITY.md`, `.project/ARCHITECTURE_DECISIONS.md`, and `.project/KNOWN_ISSUES.md`. Treat `docs/SPEC.md` and `docs/DATA_MODEL.md` as the authoritative product and logical-data baselines. Verify the current Git branch and commit before acting. Do not assume previous chat context is current. State what is verified, what is uncertain, and the smallest sensible next step before making changes. Do not deploy, merge, or modify external systems without explicit authorization.
+> Work on the specific Housie task I provide. Start with `AGENTS.md` and `.project/README.md`, select the relevant workstream guide, verify the current branch and commit, then inspect only the necessary files and requirement sections. Expand context only if the task is cross-cutting. State evidence and verification limits clearly. Do not deploy, merge, or modify external systems without explicit authorization.
