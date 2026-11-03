@@ -1,4 +1,4 @@
-name: Salesforce Org Drift Check
+name: Salesforce Org Drift Check (read-only)
 
 on:
   push:
