@@ -299,7 +299,7 @@ public without sharing class HousieGameTicketService {
         List<Housie_Ticket_Command__c> commands = [
             SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
                    Action_Type__c, Ticket_Id__c, Hold_Id__c, Mode__c,
-                   Entry_Fee__c, Layout__c, Payload__c, Status__c, Updated_At__c
+                   Entry_Fee__c, Layout__c, Payload__c, Status__c, Created_At__c, Updated_At__c
             FROM Housie_Ticket_Command__c
             WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
             LIMIT 1
