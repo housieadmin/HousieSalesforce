@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   browser-agent:
-    name: ${{ github.event_name == 'pull_request' && 'Validate browser-agent request parser' || 'Execute AI-authored browser scenarios' }}
+    name: Browser agent validation
     if: >-
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
