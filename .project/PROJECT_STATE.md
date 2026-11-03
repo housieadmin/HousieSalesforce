@@ -24,7 +24,7 @@ These are source observations, not claims of full runtime verification.
 
 ## Open implementation work
 
-- [PR #22 — ticket-purchase completion transaction ordering](https://github.com/housieadmin/HousieSalesforce/pull/22) carries the fix for Big Object result reads occurring after standard-object DML. Earlier feature-branch runtime runs demonstrated recovery and a fresh second-ticket purchase; the PR-head validation and runtime verification must be assessed separately.
+- [PR #23 — ticket-purchase completion transaction ordering](https://github.com/housieadmin/HousieSalesforce/pull/23) carries the fix for Big Object result reads occurring after standard-object DML. Earlier feature-branch runtime runs demonstrated recovery and a fresh second-ticket purchase; the PR-head validation and runtime verification must be assessed separately.
 - Do not treat a feature-branch deployment as a merge to `main` or as proof that unrelated ticket, withdrawal, gameplay or concurrency paths are verified.
 
 ## Major incomplete product areas observed
