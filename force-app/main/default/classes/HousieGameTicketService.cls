@@ -300,9 +300,9 @@ public without sharing class HousieGameTicketService {
 
     @AuraEnabled
     public static TicketActionResult commitTicketCommand(String requestId, String accountId) {
-        // Serialize the full read/persist path. Acquiring the lock only inside
-        // executeOperation() is too late: concurrent retries could both pass
-        // the prior-record check before either request persists its Big Objects.
+        // Keep the infrastructure lock ahead of command and Big Object reads.
+        // insertImmediate() releases Apex row locks, so retry identity is also
+        // kept stable by passing the prepared command key to executeOperation().
         HousieOperationService.lockForWrite();
         HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
