@@ -1,0 +1,116 @@
+name: Salesforce CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deployment_scope:
+        description: Metadata group to validate and deploy (manual runs only)
+        required: true
+        type: choice
+        default: application
+        options:
+          - application
+          - org-setup
+          - experience
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salesforce-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Salesforce metadata and Apex
+    runs-on: ubuntu-latest
+    env:
+      DEPLOYMENT_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_scope || 'application' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Verify Salesforce CLI
+        run: sf --version
+
+      - name: Authenticate to Developer Edition
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          chmod 600 "$RUNNER_TEMP/server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+
+      - name: Select manifest for validation
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$DEPLOYMENT_SCOPE" in
+            application) echo "path=manifest/package.xml" >> "$GITHUB_OUTPUT" ;;
+            org-setup) echo "path=manifest/package-org-setup.xml" >> "$GITHUB_OUTPUT" ;;
+            experience) echo "path=manifest/package-experience.xml" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported deployment scope: $DEPLOYMENT_SCOPE" >&2; exit 1 ;;
+          esac
+
+      - name: Validate selected metadata without deployment coverage gate
+        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Run all local Apex tests
+        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+
+  deploy:
+    name: Deploy selected metadata to Developer Edition
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      DEPLOYMENT_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.deployment_scope || 'application' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Developer Edition
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          chmod 600 "$RUNNER_TEMP/server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+
+      - name: Select manifest for deployment
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$DEPLOYMENT_SCOPE" in
+            application) echo "path=manifest/package.xml" >> "$GITHUB_OUTPUT" ;;
+            org-setup) echo "path=manifest/package-org-setup.xml" >> "$GITHUB_OUTPUT" ;;
+            experience) echo "path=manifest/package-experience.xml" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported deployment scope: $DEPLOYMENT_SCOPE" >&2; exit 1 ;;
+          esac
+
+      - name: Deploy selected metadata
+        run: sf project deploy start --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Run all local Apex tests
+        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
