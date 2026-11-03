@@ -3,10 +3,5 @@
   <types><members>*</members><name>ApexClass</name></types>
   <types><members>*</members><name>CustomObject</name></types>
   <types><members>*</members><name>LightningComponentBundle</name></types>
-  <types><members>*</members><name>PermissionSet</name></types>
-  <types><members>*</members><name>CustomTab</name></types>
-  <types><members>*</members><name>CustomPermission</name></types>
-  <types><members>*</members><name>ExperienceBundle</name></types>
-  <types><members>*</members><name>Network</name></types>
   <version>66.0</version>
 </Package>
