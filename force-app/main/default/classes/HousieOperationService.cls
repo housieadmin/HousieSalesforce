@@ -25,27 +25,11 @@ public without sharing class HousieOperationService {
     // written immediately; the journal's COMMITTED marker is written last.
     // Readers must reject records whose Operation_Journal__b status is not COMMITTED.
     public static OperationResult executeOperation(String operationType, List<WriteItem> writes) {
-        return executeOperation(operationType, writes, null);
-    }
-
-    // A stable operation ID makes retries of one prepared command reuse the
-    // same journal identity. Concurrent duplicate persistence is not proven safe.
-    public static OperationResult executeOperation(
-        String operationType, List<WriteItem> writes, String requestedOperationId
-    ) {
         HousieErrors.require(String.isNotBlank(operationType), 'Operation type is required.');
         HousieErrors.require(writes != null && !writes.isEmpty(), 'At least one write is required.');
         HousieErrors.require(writes.size() <= 40, 'Operation exceeds the safe write batch size.');
         lockForWrite();
-        String opId = String.isBlank(requestedOperationId) ? HousieIds.newId() : requestedOperationId;
-        HousieErrors.require(opId.length() == 32, 'Operation identifiers must be 32 characters.');
-        if (!String.isBlank(requestedOperationId) && HousieBigObjectStore.isCommitted(opId)) {
-            OperationResult existing = new OperationResult();
-            existing.operationId = opId;
-            existing.status = 'COMMITTED';
-            existing.written = writes.size();
-            return existing;
-        }
+        String opId = HousieIds.newId();
         Datetime nowAt = System.now();
         Map<String,Object> journal = new Map<String,Object>{
             'Record_Id__c' => opId, 'Operation_Id__c' => opId,
