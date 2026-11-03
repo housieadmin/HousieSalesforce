@@ -50,25 +50,29 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 
 The repository includes `.github/workflows/salesforce.yml`:
 
-- Pull requests targeting `main` authenticate to a Salesforce CI org and run a metadata deployment validation with local Apex tests.
-- A push to `main` deploys the manifest to the protected GitHub Environment named `production`, bootstraps the infrastructure lock, and runs the Housie Apex test class.
+- Pull requests targeting `main` authenticate to the Developer Edition org, perform a metadata dry-run, and then run all local Apex tests.
+- A push to `main` deploys the manifest to the GitHub Environment named `development`, bootstraps the infrastructure lock, and runs all local Apex tests.
 - A manual workflow dispatch runs validation only; Developer Edition deployment remains restricted to pushes to `main`.
+
+### Test and coverage behavior
+
+This pipeline targets a Salesforce Developer Edition org. Developer Edition is a development environment, so the metadata deployment uses `NoTestRun`; Apex tests are then executed as a separate required step using `sf apex run test --test-level RunLocalTests`. This keeps test execution mandatory without making the deployment command enforce the org-wide 75% deployment coverage threshold.
+
+This is an intentional development-org workflow, not a production deployment policy. Before deploying Apex to a production org, restore Salesforce's required deployment test level and satisfy the applicable 75% coverage requirements. A green CI run here does not certify production deployment readiness.
 
 ### One-time GitHub configuration
 
 Configure these repository or environment settings before enabling the workflow:
 
-**Actions secrets**
+**Repository Actions secrets**
 - `SF_CLIENT_ID`: Salesforce Connected App / External Client App consumer key.
 - `SF_USERNAME`: Salesforce integration user username.
 - `SF_JWT_KEY`: the PEM private key matching the certificate uploaded to the Salesforce app.
 
-**Actions variable**
-- `SF_INSTANCE_URL`: `https://login.salesforce.com` for production/Developer Edition, or the org's My Domain login URL. Use `https://test.salesforce.com` for a sandbox.
+**Repository Actions variable**
+- `SF_INSTANCE_URL`: the Developer Edition org's My Domain login URL (for example, `https://your-domain.my.salesforce.com`).
 
-Set the three secrets and the variable under **Settings → Secrets and variables → Actions**. Also create **Settings → Environments → development** and restrict deployments to the `main` branch. Use a dedicated integration user with only the permissions required to deploy metadata and execute tests. Do not use a personal admin account.
-
-The CI validation target must be an org with the same required Salesforce features and licenses as the deployment target. For a sandbox-based workflow, configure a separate CI workflow/environment rather than pointing production credentials at the sandbox.
+Set the three secrets and the variable under **Settings → Secrets and variables → Actions**. Also create **Settings → Environments → development** and restrict deployments to the `main` branch. The workflow reads the secrets and variable at repository scope; the environment is used to gate deployment to `main`. Use a dedicated integration user with only the permissions required to deploy metadata and execute tests. Do not use a personal admin account.
 
 ### Salesforce JWT setup
 
@@ -76,6 +80,6 @@ Create a Salesforce Connected App (or External Client App) configured for OAuth 
 
 ### First deployment
 
-After configuring the secrets/variable and environment, open a pull request to `main` to exercise validation. Merge only after validation succeeds. The merge push triggers the production deployment. Review the GitHub Actions run and Salesforce deployment result before treating the release as successful.
+After configuring the secrets/variable and environment, open a pull request to `main` to exercise validation. Merge only after validation succeeds. The merge push triggers the Developer Edition deployment. Review the GitHub Actions run and Salesforce deployment result before treating the release as successful.
 
 **Important:** the workflow deploys metadata plus the singleton infrastructure-lock bootstrap only. It does not create Experience Cloud sites, activate a site, provision users, configure domains, or set org-specific sharing/guest settings. Those remain manual org setup and security review tasks. The application is not production-ready until the outstanding functional and security blockers in `docs/BUILD_STATUS.md` are resolved.
