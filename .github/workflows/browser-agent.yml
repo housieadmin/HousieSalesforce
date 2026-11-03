@@ -178,8 +178,7 @@ jobs:
           retention-days: 14
 
       - name: Comment with execution result
-        if: github.event_name == 'issue_comment'
-        if: always()
+        if: always() && github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
           script: |
