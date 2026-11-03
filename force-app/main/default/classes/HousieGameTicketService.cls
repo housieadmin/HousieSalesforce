@@ -518,7 +518,7 @@ public without sharing class HousieGameTicketService {
                 'mode' => command.Mode__c,
                 'entryFee' => command.Entry_Fee__c
             }, purchaseAt, HousieIds.stableId('GAME_EVENT', command.Ticket_Id__c + ':TICKET_PURCHASED')));
-        HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes);
+        HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes, command.Request_Key__c);
 
         TicketActionResult result = new TicketActionResult();
         result.ticketId = command.Ticket_Id__c;
@@ -596,7 +596,7 @@ public without sharing class HousieGameTicketService {
         }
 
         if (!writes.isEmpty()) {
-            HousieOperationService.executeOperation('WITHDRAW_FROM_WAITING_GAME', writes);
+            HousieOperationService.executeOperation('WITHDRAW_FROM_WAITING_GAME', writes, command.Request_Key__c);
         }
         TicketActionResult result = new TicketActionResult();
         result.status = 'WITHDRAWN';
