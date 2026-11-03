@@ -104,7 +104,9 @@ public without sharing class HousieGameTicketService {
             return actionResultFromTicket(existingById[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
         }
 
-        acquireGameCommandLock(context.gameRow.Record_Id__c, ticketId);
+        // Inspect the existing gate under a row lock, then activate it with DML
+        // only after all Big Object reads in this preparation transaction finish.
+        Housie_Game_Command_Lock__c gameCommandLock = lockGameCommandSlot(context.gameRow.Record_Id__c);
 
         Decimal fee = decimalConfig(context.config, 'ticketEntryFee', 10);
         Integer maximumTickets = integerConfig(context.config, 'maximumHumanTicketsPerAccount', 2);
@@ -159,6 +161,7 @@ public without sharing class HousieGameTicketService {
         Datetime nowAt = System.now();
         actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) + fee;
         HousieDomainRules.assertWalletInvariant(actor);
+        activateGameCommandLock(gameCommandLock, context.gameRow.Record_Id__c, ticketId);
         update actor;
 
         // This request deliberately performs DML only. The client invokes
@@ -223,7 +226,8 @@ public without sharing class HousieGameTicketService {
             return actionResultFromCommand(prior);
         }
 
-        acquireGameCommandLock(context.gameRow.Record_Id__c, commandId);
+        // Inspect the existing gate under a row lock; activate it after Big Object reads.
+        Housie_Game_Command_Lock__c gameCommandLock = lockGameCommandSlot(context.gameRow.Record_Id__c);
 
         Set<String> withdrawn = withdrawnTicketIds(context.gameRow.Record_Id__c);
         List<Ticket__b> allTickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
@@ -249,6 +253,7 @@ public without sharing class HousieGameTicketService {
         }
 
         Datetime nowAt = System.now();
+        activateGameCommandLock(gameCommandLock, context.gameRow.Record_Id__c, commandId);
 
         Housie_Ticket_Command__c command = new Housie_Ticket_Command__c(
             Request_Key__c = commandId,
@@ -294,7 +299,6 @@ public without sharing class HousieGameTicketService {
 
     @AuraEnabled
     public static TicketActionResult commitTicketCommand(String requestId, String accountId) {
-        HousieOperationService.lockForWrite();
         HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
@@ -304,7 +308,6 @@ public without sharing class HousieGameTicketService {
             FROM Housie_Ticket_Command__c
             WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
             LIMIT 1
-            FOR UPDATE
         ];
         HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
         Housie_Ticket_Command__c command = commands[0];
@@ -384,8 +387,13 @@ public without sharing class HousieGameTicketService {
             throw new HousieErrors.HousieException('Unsupported prepared ticket command type.');
         }
 
-        // This request performs DML only. The Big Object insertImmediate writes
-        // completed in commitTicketCommand in the preceding request.
+        // Materialize all Big Object-backed result data before standard-object DML.
+        command.Status__c = 'COMMITTED';
+        command.Updated_At__c = System.now();
+        command.Committed_At__c = command.Updated_At__c;
+        TicketActionResult completedResult = commandResult(command);
+
+        // This request performs DML only; Big Object persistence completed in the preceding request.
         if (command.Action_Type__c == 'WITHDRAW') {
             List<Housie_Account__c> accountRows = [
                 SELECT Id, Points_Balance__c, Reserved_Points__c
@@ -408,11 +416,8 @@ public without sharing class HousieGameTicketService {
         gameLocks[0].Updated_At__c = System.now();
         update gameLocks[0];
 
-        command.Status__c = 'COMMITTED';
-        command.Updated_At__c = System.now();
-        command.Committed_At__c = command.Updated_At__c;
         update command;
-        return commandResult(command);
+        return completedResult;
     }
 
     private static TicketActionResult commitPreparedPurchase(
@@ -598,7 +603,7 @@ public without sharing class HousieGameTicketService {
         return prepareWaitingGameWithdrawal(boardId, accountId, requestId);
     }
 
-    private static void acquireGameCommandLock(String gameId, String commandKey) {
+    private static Housie_Game_Command_Lock__c lockGameCommandSlot(String gameId) {
         List<Housie_Game_Command_Lock__c> rows = [
             SELECT Id, Game_Id__c, Status__c, Active_Command_Key__c
             FROM Housie_Game_Command_Lock__c
@@ -606,8 +611,17 @@ public without sharing class HousieGameTicketService {
             LIMIT 1
             FOR UPDATE
         ];
+        if (rows.isEmpty()) return null;
+        HousieErrors.require(rows[0].Status__c != 'PROCESSING',
+            'Another game command is still being finalized. Retry after that command completes.');
+        return rows[0];
+    }
+
+    private static void activateGameCommandLock(
+        Housie_Game_Command_Lock__c gameLock, String gameId, String commandKey
+    ) {
         Datetime nowAt = System.now();
-        if (rows.isEmpty()) {
+        if (gameLock == null) {
             insert new Housie_Game_Command_Lock__c(
                 Game_Id__c = gameId,
                 Status__c = 'PROCESSING',
@@ -617,10 +631,6 @@ public without sharing class HousieGameTicketService {
             );
             return;
         }
-
-        Housie_Game_Command_Lock__c gameLock = rows[0];
-        HousieErrors.require(gameLock.Status__c != 'PROCESSING',
-            'Another game command is still being finalized. Retry after that command completes.');
         gameLock.Status__c = 'PROCESSING';
         gameLock.Active_Command_Key__c = commandKey;
         gameLock.Updated_At__c = nowAt;
