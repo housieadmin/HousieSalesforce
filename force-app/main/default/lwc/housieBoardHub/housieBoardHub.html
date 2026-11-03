@@ -51,6 +51,19 @@
                   disabled={loading}></lightning-button>
               </div>
             </template>
+            <template if:true={board.hasPendingActions}>
+              <div class="pending-actions">
+                <p class="hint">A previous action is prepared and needs to be finalized.</p>
+                <template for:each={board.pendingActions} for:item="action">
+                  <div class="pending-action" key={action.requestId}>
+                    <span>{action.actionType} · {action.entryFee} points</span>
+                    <lightning-button label={action.retryLabel} variant="brand"
+                      data-request-id={action.requestId} onclick={retryPendingAction}
+                      disabled={loading}></lightning-button>
+                  </div>
+                </template>
+              </div>
+            </template>
             <template if:true={board.hasTickets}>
               <p class="hint ticket-count">Active tickets: {board.ticketCount}</p>
               <template if:true={board.canWithdraw}>
@@ -96,7 +109,7 @@
             </div>
             <lightning-button label={board.joinLabel} variant="brand"
               data-board-id={board.boardId} onclick={joinPublicBoard}
-              disabled={board.alreadyMember}></lightning-button>
+              disabled={board.alreadyMember || loading}></lightning-button>
           </article>
         </template>
       </template>
