@@ -8,6 +8,11 @@
         onclick={create} disabled={busy}></lightning-button>
       <template if:true={created}>
         <p class="slds-m-top_medium">Created: {created.Display_Name__c} · Account key: {created.Account_Key__c}</p>
+        <p class="slds-m-top_x-small">Status: {created.Status__c}</p>
+      </template>
+      <template if:true={setupPending}>
+        <lightning-button class="slds-m-top_small" label="Retry initial account setup"
+          onclick={retrySetup} disabled={busy}></lightning-button>
       </template>
       <template if:true={error}>
         <p class="slds-text-color_error slds-m-top_small">{error}</p>
