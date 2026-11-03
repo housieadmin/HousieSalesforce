@@ -59,8 +59,6 @@ public without sharing class HousieGameTicketService {
         Housie_Account__c actor = lockAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
         requireMember(boardId, actor.Account_Key__c);
-        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
-            'Tickets can only be purchased while the game is waiting.');
         HousieErrors.require(String.isNotBlank(requestId) && requestId.length() <= 120,
             'A valid ticket purchase request id is required.');
 
@@ -84,6 +82,8 @@ public without sharing class HousieGameTicketService {
             HousieBigObjectStore.isCommitted(priorRows[0].Operation_Id__c)) {
             return actionResultFromTicket(priorRows[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
         }
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'Tickets can only be purchased while the game is waiting.');
 
         Decimal fee = decimalConfig(context.config, 'ticketEntryFee', 10);
         Integer maximumTickets = integerConfig(context.config, 'maximumHumanTicketsPerAccount', 2);
