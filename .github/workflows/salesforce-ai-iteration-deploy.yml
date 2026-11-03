@@ -192,9 +192,9 @@ jobs:
           {
             commit_sha="$(git rev-parse HEAD)"
             printf '%s\n' "### Salesforce AI iteration deployment"
-            printf '%s\n' "- Source ref: `$SOURCE_REF`"
-            printf '%s\n' "- Commit: `$commit_sha`"
-            printf '%s\n' "- Test mode: `$TEST_MODE`"
+            printf '%s\n' "- Source ref: $SOURCE_REF"
+            printf '%s\n' "- Commit: $commit_sha"
+            printf '%s\n' "- Test mode: $TEST_MODE"
             printf '%s\n' "- Selected paths:"
             if [[ -n "${DEPLOY_PATHS_JSON:-}" ]]; then
               jq -r '.[] | "- `" + . + "`"' <<< "$DEPLOY_PATHS_JSON"
