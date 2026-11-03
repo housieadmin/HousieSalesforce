@@ -1,6 +1,6 @@
 # Build status and release gate
 
-This project is being delivered in small, reviewable vertical slices. The human ticket-purchase/withdrawal slice is implemented in source. A later ticket-purchase transaction-order correction was deployed and browser-verified from `test/callout-transaction-e2e-v2`, but had not been merged to `main` at the 2026-11-03 review. Do not treat that feature-branch deployment as a merged release. See [the originating session record](../.project/sessions/2026-11-03-ticket-purchase-transaction-fix.md) for the root cause, exact commits and run evidence.
+This project is being delivered in small, reviewable vertical slices. The human ticket-purchase/withdrawal slice is implemented in source. A later ticket-purchase transaction-order correction was deployed and browser-verified from `test/callout-transaction-e2e-v2`, but had not been merged to `main` at the 2026-11-03 review. Do not treat that feature-branch deployment as a merged release. See [PR #22](https://github.com/housieadmin/HousieSalesforce/pull/22) for the source correction and review history.
 
 ## Implemented
 
