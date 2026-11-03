@@ -48,7 +48,7 @@ Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is
 
 ## Working rules
 
-- **PR-first Git rule:** Never commit or use the GitHub Contents API to write directly to `main), including for documentation, session notes, or emergency cleanup. Create or use a task-specific feature branch from the latest `main`, make all related changes there, and open/update a PR targeting `main`. Keep follow-up edits on that PR branch. Do not rewrite or force-update `main`; do not merge without explicit authorization and required checks.
+- **PR-first Git rule:** Never commit or use the GitHub Contents API to write directly to `main`, including for documentation, session notes, or emergency cleanup. Create or use a task-specific feature branch from the latest `main`, make all related changes there, and open/update a PR targeting `main`. Keep follow-up edits on that PR branch. Do not rewrite or force-update `main`; do not merge without explicit authorization and required checks.
 - Treat workstreams as optional context aids, not ownership boundaries. A session may carry a task end-to-end.
 - Keep iterative debugging in the active session; do not create formal handoffs for every change, deployment or test cycle.
 - Use QA scenarios and independent review when they add confidence. They are not mandatory approval stages for every fix.
