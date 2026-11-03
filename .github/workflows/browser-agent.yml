@@ -3,6 +3,11 @@ name: Housie Browser Agent
 on:
   issue_comment:
     types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/browser-agent.yml'
+      - 'browser-agent/scripts/**'
 
 permissions:
   contents: read
@@ -13,20 +18,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  execute:
-    name: Execute AI-authored browser scenarios
+  browser-agent:
+    name: ${{ github.event_name == 'pull_request' && 'Validate browser-agent request parser' || 'Execute AI-authored browser scenarios' }}
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 9 &&
-      github.event.issue.pull_request == null &&
-      startsWith(github.event.comment.body, '/browser-agent run') &&
-      (github.event.comment.author_association == 'OWNER' ||
-       github.event.comment.author_association == 'MEMBER' ||
-       github.event.comment.author_association == 'COLLABORATOR')
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 9 &&
+       github.event.issue.pull_request == null &&
+       startsWith(github.event.comment.body, '/browser-agent run') &&
+       (github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      - name: Check out pull request for parser validation
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+      - name: Set up Node.js for parser validation
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run parser regression tests
+        if: github.event_name == 'pull_request'
+        run: node --test browser-agent/scripts/parse-request.test.mjs
+
       - name: Parse and validate request
+        if: github.event_name == 'issue_comment'
         id: request
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
@@ -34,6 +53,7 @@ jobs:
         run: node browser-agent/scripts/parse-request.mjs
 
       - name: Check out requested ref
+        if: github.event_name == 'issue_comment'
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.request.outputs.ref }}
@@ -41,19 +61,23 @@ jobs:
           persist-credentials: false
 
       - name: Set up Node.js
+        if: github.event_name == 'issue_comment'
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
+        if: github.event_name == 'issue_comment'
         working-directory: browser-agent
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
+        if: github.event_name == 'issue_comment'
         working-directory: browser-agent
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Salesforce
+        if: github.event_name == 'issue_comment'
         env:
           SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
@@ -75,6 +99,7 @@ jobs:
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
 
       - name: Execute selected scenarios
+        if: github.event_name == 'issue_comment'
         id: run
         working-directory: browser-agent
         env:
@@ -144,6 +169,7 @@ jobs:
           exit "$TEST_EXIT"
 
       - name: Upload execution artifacts
+        if: github.event_name == 'issue_comment'
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -153,6 +179,7 @@ jobs:
           retention-days: 14
 
       - name: Comment with execution result
+        if: github.event_name == 'issue_comment'
         if: always()
         uses: actions/github-script@v7
         with:
