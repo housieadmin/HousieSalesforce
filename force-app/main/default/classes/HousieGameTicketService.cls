@@ -424,8 +424,16 @@ public without sharing class HousieGameTicketService {
             throw new HousieErrors.HousieException('Unsupported prepared ticket command type.');
         }
 
-        // This request performs DML only. The Big Object insertImmediate writes
-        // completed in commitTicketCommand in the preceding request.
+        // Materialize the result while the transaction is still read-only.
+        // commandResult() queries Ticket__b and the operation journal for purchases;
+        // those Big Object reads must finish before any standard-object DML.
+        command.Status__c = 'COMMITTED';
+        command.Updated_At__c = System.now();
+        command.Committed_At__c = command.Updated_At__c;
+        TicketActionResult completedResult = commandResult(command);
+
+        // The Big Object insertImmediate writes completed in commitTicketCommand
+        // in the preceding request. This request now performs DML only.
         if (command.Action_Type__c == 'WITHDRAW') {
             List<Housie_Account__c> accountRows = [
                 SELECT Id, Points_Balance__c, Reserved_Points__c
@@ -448,11 +456,8 @@ public without sharing class HousieGameTicketService {
         gameLocks[0].Updated_At__c = System.now();
         update gameLocks[0];
 
-        command.Status__c = 'COMMITTED';
-        command.Updated_At__c = System.now();
-        command.Committed_At__c = command.Updated_At__c;
         update command;
-        return commandResult(command);
+        return completedResult;
     }
 
     private static TicketActionResult commitPreparedPurchase(
