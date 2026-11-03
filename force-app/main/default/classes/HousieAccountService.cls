@@ -47,7 +47,6 @@ public with sharing class HousieAccountService {
             FROM Housie_Account__c
             WHERE Account_Key__c = :accountKey
             LIMIT 1
-            FOR UPDATE
         ];
         HousieErrors.require(!rows.isEmpty(), 'Account not found.');
         Housie_Account__c account = rows[0];
