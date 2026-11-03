@@ -5,6 +5,7 @@
 <label>Housie Wallet Hold</label><pluralLabel>Housie Wallet Hold Records</pluralLabel>
 <fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
+<fields><fullName>Hold_Id__c</fullName><label>Hold Id</label><length>32</length><type>Text</type></fields>
 <fields><fullName>Account_Id__c</fullName><label>Account Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
 <fields><fullName>Source_Type__c</fullName><label>Source Type</label><length>30</length><type>Text</type></fields>
