@@ -59,10 +59,26 @@ test("public test-user recovers pending purchase and creates a fresh ticket when
   };
 
   capturePurchase = true;
+  const pendingBanner = page.getByText("A previous action is prepared and needs to be finalized.", { exact: true });
   const finishPending = page.getByRole("button", { name: /Finish ticket purchase/ }).first();
-  if (await finishPending.count()) {
+  const purchaseButton = page.getByRole("button", { name: /Buy ticket/ }).first();
+
+  // The Board Hub heading renders before its asynchronous board/action data.
+  // Wait for the actual board card and one of its actionable states before
+  // deciding whether a pending command needs recovery.
+  await expect(page.getByRole("heading", { name: "B-0001", exact: true })).toBeVisible({ timeout: 60000 });
+  await expect.poll(async () => {
+    return await pendingBanner.isVisible().catch(() => false)
+      || await finishPending.isVisible().catch(() => false)
+      || await purchaseButton.isVisible().catch(() => false);
+  }, { timeout: 60000 }).toBe(true);
+
+  if (await pendingBanner.isVisible().catch(() => false)
+      || await finishPending.isVisible().catch(() => false)) {
+    await expect(finishPending, "A prepared command must expose its recovery action").toBeVisible({ timeout: 30000 });
     await finishPending.click();
-    await expect(page.getByRole("button", { name: /Finish ticket purchase/ })).toHaveCount(0, { timeout: 60000 });
+    await expect(finishPending).toHaveCount(0, { timeout: 60000 });
+    await expect(pendingBanner).toHaveCount(0, { timeout: 60000 });
     const recovered = await visiblePageText();
     housie.note("Pending purchase finalization result: " + recovered.slice(0, 1500));
     expect(recovered, "Pending purchase must finalize without a transaction error").not.toMatch(/pending uncommitted work/i);
