@@ -55,6 +55,6 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 
 ## GitHub Actions
 
-Salesforce CI/CD is split into PR validation, manual validation, controlled deployment, and org-to-Git metadata sync. Deployment is manual, gated, and dispatched from `main`; merging a PR does **not** deploy automatically.
+Salesforce CI/CD separates PR validation, manual validation, feature-branch AI iteration deployments/restores, controlled release deployment, and org-to-Git metadata sync. AI sessions can deploy selected paths from a pushed feature branch to Developer Edition without merging; approved release deployment remains manually gated from `main`.
 
 See the [GitHub Actions operations guide](docs/GITHUB_ACTIONS.md) for workflow usage, required GitHub/Salesforce configuration, security boundaries, test limitations, and troubleshooting.
