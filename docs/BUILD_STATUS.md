@@ -7,7 +7,7 @@ This project is being delivered in small, reviewable vertical slices. The curren
 - Salesforce DX project layout, package manifest, deploy/bootstrap scripts and Apex test runner.
 - Housie account object, infrastructure-only operation lock and Big Object metadata for the 15 logical entities plus the technical operation journal.
 - Apex Big Object persistence, serialized write lock, operation journal and fail-closed committed-record reads.
-- Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), initial balances/consumables and four immutable signup grant ledger records.
+- Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), with a pending-setup state and four immutable signup grant ledger records written in a separate Apex request before a DML-only activation request.
 - Route-context lookup by opaque account key.
 - Board lifecycle:
   - create a board with a game configuration snapshot and initial WAITING game;
@@ -16,6 +16,7 @@ This project is being delivered in small, reviewable vertical slices. The curren
   - join private boards using the board ID invitation token;
   - list/search public boards and join them;
   - leave only when the latest committed participant state and bot contribution state allow it.
+- Durable ticket-command outbox using a DML-only preparation request, a Big Object-only persistence request and a DML-only completion request. Prepared commands remain visible and retryable if persistence or completion is interrupted.
 - Human ticket purchase while the current game is WAITING:
   - server-generated 90-ball ticket layouts satisfying the existing layout validator;
   - no identical layouts within the game's current human-ticket set;
@@ -28,7 +29,7 @@ This project is being delivered in small, reviewable vertical slices. The curren
   - initial game-admin assignment event when the first eligible human participant purchases a ticket.
 - Purchase request IDs derive stable ticket/hold IDs so a client retry of the same request does not reserve points twice.
 - The owning account can list its own current human tickets and view layouts.
-- WAITING-game withdrawal for human-ticket owners:
+- WAITING-game withdrawal for human-ticket owners, using the same DML prepare / Big Object persist / DML complete sequence:
   - voids their active tickets through append-only withdrawal events;
   - appends RELEASED wallet-hold versions and immutable HOLD_RELEASE ledger transactions;
   - returns reserved points to available balance;
@@ -55,8 +56,8 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 - Source and metadata have been reviewed statically in this feature branch.
 - HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
-- No Salesforce CLI or connected org is available in this environment. The test suite, Apex compiler and metadata deployment have not been executed here.
-- Run scripts/deploy.sh with an org alias to deploy the wildcard manifest and initialize the singleton operation lock, then run scripts/run-tests.sh with the same alias.
+- The repository GitHub Actions pipeline now validates Salesforce metadata and runs all local Apex tests for pull requests; deployment is gated to pushes or manual runs on main. This branch's pipeline result is still pending.
+- Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
 
 ## Consistency note
 
