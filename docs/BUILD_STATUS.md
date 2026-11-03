@@ -6,7 +6,7 @@ This project is being delivered in small, reviewable vertical slices. The curren
 
 - Salesforce DX project layout, package manifest, deploy/bootstrap scripts and Apex test runner.
 - Housie account object, infrastructure-only operation lock and Big Object metadata for the 15 logical entities plus the technical operation journal.
-- Apex Big Object persistence, serialized write lock, operation journal and fail-closed committed-record reads.
+- Apex Big Object persistence, operation journal and fail-closed committed-record reads. The Big Object persistence transaction is strictly read-only before `Database.insertImmediate()`; it must not acquire DML row locks or perform ordinary DML.
 - Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), with a pending-setup state and four immutable signup grant ledger records written in a separate Apex request before a DML-only activation request.
 - Route-context lookup by opaque account key.
 - Board lifecycle:
@@ -17,7 +17,7 @@ This project is being delivered in small, reviewable vertical slices. The curren
   - list/search public boards and join them;
   - leave only when the latest committed participant state and bot contribution state allow it.
 - Durable ticket-command outbox using a DML-only preparation request, a Big Object-only persistence request and a DML-only completion request. Prepared commands remain visible and retryable if persistence or completion is interrupted.
-- Persistent per-game command gate held from command preparation until DML completion. This does not depend on a `FOR UPDATE` row lock surviving `insertImmediate`; Salesforce releases Apex `FOR UPDATE` locks when a callout occurs.
+- Persistent per-game command gate acquired in the DML-only preparation request, verified by read-only SOQL during Big Object persistence, and released in the DML-only completion request. The persistence request does not issue `FOR UPDATE`.
 - Withdrawal holds points reserved until committed Big Object hold releases and the DML-only completion step; only then are reserved points returned to the available balance.
 - Human ticket purchase while the current game is WAITING:
   - server-generated 90-ball ticket layouts satisfying the existing layout validator;
@@ -63,4 +63,4 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 ## Consistency note
 
-Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. Apex serializes business commands through the infrastructure lock and writes a COMMITTED journal marker last. Application reads reject records belonging to non-committed operation IDs. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
+Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. The Big Object writer does not acquire the DML infrastructure row lock; it writes a COMMITTED journal marker last. Ticket purchase/withdrawal is serialized by its per-game command gate. Other command paths still need explicit durable gates or equivalent idempotent concurrency controls before high-contention production use. Application reads reject records belonging to non-committed operation IDs. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
