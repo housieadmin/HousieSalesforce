@@ -68,8 +68,8 @@ jobs:
         with:
           ref: ${{ steps.request.outputs.ref }}
           fetch-depth: 0
-          clean: false
           persist-credentials: false
+          path: .browser-agent-source
 
       - name: Set up Node.js
         if: github.event_name == 'issue_comment'
@@ -79,12 +79,12 @@ jobs:
 
       - name: Install dependencies
         if: github.event_name == 'issue_comment'
-        working-directory: browser-agent
+        working-directory: .browser-agent-source/browser-agent
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
         if: github.event_name == 'issue_comment'
-        working-directory: browser-agent
+        working-directory: .browser-agent-source/browser-agent
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Salesforce
@@ -111,7 +111,7 @@ jobs:
       - name: Execute selected scenarios
         if: github.event_name == 'issue_comment'
         id: run
-        working-directory: browser-agent
+        working-directory: .browser-agent-source/browser-agent
         env:
           SCENARIOS_JSON: ${{ steps.request.outputs.scenarios }}
           RUN_DESCRIPTION: ${{ steps.request.outputs.description }}
@@ -183,7 +183,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: housie-browser-agent-${{ github.run_id }}-${{ github.run_attempt }}
-          path: browser-agent/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
+          path: .browser-agent-source/browser-agent/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: warn
           retention-days: 14
 
