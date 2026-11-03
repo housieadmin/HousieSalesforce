@@ -58,8 +58,17 @@ public without sharing class HousieGameTicketService {
     public static TicketActionResult prepareTicketPurchase(
         String boardId, String accountId, String mode, String requestId
     ) {
-        HousieOperationService.lockForWrite();
-        Housie_Account__c actor = lockAccount(accountId);
+        try {
+            HousieOperationService.lockForWrite();
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage global-lock-query: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
+        Housie_Account__c actor;
+        try {
+            actor = lockAccount(accountId);
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage account-lock-query: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
         GameContext context = loadCurrentGame(boardId);
         requireMember(boardId, actor.Account_Key__c);
         HousieErrors.require(String.isNotBlank(requestId) && requestId.length() <= 120,
@@ -104,7 +113,11 @@ public without sharing class HousieGameTicketService {
             return actionResultFromTicket(existingById[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
         }
 
-        acquireGameCommandLock(context.gameRow.Record_Id__c, ticketId);
+        try {
+            acquireGameCommandLock(context.gameRow.Record_Id__c, ticketId);
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage game-command-lock: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
 
         Decimal fee = decimalConfig(context.config, 'ticketEntryFee', 10);
         Integer maximumTickets = integerConfig(context.config, 'maximumHumanTicketsPerAccount', 2);
