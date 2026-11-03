@@ -122,10 +122,13 @@ public without sharing class HousieGameTicketService {
             return actionResultFromTicket(existingById[0], withdrawnTicketIds(context.gameRow.Record_Id__c));
         }
 
+        // Lock the existing game-command row before Big Object reads, but defer
+        // its DML activation until every Big Object query in this transaction is complete.
+        Housie_Game_Command_Lock__c gameCommandLock;
         try {
-            acquireGameCommandLock(context.gameRow.Record_Id__c, ticketId);
+            gameCommandLock = lockGameCommandSlot(context.gameRow.Record_Id__c);
         } catch (Exception e) {
-            throw new AuraHandledException('prepare stage game-command-lock: ' + e.getTypeName() + ': ' + e.getMessage());
+            throw new AuraHandledException('prepare stage game-command-lock-query: ' + e.getTypeName() + ': ' + e.getMessage());
         }
 
         Decimal fee = decimalConfig(context.config, 'ticketEntryFee', 10);
@@ -181,6 +184,7 @@ public without sharing class HousieGameTicketService {
         Datetime nowAt = System.now();
         actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) + fee;
         HousieDomainRules.assertWalletInvariant(actor);
+        activateGameCommandLock(gameCommandLock, context.gameRow.Record_Id__c, ticketId);
         try {
             update actor;
         } catch (Exception e) {
@@ -253,7 +257,14 @@ public without sharing class HousieGameTicketService {
             return actionResultFromCommand(prior);
         }
 
-        acquireGameCommandLock(context.gameRow.Record_Id__c, commandId);
+        // Hold the game-command row while reading Big Objects; activate it with
+        // DML only after the Big Object reads and validation have finished.
+        Housie_Game_Command_Lock__c gameCommandLock;
+        try {
+            gameCommandLock = lockGameCommandSlot(context.gameRow.Record_Id__c);
+        } catch (Exception e) {
+            throw new AuraHandledException('withdrawal stage game-command-lock-query: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
 
         Set<String> withdrawn = withdrawnTicketIds(context.gameRow.Record_Id__c);
         List<Ticket__b> allTickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
@@ -279,6 +290,7 @@ public without sharing class HousieGameTicketService {
         }
 
         Datetime nowAt = System.now();
+        activateGameCommandLock(gameCommandLock, context.gameRow.Record_Id__c, commandId);
 
         Housie_Ticket_Command__c command = new Housie_Ticket_Command__c(
             Request_Key__c = commandId,
@@ -626,7 +638,7 @@ public without sharing class HousieGameTicketService {
         return prepareWaitingGameWithdrawal(boardId, accountId, requestId);
     }
 
-    private static void acquireGameCommandLock(String gameId, String commandKey) {
+    private static Housie_Game_Command_Lock__c lockGameCommandSlot(String gameId) {
         List<Housie_Game_Command_Lock__c> rows = [
             SELECT Id, Game_Id__c, Status__c, Active_Command_Key__c
             FROM Housie_Game_Command_Lock__c
@@ -634,8 +646,17 @@ public without sharing class HousieGameTicketService {
             LIMIT 1
             FOR UPDATE
         ];
+        if (rows.isEmpty()) return null;
+        HousieErrors.require(rows[0].Status__c != 'PROCESSING',
+            'Another game command is still being finalized. Retry after that command completes.');
+        return rows[0];
+    }
+
+    private static void activateGameCommandLock(
+        Housie_Game_Command_Lock__c gameLock, String gameId, String commandKey
+    ) {
         Datetime nowAt = System.now();
-        if (rows.isEmpty()) {
+        if (gameLock == null) {
             try {
                 insert new Housie_Game_Command_Lock__c(
                     Game_Id__c = gameId,
@@ -650,9 +671,6 @@ public without sharing class HousieGameTicketService {
             return;
         }
 
-        Housie_Game_Command_Lock__c gameLock = rows[0];
-        HousieErrors.require(gameLock.Status__c != 'PROCESSING',
-            'Another game command is still being finalized. Retry after that command completes.');
         gameLock.Status__c = 'PROCESSING';
         gameLock.Active_Command_Key__c = commandKey;
         gameLock.Updated_At__c = nowAt;
