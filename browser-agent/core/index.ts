@@ -6,6 +6,7 @@ type Diagnostic = { timestamp: string; type: string; message: string; url?: stri
 export type HousieBrowser = {
   login(): Promise<void>;
   navigate(pathOrUrl: string): Promise<void>;
+  openRecord(objectApiName: string, recordId: string): Promise<void>;
   screenshot(name: string): Promise<string>;
   note(message: string): void;
 };
@@ -46,6 +47,15 @@ export const test = base.extend<Fixtures>({
         const baseUrl = new URL(page.url()).origin + "/";
         const target = /^https?:\/\//i.test(value) ? value : new URL(value.replace(/^\//, ""), baseUrl).toString();
         await page.goto(target, { waitUntil: "domcontentloaded" });
+      },
+      async openRecord(objectApiName, recordId) {
+        if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(objectApiName)) {
+          throw new Error("Invalid Salesforce object API name: " + objectApiName);
+        }
+        if (!/^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$/.test(recordId)) {
+          throw new Error("Invalid Salesforce record ID; expected 15 or 18 alphanumeric characters.");
+        }
+        await this.navigate("/lightning/r/" + encodeURIComponent(objectApiName) + "/" + encodeURIComponent(recordId) + "/view");
       },
       async screenshot(label) {
         const dir = path.join(root, "screenshots", name);
