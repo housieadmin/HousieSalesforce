@@ -24,9 +24,19 @@ concurrency:
 jobs:
   retrieve-and-open-pr:
     name: Retrieve allowlisted metadata and create PR
-    if: github.ref == 'refs/heads/main' && inputs.confirm_sync == 'SYNC'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - name: Verify explicit sync confirmation
+        env:
+          CONFIRM_SYNC: ${{ inputs.confirm_sync }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRM_SYNC" != "SYNC" ]]; then
+            echo "Org sync not authorized. Type SYNC in the confirmation input." >&2
+            exit 1
+          fi
+
       - name: Check out main
         uses: actions/checkout@v4
         with:
@@ -83,6 +93,6 @@ jobs:
           git add force-app/
           git commit -m "chore: sync allowlisted metadata from Salesforce org"
           git push origin "$branch"
-          gh pr create --base main --head "$branch" --title "Sync allowlisted metadata from Salesforce org" --body "Automated Salesforce metadata retrieval using `$RETRIEVE_MANIFEST`.
+          gh pr create --base main --head "$branch" --title "Sync allowlisted metadata from Salesforce org" --body "Automated Salesforce metadata retrieval using $RETRIEVE_MANIFEST.
 
           Review the full diff carefully. This workflow never writes retrieved metadata directly to main."
