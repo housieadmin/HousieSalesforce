@@ -1,72 +1,37 @@
 # Project state
 
-**Baseline branch:** `main`  
-**Baseline commit:** `5637e00fd0461ecc02f89c3db7b74d2407ee4ea9`  
-**Baseline date:** 2026-11-03  
-**Purpose:** Cross-session project state snapshot. Re-verify before relying on it.
+**Last reviewed baseline:** `main` at `5637e00fd0461ecc02f89c3db7b74d2407ee4ea9`  
+**Review date:** 2026-11-03  
+**Purpose:** Compact orientation only. Re-verify branch and commit before relying on this snapshot.
 
-## Product objective
+## Product
+Build an automated multiplayer Housie/Tambola platform. Product behaviour is specified in `docs/SPEC.md`; the technology-independent logical model is in `docs/DATA_MODEL.md`.
 
-Build an automated multiplayer Housie/Tambola platform with persistent accounts and boards, paid human and bot tickets, automated/manual gameplay, claims, game wallets and settlement, administration, chat and progression. The complete behavioural requirements are in `docs/SPEC.md`.
+## Repository at the reviewed baseline
+Salesforce DX project with Apex services, four LWC bundles, permission sets, custom/Big Object metadata and GitHub Actions for validation, deployment, browser-agent execution and metadata sync. The reviewed tree had no committed Flow, Apex trigger, Aura or ExperienceBundle source.
 
-## Authoritative baseline documents
-
-- `docs/SPEC.md` — product requirements, version 1.0.
-- `docs/DATA_MODEL.md` — logical data model, version 1.0, 16 entities.
-- `docs/DATA_MODEL_MAPPING.md` — Salesforce mapping.
-- `docs/ARCHITECTURE.md` — current documented architecture; verify against source before relying on details.
-- `docs/BUILD_STATUS.md` — existing status document, but its opening and validation sections are stale as of this baseline.
-
-## Repository shape observed
-
-- Salesforce DX project.
-- Apex services and one Apex test class.
-- Four LWC bundles: account admin, application shell, board hub and simulation panel.
-- Permission sets and custom/Big Object metadata.
-- GitHub Actions for validation, deployment, browser-agent execution and metadata sync.
-- No committed Flow metadata, Apex triggers, Aura source or ExperienceBundle source was present in the reviewed tree.
-
-## Implemented vertical slices observed in source
-
+## Implemented source slices observed
 - Account setup and signup resource grants.
-- Board creation, owner membership, private invitation by board ID, public board directory/join, membership listing and leave checks.
-- Human ticket layout generation and WAITING-game purchase.
-- Manual/automatic ticket-mode selection, wallet hold/ledger records and automatic-token consumption.
+- Board creation, owner membership, private join by board ID, public directory/join and membership operations.
+- Human ticket generation and purchase in WAITING games.
+- Manual/automatic mode selection, wallet holds/ledger records and automatic-token consumption.
 - WAITING-game human-ticket withdrawal and release.
-- Board Hub ticket purchase, preview and withdrawal UI.
+- Board Hub purchase, preview and withdrawal UI.
 
-These are implementation observations, not a claim that every path is runtime-verified or production-ready.
+These are source observations, not claims of full runtime verification.
 
-## Material incomplete product areas
-
-- Game start approvals and capture of pre-game holds into the Game Wallet.
-- Bot offers, contributor acceptance/revision workflow and bot funding.
-- Number calling, manual marking, automatic marking, automatic claims and claim validation.
-- Admin presence/rotation, pause/resume, missed-call recovery and game lifecycle orchestration.
-- Category closure, disqualification, payout and settlement.
-- Authentication/session lifecycle and secure invitation/session handling.
-- Chat and presence, achievements and leaderboards.
-- Durable repair processing and comprehensive integration/security/concurrency/load tests.
-
-See `IMPLEMENTATION_STATUS.md` and `REQUIREMENTS_TRACEABILITY.md` for the more granular breakdown.
+## Major incomplete product areas observed
+Full game lifecycle and start approvals; bot offers/funding; number calling and marking; claims and validation; category closure, payouts and settlement; admin rotation and recovery; secure session lifecycle; chat/presence and progression; durable repair processing; comprehensive integration/security/concurrency/load testing.
 
 ## Verification limits
+The baseline review found one Apex test class focused mainly on domain helpers and ticket-layout rules. Browser-agent infrastructure existed, but navigation smoke coverage did not establish end-to-end gameplay. Live org automation and Experience Cloud configuration were not inspected.
 
-- Static source review was performed for the baseline.
-- The only Apex test class observed was `HousieDomainRulesTest`; it primarily tests domain helpers and ticket-layout rules.
-- The repository test script runs that test class; this is not broad service or end-to-end coverage.
-- Browser-agent infrastructure exists, but a passing navigation/smoke scenario is not proof that purchase, gameplay or settlement works end to end.
-- No direct inspection of live Salesforce org automation, active Flows, or Experience Cloud configuration is asserted by this snapshot.
+## Detailed references
+Read these only when the task needs them:
+- `IMPLEMENTATION_STATUS.md` — feature-level implementation assessment.
+- `REQUIREMENTS_TRACEABILITY.md` — requirement-to-source mapping.
+- `ARCHITECTURE_DECISIONS.md` — integrity and design invariants.
+- `KNOWN_ISSUES.md` — confirmed discrepancies.
 
-## Current-session exclusions
-
-Separate workstreams remain independently managed. Do not infer their state, include their defects in this session's issue list, or make changes to them without an explicit status handoff from their owner.
-
-## Update protocol
-
-When the default branch changes materially:
-1. Record the new commit SHA and date.
-2. Recheck the source tree and changed code.
-3. Update implementation status and traceability only where evidence supports a change.
-4. Keep runtime verification separate from source/deployment validation.
-5. Record unresolved discrepancies in `KNOWN_ISSUES.md`.
+## Snapshot maintenance
+Update this file only when a material repository/product baseline change makes the summary misleading. Record the new main SHA/date and re-check evidence. Do not infer the state of independently managed workstreams.
