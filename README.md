@@ -1,6 +1,6 @@
 # Housie Salesforce DX
 
-Salesforce DX project for Housie, built against the supplied `build.md`, `final_data_model.md` and `final_spec.md`.
+Salesforce DX project for Housie, built against the authoritative product requirements in [`docs/SPEC.md`](docs/SPEC.md) and logical data model in [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md). Cross-session project state and implementation traceability are maintained under [`.project/`](.project/README.md).
 
 ## Quick start
 
@@ -31,15 +31,15 @@ After deployment:
 - Boards: create a board and initial WAITING game, owner membership, private board-ID invitation, public directory search/join, active membership listing and leave checks.
 - Human tickets: server-generated valid 90-ball layouts, manual/automatic purchase in WAITING games, account wallet holds, resource ledger entries, own-ticket display and pre-start human withdrawal/release. A DML-only command preparation, Big Object-only persistence and DML-only completion sequence keeps `insertImmediate` callouts out of transactions with pending record updates. A persistent per-game command gate prevents a second ticket/withdrawal command from running until the first is finalized; prepared commands remain visible and retryable. Withdrawal keeps points reserved until the Big Object hold releases are verified.
 
-A purchased ticket is not yet playable: game-start approvals, hold capture, number calls, marking, claims and settlement remain unimplemented. The full scope and release gate are tracked in `docs/BUILD_STATUS.md`.
+A purchased ticket is not yet playable: game-start approvals, hold capture, number calls, marking, claims and settlement remain unimplemented. The full scope and release gate are tracked in [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
 
 ## Deployment errors
 
-The attached 51-error deployment report has been analyzed and patched in this branch. The exact mapping is in `docs/DEPLOYMENT_ERRORS_FIXED.md`.
+The attached 51-error deployment report has been analyzed and patched in this branch. The exact mapping is in [`docs/DEPLOYMENT_ERRORS_FIXED.md`](docs/DEPLOYMENT_ERRORS_FIXED.md).
 
 ## Architecture caveat
 
-Big Objects are non-transactional. Apex validation, the infrastructure lock and operation journal provide serialized writes and fail-closed visibility; they do not provide rollback of successful Big Object writes. See `docs/ARCHITECTURE.md` and `docs/BUILD_STATUS.md`.
+Big Objects are non-transactional. Apex validation, the infrastructure lock and operation journal provide serialized writes and fail-closed visibility; they do not provide rollback of successful Big Object writes. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md).
 
 ## Project layout
 
@@ -52,6 +52,7 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 - `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
 - `scripts`: deploy, bootstrap and test scripts
 - `docs`: architecture, data mapping, deployment fixes and build status
+- `.project`: project continuity, requirements traceability, implementation status and session handoffs
 
 ## GitHub Actions
 
