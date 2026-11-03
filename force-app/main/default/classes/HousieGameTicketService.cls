@@ -1,9 +1,6 @@
 public without sharing class HousieGameTicketService {
     public class TicketView {
         @AuraEnabled public String ticketId { get; set; }
-        @AuraEnabled public String requestId { get; set; }
-        @AuraEnabled public String boardId { get; set; }
-        @AuraEnabled public String actionType { get; set; }
         @AuraEnabled public String mode { get; set; }
         @AuraEnabled public String status { get; set; }
         @AuraEnabled public Decimal entryFee { get; set; }
@@ -11,6 +8,9 @@ public without sharing class HousieGameTicketService {
     }
     public class TicketActionResult {
         @AuraEnabled public String ticketId { get; set; }
+        @AuraEnabled public String requestId { get; set; }
+        @AuraEnabled public String boardId { get; set; }
+        @AuraEnabled public String actionType { get; set; }
         @AuraEnabled public String mode { get; set; }
         @AuraEnabled public String status { get; set; }
         @AuraEnabled public Decimal entryFee { get; set; }
@@ -62,8 +62,6 @@ public without sharing class HousieGameTicketService {
         Housie_Account__c actor = lockAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
         requireMember(boardId, actor.Account_Key__c);
-        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
-            'Tickets can only be purchased while the game is waiting.');
         HousieErrors.require(String.isNotBlank(requestId) && requestId.length() <= 120,
             'A valid ticket purchase request id is required.');
 
@@ -88,6 +86,8 @@ public without sharing class HousieGameTicketService {
                 'This purchase request id was already used for a different request.');
             return actionResultFromCommand(prior);
         }
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'Tickets can only be purchased while the game is waiting.');
 
         List<Ticket__b> existingById = [
             SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Mode__c, Layout__c,
@@ -278,7 +278,7 @@ public without sharing class HousieGameTicketService {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
             SELECT Request_Key__c, Board_Id__c, Action_Type__c, Ticket_Id__c,
-                   Mode__c, Entry_Fee__c, Status__c
+                   Mode__c, Entry_Fee__c, Layout__c, Status__c
             FROM Housie_Ticket_Command__c
             WHERE Account_Key__c = :actor.Account_Key__c AND Status__c = 'PREPARED'
             ORDER BY Created_At__c ASC
@@ -543,7 +543,14 @@ public without sharing class HousieGameTicketService {
                 LIMIT 1
             ];
             if (!rows.isEmpty() && HousieBigObjectStore.isCommitted(rows[0].Operation_Id__c)) {
-                return actionResultFromTicket(rows[0], withdrawnTicketIds(command.Game_Id__c));
+                TicketActionResult completed = actionResultFromTicket(
+                    rows[0], withdrawnTicketIds(command.Game_Id__c)
+                );
+                completed.requestId = command.Request_Key__c;
+                completed.boardId = command.Board_Id__c;
+                completed.actionType = command.Action_Type__c;
+                completed.status = 'COMMITTED';
+                return completed;
             }
         }
         return actionResultFromCommand(command);
