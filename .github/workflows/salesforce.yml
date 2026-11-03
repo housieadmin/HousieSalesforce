@@ -44,7 +44,8 @@ jobs:
             --username "$SF_USERNAME" \
             --instance-url "${SF_INSTANCE_URL:-https://login.salesforce.com}" \
             --alias housie-ci
-          sf project deploy validate \
+          sf project deploy start \
+            --dry-run \
             --manifest manifest/package.xml \
             --target-org housie-ci \
             --test-level RunLocalTests \
