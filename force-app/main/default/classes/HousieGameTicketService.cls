@@ -300,6 +300,10 @@ public without sharing class HousieGameTicketService {
 
     @AuraEnabled
     public static TicketActionResult commitTicketCommand(String requestId, String accountId) {
+        // Serialize the full read/persist path. Acquiring the lock only inside
+        // executeOperation() is too late: concurrent retries could both pass
+        // the prior-record check before either request persists its Big Objects.
+        HousieOperationService.lockForWrite();
         HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
@@ -309,6 +313,7 @@ public without sharing class HousieGameTicketService {
             FROM Housie_Ticket_Command__c
             WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
             LIMIT 1
+            FOR UPDATE
         ];
         HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
         Housie_Ticket_Command__c command = commands[0];
