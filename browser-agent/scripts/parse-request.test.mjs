@@ -34,3 +34,25 @@ test('rejects duplicate scenarios before the description', () => {
   );
   assert.throws(() => parseRequest(duplicate), /1-10 unique/);
 });
+
+import { extractFrontdoorUrl } from './extract-frontdoor-url.mjs';
+
+test('extracts Salesforce frontdoor URL from CLI JSON', () => {
+  const url = 'https://example.my.salesforce.com/secur/frontdoor.jsp?sid=masked';
+  assert.equal(extractFrontdoorUrl(JSON.stringify({ status: 0, result: { url } })), url);
+});
+
+test('extracts JSON when Salesforce CLI writes a warning before it', () => {
+  const url = 'https://example.my.salesforce.com/secur/frontdoor.jsp?sid=masked';
+  assert.equal(extractFrontdoorUrl('Warning: generated login URL\n' + JSON.stringify({ result: { url } })), url);
+});
+
+test('rejects malformed Salesforce CLI JSON', () => {
+  assert.throws(() => extractFrontdoorUrl('not json'), /did not return JSON/);
+  assert.throws(() => extractFrontdoorUrl('{broken'), /invalid JSON/);
+});
+
+test('rejects missing or non-HTTPS frontdoor URL', () => {
+  assert.throws(() => extractFrontdoorUrl(JSON.stringify({ result: {} })), /valid result.url/);
+  assert.throws(() => extractFrontdoorUrl(JSON.stringify({ result: { url: 'http://example.com' } })), /valid result.url/);
+});
