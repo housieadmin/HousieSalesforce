@@ -49,13 +49,39 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 - `scripts`: deploy, bootstrap and test scripts
 - `docs`: architecture, data mapping, deployment fixes and build status
 
-## GitHub Actions deployment
+## GitHub Actions control centre
 
-The repository includes `.github/workflows/salesforce.yml`:
+The Salesforce automation is split by responsibility. Each workflow has a single purpose; none of the validation workflows can deploy metadata.
 
-- Pull requests targeting `main` validate only `manifest/package.xml` (application metadata) and then run all local Apex tests.
-- A push to `main` deploys only `manifest/package.xml` to the GitHub Environment named `development`, then runs all local Apex tests. It does not rerun the one-time infrastructure bootstrap.
-- A manual workflow dispatch from `main` lets an operator choose `application`, `org-setup`, or `experience`. The selected manifest is dry-run validated first, then deployed. The infrastructure bootstrap is intentionally not part of automated deployments; run it once during initial setup or explicitly for repair. Apex tests run after every selected deployment.
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `.github/workflows/salesforce-pr-validation.yml` | Pull request to `main` | Dry-run validates the application manifest and runs local Apex tests |
+| `.github/workflows/salesforce-manual-validation.yml` | Manual dispatch from `main` | Validates a selected branch or PR ref against a selected manifest; never deploys |
+| `.github/workflows/salesforce-deploy.yml` | Manual dispatch from `main` | Explicitly deploys one approved scope to the Developer Edition org |
+| `.github/workflows/salesforce-org-sync.yml` | Manual dispatch from `main` | Retrieves the dedicated allowlist and opens a PR with org changes |
+
+### Manual validation
+
+Open **Actions → Salesforce Manual Validation → Run workflow**. Keep the workflow ref on `main`, then provide:
+
+- `source_ref`: a branch such as `feature/my-change`, or a pull request ref such as `refs/pull/123/head`.
+- `manifest_scope`: `application`, `org-setup`, `experience`, or `custom`.
+- `custom_manifest`: required only for `custom`; must be an XML file beneath `manifest/`.
+- `run_apex_tests`: normally leave enabled.
+
+The workflow checks out the requested source ref, performs a Salesforce metadata dry run with `NoTestRun`, and optionally runs all local Apex tests separately. It has no deploy step. The workflow definition itself is taken from `main`, not from the branch being validated.
+
+### Controlled deployment
+
+Deployment is deliberately manual and only runs when the workflow is dispatched from `main`. Choose the metadata scope and type `DEPLOY` into the confirmation input. The job uses the `development` GitHub Environment, which should be configured with required reviewers and restricted to `main`. It performs a dry run and Apex tests before deployment, then runs Apex tests again afterward.
+
+There is no automatic deployment on push to `main`. Branches and PRs can be validated, but unmerged code cannot be deployed through this workflow. This is intentional: deploying arbitrary feature branches into one shared Developer Edition org can overwrite newer work and make the org's state unpredictable. No bootstrap script is run as part of deployment.
+
+### Org-to-Git sync
+
+Open **Actions → Salesforce Org Metadata Sync → Run workflow** from `main`, type `SYNC`, and choose the retrieve manifest. The workflow retrieves only the members listed in that manifest, creates an `automation/org-sync-<run-id>` branch, commits the retrieved diff, and opens a PR against `main`. If there is no diff, it exits without creating a PR. It never commits directly to `main`.
+
+The starter `manifest/package-retrieve.xml` retrieves only `Housie_Account__c`. This is intentionally narrow. Add exact metadata members to this file as the sync scope expands; do not replace it with wildcards unless you deliberately want every matching component in the org to enter the review stream. Org sync is a retrieval mechanism, not an automatic approval or deployment mechanism.
 
 ### Manifest boundaries and dependencies
 
@@ -67,10 +93,9 @@ A successful dry run does not catch every runtime dependency. For example, Apex 
 
 ### Test and coverage behavior
 
-This pipeline targets a Salesforce Developer Edition org. Developer Edition is a development environment, so metadata deployment uses `NoTestRun`; Apex tests are executed as a separate required step using `sf apex run test --test-level RunLocalTests`. This keeps test execution mandatory without making the deployment command enforce the org-wide 75% deployment coverage threshold.
+This pipeline targets a Salesforce Developer Edition org. Developer Edition is a development environment, so metadata validation and deployment use `NoTestRun`; Apex tests are executed as a separate step using `sf apex run test --test-level RunLocalTests`. This keeps test execution mandatory without making the metadata command enforce the org-wide 75% deployment coverage threshold.
 
 This is an intentional development-org workflow, not a production deployment policy. Before deploying Apex to a production org, restore Salesforce's required deployment test level and satisfy the applicable 75% coverage requirements. A green CI run here does not certify production deployment readiness.
-
 ### One-time GitHub configuration
 
 Configure these repository or environment settings before enabling the workflow:
