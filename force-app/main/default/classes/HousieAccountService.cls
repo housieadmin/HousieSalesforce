@@ -45,7 +45,7 @@ public with sharing class HousieAccountService {
         HousieOperationService.lockForWrite();
 
         List<Housie_Account__c> rows = [
-            SELECT Id, Account_Key__c, Status__c, Updated_At__c
+            SELECT Id, Account_Key__c, Display_Name__c, Status__c, Updated_At__c
             FROM Housie_Account__c
             WHERE Account_Key__c = :accountKey
             LIMIT 1
