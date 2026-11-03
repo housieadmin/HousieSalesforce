@@ -30,3 +30,7 @@ h4 { font-size:1rem; font-weight:700; margin:0; color:#172033; }
   .board-card { align-items:flex-start; flex-direction:column; }
   .section-heading, .public-heading { align-items:stretch; flex-direction:column; }
 }
+
+.pending-actions { flex-basis:100%; border:1px solid #d9a441; background:#fff9e9; border-radius:.65rem; padding:.75rem; }
+.pending-action { display:flex; align-items:center; justify-content:space-between; gap:.7rem; padding:.3rem 0; font-size:.8rem; }
+@media (max-width: 700px) { .pending-action { align-items:flex-start; flex-direction:column; } }
