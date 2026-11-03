@@ -68,10 +68,11 @@ jobs:
       - name: Create branch and pull request when changes exist
         env:
           GH_TOKEN: ${{ github.token }}
+          RETRIEVE_MANIFEST: ${{ inputs.retrieve_manifest }}
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- force-app; then
+          if [[ -z "$(git status --porcelain -- force-app)" ]]; then
             echo "No retrieved metadata changes; no pull request is needed."
             exit 0
           fi
