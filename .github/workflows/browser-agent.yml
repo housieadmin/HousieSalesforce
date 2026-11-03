@@ -105,6 +105,7 @@ jobs:
         env:
           SCENARIOS_JSON: ${{ steps.request.outputs.scenarios }}
           RUN_DESCRIPTION: ${{ steps.request.outputs.description }}
+          REQUESTED_REF: ${{ steps.request.outputs.ref }}
           BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
@@ -127,8 +128,8 @@ jobs:
           fs.writeFileSync(path.join(process.env.BROWSER_AGENT_ARTIFACT_DIR, 'run-metadata.json'), JSON.stringify({
             runId: process.env.GITHUB_RUN_ID,
             attempt: process.env.GITHUB_RUN_ATTEMPT,
-            sourceRef: process.env.GITHUB_REF_NAME,
-            sourceCommit: process.env.GITHUB_SHA,
+            sourceRef: process.env.REQUESTED_REF,
+            sourceCommit: require('node:child_process').execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
             scenarios: files,
             description: process.env.RUN_DESCRIPTION
           }, null, 2));
