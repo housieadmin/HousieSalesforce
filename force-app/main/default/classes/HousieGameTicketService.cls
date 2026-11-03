@@ -300,10 +300,6 @@ public without sharing class HousieGameTicketService {
 
     @AuraEnabled
     public static TicketActionResult commitTicketCommand(String requestId, String accountId) {
-        // Keep the infrastructure lock ahead of command and Big Object reads.
-        // insertImmediate() releases Apex row locks, so retry identity is also
-        // kept stable by passing the prepared command key to executeOperation().
-        HousieOperationService.lockForWrite();
         HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
@@ -313,7 +309,6 @@ public without sharing class HousieGameTicketService {
             FROM Housie_Ticket_Command__c
             WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
             LIMIT 1
-            FOR UPDATE
         ];
         HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
         Housie_Ticket_Command__c command = commands[0];
@@ -518,7 +513,7 @@ public without sharing class HousieGameTicketService {
                 'mode' => command.Mode__c,
                 'entryFee' => command.Entry_Fee__c
             }, purchaseAt, HousieIds.stableId('GAME_EVENT', command.Ticket_Id__c + ':TICKET_PURCHASED')));
-        HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes, command.Request_Key__c);
+        HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes);
 
         TicketActionResult result = new TicketActionResult();
         result.ticketId = command.Ticket_Id__c;
@@ -596,7 +591,7 @@ public without sharing class HousieGameTicketService {
         }
 
         if (!writes.isEmpty()) {
-            HousieOperationService.executeOperation('WITHDRAW_FROM_WAITING_GAME', writes, command.Request_Key__c);
+            HousieOperationService.executeOperation('WITHDRAW_FROM_WAITING_GAME', writes);
         }
         TicketActionResult result = new TicketActionResult();
         result.status = 'WITHDRAWN';
