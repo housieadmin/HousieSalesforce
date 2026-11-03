@@ -23,6 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Reusable workflow calls inherit the caller's github.event_name; inputs.source_ref is the reliable discriminator.
   browser-agent:
     name: Browser agent validation
     if: >-
