@@ -41,7 +41,13 @@ export const test = base.extend<Fixtures>({
       async login() {
         const url = process.env.HOUSIE_START_URL;
         if (!url) throw new Error("HOUSIE_START_URL is missing; workflow authentication did not complete.");
-        await page.goto(url, { waitUntil: "domcontentloaded" });
+        const instanceUrl = process.env.SF_INSTANCE_URL;
+        if (!instanceUrl) throw new Error("SF_INSTANCE_URL is missing; workflow configuration is incomplete.");
+        const expectedOrigin = new URL(instanceUrl).origin;
+        await page.goto(url, { waitUntil: "commit" });
+        await page.waitForURL(current => current.origin === expectedOrigin, { timeout: 60000 });
+        await page.waitForLoadState("domcontentloaded");
+        record("login-complete", "Salesforce frontdoor redirect reached the configured org.", { url: safeUrl(page.url()) });
       },
       async navigate(value) {
         const baseUrl = new URL(page.url()).origin + "/";
