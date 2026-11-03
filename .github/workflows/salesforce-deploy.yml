@@ -1,0 +1,81 @@
+name: Salesforce Controlled Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_scope:
+        description: Metadata group to deploy
+        required: true
+        type: choice
+        default: application
+        options:
+          - application
+          - org-setup
+          - experience
+      confirm_deployment:
+        description: Type DEPLOY to authorize the deployment request
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salesforce-development-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy approved release to Developer Edition
+    if: github.ref == 'refs/heads/main' && inputs.confirm_deployment == 'DEPLOY'
+    runs-on: ubuntu-latest
+    environment: development
+    env:
+      DEPLOYMENT_SCOPE: ${{ inputs.deployment_scope }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve manifest
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$DEPLOYMENT_SCOPE" in
+            application) path="manifest/package.xml" ;;
+            org-setup) path="manifest/package-org-setup.xml" ;;
+            experience) path="manifest/package-experience.xml" ;;
+            *) echo "Unsupported deployment scope: $DEPLOYMENT_SCOPE" >&2; exit 1 ;;
+          esac
+          test -f "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Developer Edition
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          chmod 600 "$RUNNER_TEMP/server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+
+      - name: Validate selected release (dry run)
+        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Run local Apex tests before deployment
+        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+
+      - name: Deploy selected metadata
+        run: sf project deploy start --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+
+      - name: Run local Apex tests after deployment
+        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
