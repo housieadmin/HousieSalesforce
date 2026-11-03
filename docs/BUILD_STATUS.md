@@ -17,6 +17,8 @@ This project is being delivered in small, reviewable vertical slices. The curren
   - list/search public boards and join them;
   - leave only when the latest committed participant state and bot contribution state allow it.
 - Durable ticket-command outbox using a DML-only preparation request, a Big Object-only persistence request and a DML-only completion request. Prepared commands remain visible and retryable if persistence or completion is interrupted.
+- Persistent per-game command gate held from command preparation until DML completion. This does not depend on a `FOR UPDATE` row lock surviving `insertImmediate`; Salesforce releases Apex `FOR UPDATE` locks when a callout occurs.
+- Withdrawal holds points reserved until committed Big Object hold releases and the DML-only completion step; only then are reserved points returned to the available balance.
 - Human ticket purchase while the current game is WAITING:
   - server-generated 90-ball ticket layouts satisfying the existing layout validator;
   - no identical layouts within the game's current human-ticket set;
