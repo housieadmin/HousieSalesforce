@@ -9,4 +9,11 @@
     <target>lightningCommunity__Default</target>
     <target>lightning__AppPage</target>
   </targets>
+  <targetConfigs>
+        <targetConfig targets="lightningCommunity__Default">
+            <property name="recordId"
+                      type="String"
+                      label="Record ID"/>
+        </targetConfig>
+    </targetConfigs>
 </LightningComponentBundle>

@@ -1,4 +1,7 @@
-import { LightningElement, api } from 'lwc';
+import { LightningElement, api, wire } from 'lwc';
+import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
+import ACCOUNT_KEY_FIELD from '@salesforce/schema/Housie_Account__c.Account_Key__c';
+
 import createBoardAction from '@salesforce/apex/HousieBoardService.createBoard';
 import listMyBoards from '@salesforce/apex/HousieBoardService.listMyBoards';
 import listPublicBoards from '@salesforce/apex/HousieBoardService.listPublicBoards';
@@ -6,7 +9,8 @@ import joinBoardAction from '@salesforce/apex/HousieBoardService.joinBoard';
 import leaveBoardAction from '@salesforce/apex/HousieBoardService.leaveBoard';
 
 export default class HousieBoardHub extends LightningElement {
-  @api accountKey;
+  @api recordId;
+  accountKey;
   boards = [];
   publicBoards = [];
   publicSearch = '';
@@ -16,6 +20,16 @@ export default class HousieBoardHub extends LightningElement {
   loading = false;
   error;
   success;
+
+  @wire(getRecord, {
+      recordId: '$recordId',
+      fields: [ACCOUNT_KEY_FIELD]
+  })
+  wiredAccount({ data, error }) {
+      if (data) {
+          this.accountKey = getFieldValue(data, ACCOUNT_KEY_FIELD);
+      }
+  }
 
   visibilityOptions = [
     { label: 'Private · invitation link', value: 'PRIVATE' },
