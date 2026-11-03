@@ -159,7 +159,11 @@ public without sharing class HousieGameTicketService {
         Datetime nowAt = System.now();
         actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) + fee;
         HousieDomainRules.assertWalletInvariant(actor);
-        update actor;
+        try {
+            update actor;
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage account-update: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
 
         // This request deliberately performs DML only. The client invokes
         // commitTicketCommand in a new Apex transaction for all insertImmediate calls.
@@ -178,7 +182,11 @@ public without sharing class HousieGameTicketService {
             Created_At__c = nowAt,
             Updated_At__c = nowAt
         );
-        insert command;
+        try {
+            insert command;
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage command-insert: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
 
         TicketActionResult result = new TicketActionResult();
         result.requestId = ticketId;
@@ -606,13 +614,17 @@ public without sharing class HousieGameTicketService {
         ];
         Datetime nowAt = System.now();
         if (rows.isEmpty()) {
-            insert new Housie_Game_Command_Lock__c(
-                Game_Id__c = gameId,
-                Status__c = 'PROCESSING',
-                Active_Command_Key__c = commandKey,
-                Created_At__c = nowAt,
-                Updated_At__c = nowAt
-            );
+            try {
+                insert new Housie_Game_Command_Lock__c(
+                    Game_Id__c = gameId,
+                    Status__c = 'PROCESSING',
+                    Active_Command_Key__c = commandKey,
+                    Created_At__c = nowAt,
+                    Updated_At__c = nowAt
+                );
+            } catch (Exception e) {
+                throw new AuraHandledException('prepare stage game-lock-insert: ' + e.getTypeName() + ': ' + e.getMessage());
+            }
             return;
         }
 
@@ -622,7 +634,11 @@ public without sharing class HousieGameTicketService {
         gameLock.Status__c = 'PROCESSING';
         gameLock.Active_Command_Key__c = commandKey;
         gameLock.Updated_At__c = nowAt;
-        update gameLock;
+        try {
+            update gameLock;
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage game-lock-update: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
     }
 
     private static void requireGameCommandLock(String gameId, String commandKey) {
