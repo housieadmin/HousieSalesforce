@@ -1,4 +1,5 @@
 public with sharing class HousieAccountService {
+    // AI iteration deployment smoke test (2026-11-03): comment-only; no runtime behavior change.
     @AuraEnabled
     public static Housie_Account__c createAccount(String email, String displayName) {
         HousieSecurity.requireSuperAdmin();
