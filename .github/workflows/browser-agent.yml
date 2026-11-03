@@ -35,7 +35,7 @@ jobs:
           node <<'NODE'
           const fs = require('node:fs');
           const cp = require('node:child_process');
-          const lines = (process.env.COMMENT_BODY || '').split(/\\r?\\n/).map(x => x.trim());
+          const lines = (process.env.COMMENT_BODY || '').split(/\r?\n/).map(x => x.trim());
           if (lines[0] !== '/browser-agent run') throw new Error('Invalid command');
           const ref = (lines.find(x => x.startsWith('ref:')) || '').slice(4).trim();
           if (!ref || ref.length > 200 || ref.startsWith('-') || ref.includes('..') || !/^[A-Za-z0-9._/-]+$/.test(ref)) throw new Error('Invalid ref');
@@ -51,10 +51,10 @@ jobs:
             scenarios.push(file);
           }
           if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length) throw new Error('Supply 1-10 unique scenario files');
-          const description = (lines.find(x => x.startsWith('description:')) || 'description: AI-requested browser execution').slice(12).trim().replace(/[\\r\\n]/g, ' ').slice(0, 300);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'ref=' + ref + '\\n');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'description=' + description + '\\n');
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'scenarios=' + JSON.stringify(scenarios) + '\\n');
+          const description = (lines.find(x => x.startsWith('description:')) || 'description: AI-requested browser execution').slice(12).trim().replace(/[\r\n]/g, ' ').slice(0, 300);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'ref=' + ref + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'description=' + description + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'scenarios=' + JSON.stringify(scenarios) + '\n');
           NODE
 
       - name: Check out requested ref
@@ -90,9 +90,10 @@ jobs:
           npm install --global @salesforce/cli
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/browser-agent-server.key"
           chmod 600 "$RUNNER_TEMP/browser-agent-server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default --json > "$RUNNER_TEMP/browser-agent-login.json"
-          sf org open --url-only --target-org housie-browser-agent --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
-          FRONTDOOR_URL="$(node -e "const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); const u=p.result?.url || p.url; if (typeof u !== 'string' || !u.startsWith('https://')) process.exit(2); process.stdout.write(u);" "$RUNNER_TEMP/browser-agent-frontdoor.json")"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default >/dev/null
+          sf org open --url-only --target-org housie-browser-agent > "$RUNNER_TEMP/browser-agent-frontdoor.txt"
+          FRONTDOOR_URL="$(tail -n 1 "$RUNNER_TEMP/browser-agent-frontdoor.txt" | tr -d '\r')"
+          [[ "$FRONTDOOR_URL" == https://* ]] || { echo "Could not obtain Salesforce frontdoor URL." >&2; exit 1; }
           echo "::add-mask::$FRONTDOOR_URL"
           echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
@@ -161,7 +162,7 @@ jobs:
             '- Failed/timed out: ' + failed.length,
             '- Playwright exit code: ' + process.env.TEST_EXIT,
             '', 'This report records browser observations; it does not certify feature completeness.', ''
-          ].join('\\n'));
+          ].join('\n'));
           fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({ total: tests.length, passed: passed.length, failed: failed.length, failedTests: failed }, null, 2));
           NODE
           exit "$TEST_EXIT"
@@ -187,5 +188,5 @@ jobs:
               '- Requested ref: ${{ steps.request.outputs.ref }}',
               '- Scenarios: ${{ steps.request.outputs.scenarios }}',
               '- Evidence: download the artifact from the workflow run.'
-            ].join('\\n');
+            ].join('\n');
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 9, body });
