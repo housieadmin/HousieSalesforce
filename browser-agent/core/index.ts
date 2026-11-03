@@ -45,19 +45,22 @@ export const test = base.extend<Fixtures>({
         if (!instanceUrl) throw new Error("SF_INSTANCE_URL is missing; workflow configuration is incomplete.");
         const expectedOrigin = new URL(instanceUrl).origin;
         await page.goto(url, { waitUntil: "commit" });
-        await page.waitForURL(current => current.origin === expectedOrigin, { timeout: 60000 });
+        // Salesforce may complete frontdoor authentication through a separate
+        // file.force.com contentDoor navigation. Treat that as part of login rather
+        // than assuming the first org-origin response is the final page.
+        await page.waitForURL(current =>
+          current.origin === expectedOrigin || current.hostname.endsWith(".file.force.com"),
+          { timeout: 60000 }
+        );
         await page.waitForLoadState("load", { timeout: 60000 });
-        // Salesforce can launch a second top-level contentDoor redirect after the
-        // initial org response. Wait for that navigation and its network activity
-        // to settle before starting a scenario navigation of our own.
         await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
         await page.waitForTimeout(2000);
-        await page.waitForURL(current => current.origin === expectedOrigin, { timeout: 60000 });
-        await page.waitForLoadState("domcontentloaded");
-        record("login-complete", "Salesforce frontdoor and follow-up redirects settled at the configured org.", { url: safeUrl(page.url()) });
+        record("login-complete", "Salesforce frontdoor redirect sequence settled.", { url: safeUrl(page.url()) });
       },
       async navigate(value) {
-        const baseUrl = new URL(page.url()).origin + "/";
+        const configuredOrigin = process.env.SF_INSTANCE_URL;
+        if (!configuredOrigin) throw new Error("SF_INSTANCE_URL is missing; workflow configuration is incomplete.");
+        const baseUrl = new URL(configuredOrigin).origin + "/";
         const target = /^https?:\/\//i.test(value) ? value : new URL(value.replace(/^\//, ""), baseUrl).toString();
         await page.goto(target, { waitUntil: "domcontentloaded" });
       },
