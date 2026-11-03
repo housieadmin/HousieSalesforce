@@ -49,7 +49,6 @@ public without sharing class HousieBoardService {
 
     @AuraEnabled
     public static BoardActionResult createBoard(String accountId, String boardName, String visibility) {
-        HousieOperationService.lockForWrite();
         Housie_Account__c owner = HousieSecurity.requireAccount(accountId);
         HousieErrors.require(String.isNotBlank(boardName), 'Board name is required.');
         HousieErrors.require(boardName.trim().length() <= 80, 'Board name cannot exceed 80 characters.');
@@ -243,7 +242,6 @@ public without sharing class HousieBoardService {
 
     @AuraEnabled
     public static BoardActionResult joinBoard(String boardId, String accountId) {
-        HousieOperationService.lockForWrite();
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         Board__b board = loadBoard(boardId);
         HousieErrors.require(board.Status__c == 'ACTIVE', 'This board is not accepting members.');
@@ -270,7 +268,6 @@ public without sharing class HousieBoardService {
 
     @AuraEnabled
     public static BoardActionResult leaveBoard(String boardId, String accountId) {
-        HousieOperationService.lockForWrite();
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         Board__b board = loadBoard(boardId);
         MembershipState current = currentMembership(boardId, actor.Account_Key__c);
