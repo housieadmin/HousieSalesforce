@@ -69,8 +69,17 @@ public without sharing class HousieGameTicketService {
         } catch (Exception e) {
             throw new AuraHandledException('prepare stage account-lock-query: ' + e.getTypeName() + ': ' + e.getMessage());
         }
-        GameContext context = loadCurrentGame(boardId);
-        requireMember(boardId, actor.Account_Key__c);
+        GameContext context;
+        try {
+            context = loadCurrentGame(boardId);
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage load-current-game: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
+        try {
+            requireMember(boardId, actor.Account_Key__c);
+        } catch (Exception e) {
+            throw new AuraHandledException('prepare stage require-member: ' + e.getTypeName() + ': ' + e.getMessage());
+        }
         HousieErrors.require(String.isNotBlank(requestId) && requestId.length() <= 120,
             'A valid ticket purchase request id is required.');
 
