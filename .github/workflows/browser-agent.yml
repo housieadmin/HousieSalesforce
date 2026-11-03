@@ -1,0 +1,192 @@
+name: Housie Browser Agent
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: browser-agent-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    name: Execute AI-authored browser scenarios
+    if: >-
+      github.event.issue.number == 9 &&
+      github.event.issue.pull_request == null &&
+      startsWith(github.event.comment.body, '/browser-agent run') &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR')
+    runs-on: ubuntu-latest
+    environment: development
+    timeout-minutes: 30
+    steps:
+      - name: Parse and validate request
+        id: request
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const cp = require('node:child_process');
+          const lines = (process.env.COMMENT_BODY || '').split(/\r?\n/).map(x => x.trim());
+          if (lines[0] !== '/browser-agent run') throw new Error('Invalid command');
+          const ref = (lines.find(x => x.startsWith('ref:')) || '').slice(4).trim();
+          if (!ref || ref.length > 200 || ref.startsWith('-') || ref.includes('..') || !/^[A-Za-z0-9._/-]+$/.test(ref)) throw new Error('Invalid ref');
+          cp.execFileSync('git', ['check-ref-format', '--branch', ref]);
+          const start = lines.indexOf('scenarios:');
+          if (start < 0) throw new Error('Missing scenarios section');
+          const scenarios = [];
+          for (const line of lines.slice(start + 1)) {
+            if (!line) continue;
+            if (!line.startsWith('- ')) break;
+            const file = line.slice(2).trim();
+            if (!/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(file) || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
+            scenarios.push(file);
+          }
+          if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length) throw new Error('Supply 1-10 unique scenario files');
+          const description = (lines.find(x => x.startsWith('description:')) || 'description: AI-requested browser execution').slice(12).trim().replace(/[\r\n]/g, ' ').slice(0, 300);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'ref=' + ref + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'description=' + description + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'scenarios=' + JSON.stringify(scenarios) + '\n');
+          NODE
+
+      - name: Check out requested ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.request.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: browser-agent
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: browser-agent
+        run: npx playwright install --with-deps chromium
+
+      - name: Authenticate to Salesforce
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          npm install --global @salesforce/cli
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/browser-agent-server.key"
+          chmod 600 "$RUNNER_TEMP/browser-agent-server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default >/dev/null
+          sf org open --url-only --target-org housie-browser-agent > "$RUNNER_TEMP/browser-agent-frontdoor.txt"
+          FRONTDOOR_URL="$(tail -n 1 "$RUNNER_TEMP/browser-agent-frontdoor.txt" | tr -d '\r')"
+          [[ "$FRONTDOOR_URL" == https://* ]] || { echo "Could not obtain Salesforce frontdoor URL." >&2; exit 1; }
+          echo "::add-mask::$FRONTDOOR_URL"
+          echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
+          echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
+
+      - name: Execute selected scenarios
+        id: run
+        working-directory: browser-agent
+        env:
+          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios }}
+          RUN_DESCRIPTION: ${{ steps.request.outputs.description }}
+          BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$BROWSER_AGENT_ARTIFACT_DIR"
+          export BROWSER_AGENT_ARTIFACT_DIR
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { spawnSync } = require('node:child_process');
+          const files = JSON.parse(process.env.SCENARIOS_JSON || '[]');
+          const root = path.resolve('scenarios') + path.sep;
+          for (const file of files) {
+            const resolved = path.resolve('..', file);
+            if (!resolved.startsWith(root) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+              console.error('Scenario missing or outside scenario directory: ' + file);
+              process.exit(2);
+            }
+          }
+          fs.writeFileSync(path.join(process.env.BROWSER_AGENT_ARTIFACT_DIR, 'run-metadata.json'), JSON.stringify({
+            runId: process.env.GITHUB_RUN_ID,
+            attempt: process.env.GITHUB_RUN_ATTEMPT,
+            sourceRef: process.env.GITHUB_REF_NAME,
+            sourceCommit: process.env.GITHUB_SHA,
+            scenarios: files,
+            description: process.env.RUN_DESCRIPTION
+          }, null, 2));
+          const args = ['node_modules/@playwright/test/cli.js', 'test', ...files.map(f => path.relative(process.cwd(), path.resolve('..', f)))];
+          const result = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
+          process.exit(result.status === null ? 1 : result.status);
+          NODE
+          TEST_EXIT=$?
+          export TEST_EXIT
+          echo "test_exit=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = process.env.BROWSER_AGENT_ARTIFACT_DIR;
+          let report = null;
+          try { report = JSON.parse(fs.readFileSync(path.join(dir, 'playwright-report.json'), 'utf8')); } catch {}
+          const flatten = (suites, out = []) => {
+            for (const suite of suites || []) {
+              for (const spec of suite.specs || []) for (const test of spec.tests || []) out.push({ title: spec.title, file: spec.file, results: test.results || [] });
+              flatten(suite.suites, out);
+            }
+            return out;
+          };
+          const tests = flatten(report && report.suites);
+          const failed = tests.filter(t => t.results.some(r => ['failed', 'timedOut'].includes(r.status)));
+          const passed = tests.filter(t => t.results.some(r => r.status === 'passed'));
+          fs.writeFileSync(path.join(dir, 'summary.md'), [
+            '# Browser execution summary', '',
+            '- Tests observed: ' + tests.length,
+            '- Passed: ' + passed.length,
+            '- Failed/timed out: ' + failed.length,
+            '- Playwright exit code: ' + process.env.TEST_EXIT,
+            '', 'This report records browser observations; it does not certify feature completeness.', ''
+          ].join('\n'));
+          fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({ total: tests.length, passed: passed.length, failed: failed.length, failedTests: failed }, null, 2));
+          NODE
+          exit "$TEST_EXIT"
+
+      - name: Upload execution artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: housie-browser-agent-${{ github.run_id }}-${{ github.run_attempt }}
+          path: browser-agent/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Comment with execution result
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = 'https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId;
+            const body = [
+              'Browser execution finished.',
+              '- Workflow run: ' + url,
+              '- Requested ref: ${{ steps.request.outputs.ref }}',
+              '- Scenarios: ${{ steps.request.outputs.scenarios }}',
+              '- Evidence: download the artifact from the workflow run.'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 9, body });
