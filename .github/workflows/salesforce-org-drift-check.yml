@@ -1,0 +1,191 @@
+name: Salesforce Org Drift Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      compare_refs:
+        description: "Git refs to compare with the live org snapshot (one branch, tag, or commit SHA per line)"
+        required: true
+        type: string
+        default: |
+          main
+          fix/ticket-purchase-transaction-order-clean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: salesforce-org-drift-check
+  cancel-in-progress: false
+
+jobs:
+  retrieve-and-compare:
+    name: Retrieve live metadata and compare with Git
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository and comparison refs
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate comparison refs
+        id: refs
+        env:
+          COMPARE_REFS_INPUT: ${{ inputs.compare_refs }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t refs < <(printf '%s\\n' "$COMPARE_REFS_INPUT" | sed 's/\\r$//' | sed '/^[[:space:]]*$/d')
+          [[ ${#refs[@]} -gt 0 ]] || { echo "Provide at least one Git ref." >&2; exit 1; }
+          for ref in "${refs[@]}"; do
+            git rev-parse --verify "${ref}^{commit}" >/dev/null || {
+              git fetch --no-tags origin "$ref"
+              git rev-parse --verify "FETCH_HEAD^{commit}" >/dev/null
+            }
+            echo "Comparison ref available: $ref"
+          done
+          printf '%s\\n' "${refs[@]}" > "$RUNNER_TEMP/compare-refs.txt"
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Developer Edition
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
+          chmod 600 "$RUNNER_TEMP/server.key"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+
+      - name: Retrieve read-only org snapshot
+        id: retrieve
+        shell: bash
+        run: |
+          set -euo pipefail
+          sf project generate --name org-snapshot --output-dir "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/org-snapshot"
+          sf project retrieve start \
+            --metadata ApexClass:HousieOperationService \
+            --metadata ApexClass:HousieAccountService \
+            --metadata ApexClass:HousieBoardService \
+            --metadata ApexClass:HousieGameTicketService \
+            --metadata LightningComponentBundle:housieBoardHub \
+            --target-org housie-dev --wait 60
+          echo "snapshot_dir=$RUNNER_TEMP/org-snapshot/force-app/main/default" >> "$GITHUB_OUTPUT"
+
+      - name: Compare retrieved org metadata with requested Git refs
+        id: compare
+        env:
+          SNAPSHOT_DIR: ${{ steps.retrieve.outputs.snapshot_dir }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          report="$RUNNER_TEMP/org-drift-report.md"
+          : > "$report"
+          echo "# Salesforce org drift report" >> "$report"
+          echo >> "$report"
+          echo "Read-only retrieval from the configured Developer Edition org. No metadata was deployed or changed." >> "$report"
+          echo >> "$report"
+          echo "Retrieved components: four Apex classes and the housieBoardHub LWC bundle." >> "$report"
+          echo >> "$report"
+
+          classes=(
+            HousieOperationService
+            HousieAccountService
+            HousieBoardService
+            HousieGameTicketService
+          )
+          paths=()
+          for class_name in "${classes[@]}"; do
+            paths+=("force-app/main/default/classes/$class_name.cls")
+            paths+=("force-app/main/default/classes/$class_name.cls-meta.xml")
+          done
+          paths+=("force-app/main/default/lwc/housieBoardHub")
+
+          overall_drift=0
+          while IFS= read -r ref; do
+            [[ -z "$ref" ]] && continue
+            ref_sha="$(git rev-parse --verify "${ref}^{commit}" 2>/dev/null || git rev-parse --verify "FETCH_HEAD^{commit}")"
+            safe_ref="$(printf '%s' "$ref" | tr '/:' '__')"
+            ref_dir="$RUNNER_TEMP/git-ref-$safe_ref"
+            mkdir -p "$ref_dir"
+            echo "## Git ref: $ref ($ref_sha)" >> "$report"
+            echo >> "$report"
+            ref_drift=0
+            for path in "${paths[@]}"; do
+              mkdir -p "$ref_dir/$(dirname "$path")"
+              if ! git cat-file -e "$ref_sha:$path" 2>/dev/null; then
+                echo "- **MISSING IN GIT:** `$path`" >> "$report"
+                ref_drift=1
+                continue
+              fi
+              git show "$ref_sha:$path" > "$ref_dir/$path"
+              org_path="$SNAPSHOT_DIR/${path#force-app/main/default/}"
+              if [[ ! -e "$org_path" ]]; then
+                echo "- **MISSING IN ORG RETRIEVAL:** `$path`" >> "$report"
+                ref_drift=1
+                continue
+              fi
+              if [[ -d "$org_path" ]]; then
+                if diff -ru "$ref_dir/$path" "$org_path" > "$RUNNER_TEMP/current-diff.txt"; then
+                  echo "- **MATCH:** `$path`" >> "$report"
+                else
+                  echo "- **DIFFERS:** `$path`" >> "$report"
+                  echo '  <details><summary>Diff</summary>' >> "$report"
+                  echo >> "$report"
+                  echo '  ```diff' >> "$report"
+                  sed 's/^/  /' "$RUNNER_TEMP/current-diff.txt" >> "$report"
+                  echo '  ```' >> "$report"
+                  echo '  </details>' >> "$report"
+                  ref_drift=1
+                fi
+              else
+                if diff -u "$ref_dir/$path" "$org_path" > "$RUNNER_TEMP/current-diff.txt"; then
+                  echo "- **MATCH:** `$path`" >> "$report"
+                else
+                  echo "- **DIFFERS:** `$path`" >> "$report"
+                  echo '  <details><summary>Diff</summary>' >> "$report"
+                  echo >> "$report"
+                  echo '  ```diff' >> "$report"
+                  sed 's/^/  /' "$RUNNER_TEMP/current-diff.txt" >> "$report"
+                  echo '  ```' >> "$report"
+                  echo '  </details>' >> "$report"
+                  ref_drift=1
+                fi
+              fi
+            done
+            if [[ "$ref_drift" -eq 0 ]]; then
+              echo >> "$report"
+              echo "**Result: all retrieved components match this Git ref.**" >> "$report"
+            else
+              overall_drift=1
+              echo >> "$report"
+              echo "**Result: drift detected against this Git ref.**" >> "$report"
+            fi
+            echo >> "$report"
+          done < "$RUNNER_TEMP/compare-refs.txt"
+
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          cp "$report" "$GITHUB_WORKSPACE/org-drift-report.md"
+          if [[ "$overall_drift" -eq 1 ]]; then
+            echo "drift_detected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift_detected=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload org snapshot and drift report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: salesforce-org-drift-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/org-snapshot/force-app/main/default/
+            org-drift-report.md
+          if-no-files-found: warn
+          retention-days: 14
