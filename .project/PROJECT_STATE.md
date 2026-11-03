@@ -22,17 +22,10 @@ Salesforce DX project with Apex services, LWC bundles, permission sets, custom/B
 
 These are source observations, not claims of full runtime verification.
 
-## Active defect investigation — ticket purchase transaction ordering
+## Open implementation work
 
-A public ticket-purchase failure reported Salesforce's pending-uncommitted-work error. The root cause was identified in `HousieGameTicketService` completion: `commandResult(command)` read Ticket and operation-journal Big Objects after standard-object DML. The correction materializes the result/Big Object reads before standard-object DML.
-
-- Fix commit: [`e1aaac7e1f95c031033c8c7869048b901c919b1b`](https://github.com/housieadmin/HousieSalesforce/commit/e1aaac7e1f95c031033c8c7869048b901c919b1b), on `test/callout-transaction-e2e-v2`.
-- Verified deployment and browser scenario: [combined run 41660185471](https://github.com/housieadmin/HousieSalesforce/actions/runs/41660185471).
-- Fresh recovery + second-ticket purchase: [run 41658822433](https://github.com/housieadmin/HousieSalesforce/actions/runs/41658822433); repeat stability: [run 41659285721](https://github.com/housieadmin/HousieSalesforce/actions/runs/41659285721).
-- **Important:** this correction was deployed to the Developer Edition from the feature branch but was not merged to `main` in the repository state reviewed. Do not describe it as part of main/release yet. PR #8 is an earlier transaction-boundary diagnostic branch, not the final fix.
-- Test User 2 has two active tickets (configured cap); do not attempt another purchase on that fixture.
-
-See [the originating session record](sessions/2026-11-03-ticket-purchase-transaction-fix.md) for root-cause detail, false leads, exact browser route, workflow invocation and next steps.
+- [PR #22 — ticket-purchase completion transaction ordering](https://github.com/housieadmin/HousieSalesforce/pull/22) carries the fix for Big Object result reads occurring after standard-object DML. Earlier feature-branch runtime runs demonstrated recovery and a fresh second-ticket purchase; the PR-head validation and runtime verification must be assessed separately.
+- Do not treat a feature-branch deployment as a merge to `main` or as proof that unrelated ticket, withdrawal, gameplay or concurrency paths are verified.
 
 ## Major incomplete product areas observed
 
