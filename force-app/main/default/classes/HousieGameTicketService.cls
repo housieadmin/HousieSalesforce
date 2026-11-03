@@ -355,7 +355,7 @@ public without sharing class HousieGameTicketService {
         List<List<Integer>> layout = (List<List<Integer>>)JSON.deserialize(
             command.Layout__c, List<List<Integer>>.class
         );
-        Datetime nowAt = System.now();
+        Datetime purchaseAt = command.Created_At__c;
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
         writes.add(writeItem('Ticket__b', new Map<String,Object>{
             'Record_Id__c' => command.Ticket_Id__c,
@@ -369,7 +369,7 @@ public without sharing class HousieGameTicketService {
             'Entry_Fee__c' => command.Entry_Fee__c,
             'Wallet_Hold_Id__c' => command.Hold_Id__c,
             'Created_At__c' => command.Created_At__c,
-            'Purchased_At__c' => nowAt
+            'Purchased_At__c' => purchaseAt
         }));
         writes.add(writeItem('Wallet_Hold__b', new Map<String,Object>{
             'Record_Id__c' => command.Hold_Id__c,
@@ -381,14 +381,15 @@ public without sharing class HousieGameTicketService {
             'Amount__c' => command.Entry_Fee__c,
             'Status__c' => 'ACTIVE',
             'Created_At__c' => command.Created_At__c,
-            'Updated_At__c' => nowAt
+            'Updated_At__c' => purchaseAt
         }));
         writes.add(resourceTransaction(accountKey, 'POINTS', 'HOLD_RESERVE',
             command.Entry_Fee__c, 'HUMAN_TICKET', command.Ticket_Id__c,
-            'TICKET_HOLD:' + command.Hold_Id__c));
+            'TICKET_HOLD:' + command.Hold_Id__c, purchaseAt));
         if (command.Mode__c == 'AUTOMATIC') {
             writes.add(resourceTransaction(accountKey, 'AUTO_MODE_TOKEN', 'SPEND', -1,
-                'HUMAN_TICKET', command.Ticket_Id__c, 'TICKET_AUTO_TOKEN:' + command.Ticket_Id__c));
+                'HUMAN_TICKET', command.Ticket_Id__c, 'TICKET_AUTO_TOKEN:' + command.Ticket_Id__c,
+                purchaseAt));
         }
 
         ParticipantState participant = currentParticipant(command.Game_Id__c, accountKey);
@@ -407,7 +408,7 @@ public without sharing class HousieGameTicketService {
                     new Map<String,Object>{
                         'adminAccountId' => accountKey,
                         'reason' => 'FIRST_ELIGIBLE_PARTICIPANT'
-                    }, nowAt,
+                    }, purchaseAt,
                     HousieIds.stableId('GAME_EVENT', command.Game_Id__c + ':GAME_ADMIN_ASSIGNED')));
             }
         }
@@ -416,7 +417,7 @@ public without sharing class HousieGameTicketService {
                 'ticketId' => command.Ticket_Id__c,
                 'mode' => command.Mode__c,
                 'entryFee' => command.Entry_Fee__c
-            }, nowAt, HousieIds.stableId('GAME_EVENT', command.Ticket_Id__c + ':TICKET_PURCHASED')));
+            }, purchaseAt, HousieIds.stableId('GAME_EVENT', command.Ticket_Id__c + ':TICKET_PURCHASED')));
         HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes);
 
         TicketActionResult result = new TicketActionResult();
@@ -446,7 +447,7 @@ public without sharing class HousieGameTicketService {
         Set<String> withdrawn = withdrawnTicketIds(command.Game_Id__c);
         List<Ticket__b> tickets = loadCommittedHumanTickets(command.Game_Id__c);
         Map<String,Wallet_Hold__b> latestHolds = loadLatestHolds(command.Game_Id__c, accountKey);
-        Datetime nowAt = System.now();
+        Datetime nowAt = command.Created_At__c;
         Decimal releaseTotal = 0;
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
 
@@ -475,7 +476,7 @@ public without sharing class HousieGameTicketService {
             }));
             writes.add(resourceTransaction(accountKey, 'POINTS', 'HOLD_RELEASE', -amount,
                 'HUMAN_TICKET', ticket.Record_Id__c,
-                'TICKET_HOLD_RELEASE:' + ticket.Wallet_Hold_Id__c));
+                'TICKET_HOLD_RELEASE:' + ticket.Wallet_Hold_Id__c, nowAt));
             writes.add(gameEvent(command.Game_Id__c, accountKey, 'TICKET_WITHDRAWN',
                 new Map<String,Object>{'ticketId' => ticket.Record_Id__c}, nowAt,
                 HousieIds.stableId('GAME_EVENT', ticket.Record_Id__c + ':TICKET_WITHDRAWN')));
@@ -785,7 +786,7 @@ public without sharing class HousieGameTicketService {
 
     private static HousieOperationService.WriteItem resourceTransaction(
         String accountKey, String resource, String type, Decimal quantity,
-        String sourceType, String sourceId, String idempotencyKey
+        String sourceType, String sourceId, String idempotencyKey, Datetime createdAt
     ) {
         return writeItem('Account_Resource_Transaction__b', new Map<String,Object>{
             'Record_Id__c' => HousieIds.stableId('RESOURCE_TX', idempotencyKey),
@@ -796,7 +797,7 @@ public without sharing class HousieGameTicketService {
             'Source_Type__c' => sourceType,
             'Source_Id__c' => sourceId,
             'Idempotency_Key__c' => HousieIds.stableId('RESOURCE_TX', idempotencyKey),
-            'Created_At__c' => System.now(),
+            'Created_At__c' => createdAt,
             'Metadata__c' => '{}'
         });
     }
