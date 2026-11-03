@@ -83,7 +83,7 @@
             <div class="actions">
               <lightning-button label="Leave board" variant="destructive-text"
                 data-board-id={board.boardId} onclick={leaveOwnedBoard}
-                disabled={loading || !board.canLeave}></lightning-button>
+                disabled={board.disableLeave}></lightning-button>
             </div>
           </article>
         </template>
