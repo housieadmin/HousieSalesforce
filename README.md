@@ -10,10 +10,11 @@ Prerequisites: Salesforce CLI (`sf`), a Developer Org with Big Objects and Exper
 sf org login web --alias housie-dev --instance-url https://login.salesforce.com
 chmod +x scripts/*.sh
 ./scripts/deploy.sh housie-dev
+sf apex run --target-org housie-dev --file scripts/bootstrap.apex  # initial setup only
 ./scripts/run-tests.sh housie-dev
 ```
 
-The deploy script deploys the application manifest and initializes the singleton infrastructure lock record.
+The deploy script deploys the application manifest. Bootstrap the singleton infrastructure lock once during initial setup (or explicitly when repairing/reinitializing infrastructure).
 
 After deployment:
 1. Assign `Housie_Super_Admin` only to trusted platform operators.
@@ -53,8 +54,8 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 The repository includes `.github/workflows/salesforce.yml`:
 
 - Pull requests targeting `main` validate only `manifest/package.xml` (application metadata) and then run all local Apex tests.
-- A push to `main` deploys only `manifest/package.xml` to the GitHub Environment named `development`, bootstraps the infrastructure lock, and runs all local Apex tests.
-- A manual workflow dispatch from `main` lets an operator choose `application`, `org-setup`, or `experience`. The selected manifest is dry-run validated first, then deployed. The bootstrap script runs only for the application scope; Apex tests run after every selected deployment.
+- A push to `main` deploys only `manifest/package.xml` to the GitHub Environment named `development`, then runs all local Apex tests. It does not rerun the one-time infrastructure bootstrap.
+- A manual workflow dispatch from `main` lets an operator choose `application`, `org-setup`, or `experience`. The selected manifest is dry-run validated first, then deployed. The infrastructure bootstrap is intentionally not part of automated deployments; run it once during initial setup or explicitly for repair. Apex tests run after every selected deployment.
 
 ### Manifest boundaries and dependencies
 
@@ -92,4 +93,4 @@ Create a Salesforce Connected App (or External Client App) configured for OAuth 
 
 After configuring the secrets/variable and environment, open a pull request to `main` to exercise application validation. Merge only after validation succeeds. The merge push triggers the application deployment. Use manual workflow dispatch from `main` for the separately managed org-setup and Experience Cloud manifests. Review the GitHub Actions run and Salesforce deployment result before treating a release as successful.
 
-**Important:** the application workflow deploys application metadata plus the singleton infrastructure-lock bootstrap only. It does not create Experience Cloud sites, activate a site, provision users, configure domains, or set org-specific sharing/guest settings. Those remain controlled setup and security review tasks. The application is not production-ready until the outstanding functional and security blockers in `docs/BUILD_STATUS.md` are resolved.
+**Important:** the application workflow deploys application metadata only. The singleton infrastructure-lock bootstrap is a separate one-time setup/repair operation. It does not create Experience Cloud sites, activate a site, provision users, configure domains, or set org-specific sharing/guest settings. Those remain controlled setup and security review tasks. The application is not production-ready until the outstanding functional and security blockers in `docs/BUILD_STATUS.md` are resolved.
