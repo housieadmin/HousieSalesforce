@@ -11,6 +11,7 @@
           <h2>Welcome, {context.accountName}</h2>
           <p>Your account context has been resolved.</p>
           <p class="muted">Account key: {context.accountKey}</p>
+          <c-housie-board-hub account-key={context.accountKey}></c-housie-board-hub>
         </template>
         <template if:false={context.authenticated}>
           <h2>Welcome to Housie</h2>
