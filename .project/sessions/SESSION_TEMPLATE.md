@@ -1,5 +1,7 @@
 # Session handoff — YYYY-MM-DD
 
+Use this only when substantial work is incomplete and another session genuinely needs to continue it. It is not a required log for every session or debugging cycle.
+
 ## Session objective
 
 What this session set out to accomplish.
