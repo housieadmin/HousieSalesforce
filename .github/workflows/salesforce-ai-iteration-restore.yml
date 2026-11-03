@@ -84,7 +84,7 @@ jobs:
               [[ -n "$(git ls-files "$path")" ]] || { echo "Directory has no tracked source files: $path" >&2; exit 1; }
             fi
             deploy_paths+=("$path")
-          done < <(printf "%s\\n" "$SOURCE_PATHS_INPUT" | tr ',' '\\n')
+          done < <(printf "%s\n" "$SOURCE_PATHS_INPUT" | tr ',' '\n')
 
           [[ ${#deploy_paths[@]} -gt 0 ]] || { echo "At least one metadata path is required." >&2; exit 1; }
           for path in "${deploy_paths[@]}"; do
