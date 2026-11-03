@@ -294,7 +294,6 @@ public without sharing class HousieGameTicketService {
 
     @AuraEnabled
     public static TicketActionResult commitTicketCommand(String requestId, String accountId) {
-        HousieOperationService.lockForWrite();
         HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
