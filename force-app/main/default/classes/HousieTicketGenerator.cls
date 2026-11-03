@@ -1,5 +1,19 @@
 public with sharing class HousieTicketGenerator {
     public static List<List<Integer>> generateLayout() {
+        for (Integer attempt = 0; attempt < 100; attempt++) {
+            List<List<Integer>> candidate = generateCandidate();
+            try {
+                HousieDomainRules.validateTicketLayout(candidate);
+                return candidate;
+            } catch (HousieErrors.HousieException invalidCandidate) {
+                // Retry the entire occupancy pattern; a valid row/strip count can
+                // still create three consecutive blanks across a strip boundary.
+            }
+        }
+        throw new HousieErrors.HousieException('Unable to generate a valid ticket layout. Please retry.');
+    }
+
+    private static List<List<Integer>> generateCandidate() {
         List<List<Boolean>> occupied = new List<List<Boolean>>();
         List<List<Integer>> layout = new List<List<Integer>>();
         for (Integer row = 0; row < 3; row++) {
@@ -54,8 +68,6 @@ public with sharing class HousieTicketGenerator {
                 }
             }
         }
-
-        HousieDomainRules.validateTicketLayout(layout);
         return layout;
     }
 
