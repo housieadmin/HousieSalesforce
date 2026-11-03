@@ -9,7 +9,8 @@ public without sharing class HousieOperationService {
         @AuraEnabled public Integer written;
     }
 
-    // Serialize validation and writes that must not race with another command.
+    // DML-only preparation/finalization transactions may use the infrastructure
+    // row lock. Never call this method from a transaction that invokes insertImmediate.
     public static void lockForWrite() {
         List<Housie_Operation_Lock__c> locks = [
             SELECT Id, Lock_Key__c
@@ -28,7 +29,7 @@ public without sharing class HousieOperationService {
         HousieErrors.require(String.isNotBlank(operationType), 'Operation type is required.');
         HousieErrors.require(writes != null && !writes.isEmpty(), 'At least one write is required.');
         HousieErrors.require(writes.size() <= 40, 'Operation exceeds the safe write batch size.');
-        lockForWrite();
+        // Big-Object-only persistence stage: do not acquire DML row locks.
         String opId = HousieIds.newId();
         Datetime nowAt = System.now();
         Map<String,Object> journal = new Map<String,Object>{
