@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+  <deploymentStatus>Deployed</deploymentStatus>
+  <description>Durable DML-only staging record for Housie ticket purchase and withdrawal commands. Big Object writes are committed by a second Apex request.</description>
+  <label>Housie Ticket Command</label>
+  <pluralLabel>Housie Ticket Commands</pluralLabel>
+  <nameField>
+    <displayFormat>HTC-{000000}</displayFormat>
+    <label>Ticket Command Number</label>
+    <type>AutoNumber</type>
+  </nameField>
+  <sharingModel>Private</sharingModel>
+  <fields>
+    <fullName>Request_Key__c</fullName><label>Request Key</label><length>32</length><type>Text</type><required>true</required><unique>true</unique><externalId>true</externalId>
+  </fields>
+  <fields><fullName>Account_Key__c</fullName><label>Account Key</label><length>32</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Board_Id__c</fullName><label>Board Id</label><length>32</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Action_Type__c</fullName><label>Action Type</label><length>20</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Ticket_Id__c</fullName><label>Ticket Id</label><length>32</length><type>Text</type></fields>
+  <fields><fullName>Hold_Id__c</fullName><label>Hold Id</label><length>32</length><type>Text</type></fields>
+  <fields><fullName>Mode__c</fullName><label>Ticket Mode</label><length>20</length><type>Text</type></fields>
+  <fields><fullName>Entry_Fee__c</fullName><label>Entry Fee</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
+  <fields><fullName>Layout__c</fullName><label>Ticket Layout</label><length>32768</length><type>LongTextArea</type><visibleLines>10</visibleLines></fields>
+  <fields><fullName>Payload__c</fullName><label>Command Payload</label><length>32768</length><type>LongTextArea</type><visibleLines>10</visibleLines></fields>
+  <fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type><required>true</required></fields>
+  <fields><fullName>Updated_At__c</fullName><label>Updated At</label><type>DateTime</type></fields>
+  <fields><fullName>Committed_At__c</fullName><label>Committed At</label><type>DateTime</type></fields>
+</CustomObject>
