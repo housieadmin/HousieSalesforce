@@ -1,6 +1,6 @@
 # Build status and release gate
 
-This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. Validation and deployment are driven by the repository GitHub Actions pipeline. The current fix is awaiting a PR validation run; no successful Salesforce compilation/deployment is claimed yet.
+This project is being delivered in small, reviewable vertical slices. The human ticket-purchase/withdrawal slice is implemented in source. A later ticket-purchase transaction-order correction was deployed and browser-verified from `test/callout-transaction-e2e-v2`, but had not been merged to `main` at the 2026-11-03 review. Do not treat that feature-branch deployment as a merged release. See [the originating session record](../.project/sessions/2026-11-03-ticket-purchase-transaction-fix.md) for the root cause, exact commits and run evidence.
 
 ## Implemented
 
@@ -56,10 +56,10 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 ## Validation status
 
-- Source and metadata have been reviewed statically in this feature branch.
 - HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
-- The repository GitHub Actions pipeline now validates Salesforce metadata and runs all local Apex tests for pull requests; deployment is gated to pushes or manual runs on main. This branch's pipeline result is still pending.
-- Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
+- The ticket-purchase completion-order fix (`e1aaac7e1f95c031033c8c7869048b901c919b1b`) was deployed from `test/callout-transaction-e2e-v2` through issue #11's combined `/sf deploy-and-verify` action. Combined run [41660185471](https://github.com/housieadmin/HousieSalesforce/actions/runs/41660185471) reports deployment success, local Apex test step success and browser verification success (one scenario passed).
+- Public browser run [41658822433](https://github.com/housieadmin/HousieSalesforce/actions/runs/41658822433) recovered a prepared purchase and created a distinct second ticket; repeat stability run [41659285721](https://github.com/housieadmin/HousieSalesforce/actions/runs/41659285721) confirmed the two-ticket final state without a pending transaction error.
+- These are narrow feature-branch deployment/runtime checks, not proof of all ticket, withdrawal or gameplay paths. The correction was not merged to `main` in the reviewed repository state. Mainline PR validation/release remains a separate step.
 
 ## Consistency note
 
