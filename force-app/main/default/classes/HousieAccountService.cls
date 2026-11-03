@@ -33,17 +33,43 @@ public with sharing class HousieAccountService {
             Created_At__c = nowAt,
             Updated_At__c = nowAt
         );
-        // This request performs ordinary DML only. The LWC calls initializeAccount
-        // as a second Apex request after this transaction has committed.
+        // This request performs ordinary DML only.
         insert account;
         return account;
     }
 
     @AuraEnabled
-    public static Housie_Account__c initializeAccount(String accountKey) {
+    public static Housie_Account__c writeSignupGrants(String accountKey) {
         HousieSecurity.requireSuperAdmin();
         HousieOperationService.lockForWrite();
+        List<Housie_Account__c> rows = [
+            SELECT Id, Account_Key__c, Status__c, Created_At__c
+            FROM Housie_Account__c
+            WHERE Account_Key__c = :accountKey
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!rows.isEmpty(), 'Account not found.');
+        Housie_Account__c account = rows[0];
+        if (account.Status__c == 'ACTIVE') return account;
+        HousieErrors.require(account.Status__c == 'PENDING_SETUP',
+            'Only an account pending setup can receive signup grants.');
 
+        List<HousieOperationService.WriteItem> grants = new List<HousieOperationService.WriteItem>{
+            resourceGrant(account.Account_Key__c, 'POINTS', 100, 'SIGNUP_POINTS', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'AUTO_MODE_TOKEN', 1, 'SIGNUP_AUTO_MODE', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'FLIP', 1, 'SIGNUP_FLIP', account.Created_At__c),
+            resourceGrant(account.Account_Key__c, 'FIX', 1, 'SIGNUP_FIX', account.Created_At__c)
+        };
+        // This request performs Big Object insertImmediate calls only.
+        HousieOperationService.executeOperation('ACCOUNT_SIGNUP_GRANTS', grants);
+        return account;
+    }
+
+    @AuraEnabled
+    public static Housie_Account__c activateAccount(String accountKey) {
+        HousieSecurity.requireSuperAdmin();
+        HousieOperationService.lockForWrite();
         List<Housie_Account__c> rows = [
             SELECT Id, Account_Key__c, Display_Name__c, Status__c, Created_At__c, Updated_At__c
             FROM Housie_Account__c
@@ -55,21 +81,40 @@ public with sharing class HousieAccountService {
         Housie_Account__c account = rows[0];
         if (account.Status__c == 'ACTIVE') return account;
         HousieErrors.require(account.Status__c == 'PENDING_SETUP',
-            'Only an account pending setup can be initialized.');
+            'Only an account pending setup can be activated.');
 
-        List<HousieOperationService.WriteItem> grants = new List<HousieOperationService.WriteItem>{
-            resourceGrant(account.Account_Key__c, 'POINTS', 100, 'SIGNUP_POINTS', account.Created_At__c),
-            resourceGrant(account.Account_Key__c, 'AUTO_MODE_TOKEN', 1, 'SIGNUP_AUTO_MODE', account.Created_At__c),
-            resourceGrant(account.Account_Key__c, 'FLIP', 1, 'SIGNUP_FLIP', account.Created_At__c),
-            resourceGrant(account.Account_Key__c, 'FIX', 1, 'SIGNUP_FIX', account.Created_At__c)
-        };
-        // All Big Object callouts happen before the activation DML below.
-        HousieOperationService.executeOperation('ACCOUNT_SIGNUP_GRANTS', grants);
+        HousieErrors.require(hasCommittedGrant(account, 'POINTS', 'SIGNUP_POINTS'),
+            'The initial points grant has not committed.');
+        HousieErrors.require(hasCommittedGrant(account, 'AUTO_MODE_TOKEN', 'SIGNUP_AUTO_MODE'),
+            'The initial auto-mode grant has not committed.');
+        HousieErrors.require(hasCommittedGrant(account, 'FLIP', 'SIGNUP_FLIP'),
+            'The initial flip grant has not committed.');
+        HousieErrors.require(hasCommittedGrant(account, 'FIX', 'SIGNUP_FIX'),
+            'The initial fix grant has not committed.');
 
+        // This request performs ordinary DML only, after the Big Object request has ended.
         account.Status__c = 'ACTIVE';
         account.Updated_At__c = System.now();
         update account;
         return account;
+    }
+
+    private static Boolean hasCommittedGrant(
+        Housie_Account__c account, String resourceType, String grantKey
+    ) {
+        String recordId = HousieIds.stableId(
+            'ACCOUNT_GRANT', account.Account_Key__c + ':' + grantKey
+        );
+        List<Account_Resource_Transaction__b> rows = [
+            SELECT Operation_Id__c, Resource_Type__c, Quantity__c
+            FROM Account_Resource_Transaction__b
+            WHERE Account_Id__c = :account.Account_Key__c
+              AND Created_At__c = :account.Created_At__c
+              AND Record_Id__c = :recordId
+            LIMIT 1
+        ];
+        return !rows.isEmpty() && rows[0].Resource_Type__c == resourceType &&
+            HousieBigObjectStore.isCommitted(rows[0].Operation_Id__c);
     }
 
     private static HousieOperationService.WriteItem resourceGrant(
