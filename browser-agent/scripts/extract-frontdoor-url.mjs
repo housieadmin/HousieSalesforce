@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export function extractFrontdoorUrl(raw) {
   const start = raw.indexOf('{');
@@ -16,7 +18,7 @@ export function extractFrontdoorUrl(raw) {
   return url;
 }
 
-if (process.argv[1] && new URL(import.meta.url).pathname === process.argv[1]) {
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const raw = fs.readFileSync(process.argv[2], 'utf8');
   process.stdout.write(extractFrontdoorUrl(raw));
 }
