@@ -11,6 +11,7 @@ import listMyTickets from '@salesforce/apex/HousieGameTicketService.listMyTicket
 import prepareTicketPurchase from '@salesforce/apex/HousieGameTicketService.prepareTicketPurchase';
 import prepareWaitingGameWithdrawal from '@salesforce/apex/HousieGameTicketService.prepareWaitingGameWithdrawal';
 import commitTicketCommand from '@salesforce/apex/HousieGameTicketService.commitTicketCommand';
+import completeTicketCommand from '@salesforce/apex/HousieGameTicketService.completeTicketCommand';
 import listMyPendingActions from '@salesforce/apex/HousieGameTicketService.listMyPendingActions';
 
 export default class HousieBoardHub extends LightningElement {
@@ -97,7 +98,8 @@ export default class HousieBoardHub extends LightningElement {
           ticketMode: previousModes.get(board.boardId) || 'MANUAL',
           ticketCount: tickets.length,
           canPurchase: board.currentGameStatus === 'WAITING' && pending.length === 0,
-          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING' && pending.length === 0
+          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING' && pending.length === 0,
+          canLeave: pending.length === 0
         };
       }));
       this.boards = boardsWithTickets;
@@ -210,9 +212,10 @@ export default class HousieBoardHub extends LightningElement {
       this.loading = false;
       await this.refresh();
     } catch (e) {
-      this.error = e?.body?.message || e?.message || 'Ticket purchase is pending. Use the retry action below.';
+      const message = e?.body?.message || e?.message || 'Ticket purchase is pending. Use the retry action below.';
       this.loading = false;
       await this.refresh();
+      this.error = message;
     }
   }
 
@@ -221,14 +224,16 @@ export default class HousieBoardHub extends LightningElement {
     const requestId = event.currentTarget.dataset.requestId;
     this.loading = true;
     try {
-      const result = await commitTicketCommand({ requestId, accountId: this.accountKey });
+      await commitTicketCommand({ requestId, accountId: this.accountKey });
+      const result = await completeTicketCommand({ requestId, accountId: this.accountKey });
       this.success = result.message;
       this.loading = false;
       await this.refresh();
     } catch (e) {
-      this.error = e?.body?.message || e?.message || 'The pending action could not be completed. Retry again.';
+      const message = e?.body?.message || e?.message || 'The pending action could not be completed. Retry again.';
       this.loading = false;
       await this.refresh();
+      this.error = message;
     }
   }
 
@@ -242,7 +247,11 @@ export default class HousieBoardHub extends LightningElement {
         accountId: this.accountKey,
         requestId: this.createRequestId()
       });
-      const result = await commitTicketCommand({
+      await commitTicketCommand({
+        requestId: prepared.requestId,
+        accountId: this.accountKey
+      });
+      const result = await completeTicketCommand({
         requestId: prepared.requestId,
         accountId: this.accountKey
       });
@@ -250,9 +259,10 @@ export default class HousieBoardHub extends LightningElement {
       this.loading = false;
       await this.refresh();
     } catch (e) {
-      this.error = e?.body?.message || e?.message || 'Withdrawal is pending. Use the retry action below.';
+      const message = e?.body?.message || e?.message || 'Withdrawal is pending. Use the retry action below.';
       this.loading = false;
       await this.refresh();
+      this.error = message;
     }
   }
 
