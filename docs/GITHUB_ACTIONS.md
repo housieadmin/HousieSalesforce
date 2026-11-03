@@ -81,7 +81,39 @@ This redeploys the selected source paths as they exist at the known-good ref. It
 
 Treat the Developer Edition org as shared mutable state. Concurrent AI sessions working on overlapping components can overwrite one another. The workflows serialize deployments, but they cannot prevent a later run from intentionally deploying a different version.
 
-## 5. Controlled deployment
+## 5. Issue-comment commands for AI deploy and restore
+
+After `Salesforce Issue Commands` is merged to `main`, repository owners can trigger the two AI iteration workflows by commenting on [Salesforce command center issue #11](https://github.com/housieadmin/HousieSalesforce/issues/11). This is a command channel, not a PR review mechanism.
+
+Deploy example:
+
+```text
+/sf deploy
+ref: feature/my-change
+paths:
+- force-app/main/default/classes/HousieAccountService.cls
+tests: none
+confirm: DEPLOY
+```
+
+For `tests: specified`, add an `apex_test_classes:` list with one class name per line. The other supported test modes are `none` and `local`.
+
+Restore example:
+
+```text
+/sf restore
+ref: main
+paths:
+- force-app/main/default/classes/HousieAccountService.cls
+run_local_tests: false
+confirm: RESTORE
+```
+
+The dispatcher is restricted to issue #11, ordinary issue comments (not PR comments), and repository owners. It validates the command, safe Git ref, existing ref, metadata paths, test selection, and exact confirmation before dispatching the existing workflow from `main`. It has no Salesforce credentials and does not perform deployment itself. The dispatched workflow remains responsible for checkout, deeper path validation, Salesforce authentication, dry-run, deployment, tests, and shared-org concurrency.
+
+The dispatcher requires the workflow to be merged to `main` before it can respond to issue comments. Do not use the issue command channel for controlled release deployments, org sync, or arbitrary workflows.
+
+## 6. Controlled deployment
 
 Deployment is intentionally manual. There is no push-to-`main` deployment trigger.
 
