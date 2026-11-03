@@ -54,8 +54,26 @@ test("public test-user ticket purchase reports exact failing transaction stage",
 
   const purchase = hub.getByRole("button", { name: /Buy ticket/ }).first();
   await expect(purchase, "A waiting game must be available for this account").toBeVisible({ timeout: 30000 });
+
+  // The component builds its idempotency key from Date.now() and Math.random().
+  // Fix those only for the synchronous click dispatch so scheduled reruns reuse
+  // the same command instead of consuming another ticket on every run.
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__housieE2eOriginalDateNow = Date.now;
+    w.__housieE2eOriginalRandom = Math.random;
+    Date.now = () => 1900000000000;
+    Math.random = () => 0.3141592653589793;
+  });
   capturePurchase = true;
   await purchase.click();
+  await page.evaluate(() => {
+    const w = window as any;
+    Date.now = w.__housieE2eOriginalDateNow;
+    Math.random = w.__housieE2eOriginalRandom;
+    delete w.__housieE2eOriginalDateNow;
+    delete w.__housieE2eOriginalRandom;
+  });
 
   await expect.poll(async () => await hub.innerText(), { timeout: 60000 }).toMatch(/Ticket:|Ticket purchase failed during/);
   const result = await hub.innerText();
@@ -64,4 +82,5 @@ test("public test-user ticket purchase reports exact failing transaction stage",
   housie.note("Salesforce Aura purchase diagnostics: " + JSON.stringify(auraDiagnostics).slice(0, 7000));
   await housie.screenshot("ticket-purchase-stage-diagnostic");
   expect(result, "Ticket purchase must complete without a transaction-stage error").toMatch(/Ticket:/);
+  expect(result, "The pending-uncommitted-work failure must be absent").not.toMatch(/pending uncommitted work/i);
 });
