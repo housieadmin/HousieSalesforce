@@ -8,8 +8,10 @@ import listPublicBoards from '@salesforce/apex/HousieBoardService.listPublicBoar
 import joinBoardAction from '@salesforce/apex/HousieBoardService.joinBoard';
 import leaveBoardAction from '@salesforce/apex/HousieBoardService.leaveBoard';
 import listMyTickets from '@salesforce/apex/HousieGameTicketService.listMyTickets';
-import purchaseTicketAction from '@salesforce/apex/HousieGameTicketService.purchaseTicket';
-import withdrawFromGameAction from '@salesforce/apex/HousieGameTicketService.withdrawFromWaitingGame';
+import prepareTicketPurchase from '@salesforce/apex/HousieGameTicketService.prepareTicketPurchase';
+import prepareWaitingGameWithdrawal from '@salesforce/apex/HousieGameTicketService.prepareWaitingGameWithdrawal';
+import commitTicketCommand from '@salesforce/apex/HousieGameTicketService.commitTicketCommand';
+import listMyPendingActions from '@salesforce/apex/HousieGameTicketService.listMyPendingActions';
 
 export default class HousieBoardHub extends LightningElement {
   @api recordId;
@@ -23,7 +25,6 @@ export default class HousieBoardHub extends LightningElement {
   loading = false;
   error;
   success;
-  pendingPurchaseRequests = {};
 
   @wire(getRecord, { recordId: '$recordId', fields: [ACCOUNT_KEY_FIELD] })
   wiredAccount({ data, error }) {
@@ -66,22 +67,37 @@ export default class HousieBoardHub extends LightningElement {
     this.loading = true;
     this.error = undefined;
     try {
-      const [myBoards, publicBoards] = await Promise.all([
+      const [myBoards, publicBoards, pendingActions] = await Promise.all([
         listMyBoards({ accountId: this.accountKey }),
-        listPublicBoards()
+        listPublicBoards(),
+        listMyPendingActions({ accountId: this.accountKey })
       ]);
+      const pendingByBoard = {};
+      pendingActions.forEach(action => {
+        if (!pendingByBoard[action.boardId]) pendingByBoard[action.boardId] = [];
+        pendingByBoard[action.boardId].push({
+          ...action,
+          retryLabel: action.actionType === 'WITHDRAW'
+            ? 'Finish withdrawal' : 'Finish ticket purchase'
+        });
+      });
       const previousModes = new Map(this.boards.map(board => [board.boardId, board.ticketMode]));
       const boardsWithTickets = await Promise.all(myBoards.map(async board => {
-        const tickets = await listMyTickets({ boardId: board.boardId, accountId: this.accountKey });
+        const [tickets] = await Promise.all([
+          listMyTickets({ boardId: board.boardId, accountId: this.accountKey })
+        ]);
         const hasTickets = tickets.length > 0;
+        const pending = pendingByBoard[board.boardId] || [];
         return {
           ...board,
           tickets,
           hasTickets,
+          pendingActions: pending,
+          hasPendingActions: pending.length > 0,
           ticketMode: previousModes.get(board.boardId) || 'MANUAL',
           ticketCount: tickets.length,
-          canPurchase: board.currentGameStatus === 'WAITING',
-          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING'
+          canPurchase: board.currentGameStatus === 'WAITING' && pending.length === 0,
+          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING' && pending.length === 0
         };
       }));
       this.boards = boardsWithTickets;
@@ -167,32 +183,52 @@ export default class HousieBoardHub extends LightningElement {
     }
   }
 
+  createRequestId() {
+    return String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+  }
+
   async buyTicket(event) {
     this.clearMessages();
     const boardId = event.currentTarget.dataset.boardId;
     const board = this.boards.find(item => item.boardId === boardId);
-    const requestId = this.pendingPurchaseRequests[boardId] ||
-      (String(Date.now()) + '-' + Math.random().toString(36).slice(2));
-    this.pendingPurchaseRequests = { ...this.pendingPurchaseRequests, [boardId]: requestId };
     this.loading = true;
     try {
-      const result = await purchaseTicketAction({
+      const prepared = await prepareTicketPurchase({
         boardId,
         accountId: this.accountKey,
         mode: board?.ticketMode || 'MANUAL',
-        requestId
+        requestId: this.createRequestId()
       });
-      const remainingRequests = { ...this.pendingPurchaseRequests };
-      delete remainingRequests[boardId];
-      this.pendingPurchaseRequests = remainingRequests;
-      this.success = result.message + ' Ticket: ' + result.ticketId;
+      let result = prepared;
+      if (prepared.requestId && prepared.status !== 'ACTIVE' && prepared.status !== 'COMMITTED') {
+        result = await commitTicketCommand({
+          requestId: prepared.requestId,
+          accountId: this.accountKey
+        });
+      }
+      this.success = result.message + (result.ticketId ? ' Ticket: ' + result.ticketId : '');
       this.loading = false;
       await this.refresh();
     } catch (e) {
-      // Keep the same request id so retrying after an ambiguous network failure
-      // returns the original purchase instead of reserving points twice.
-      this.error = e?.body?.message || e?.message || 'Unable to purchase ticket.';
+      this.error = e?.body?.message || e?.message || 'Ticket purchase is pending. Use the retry action below.';
       this.loading = false;
+      await this.refresh();
+    }
+  }
+
+  async retryPendingAction(event) {
+    this.clearMessages();
+    const requestId = event.currentTarget.dataset.requestId;
+    this.loading = true;
+    try {
+      const result = await commitTicketCommand({ requestId, accountId: this.accountKey });
+      this.success = result.message;
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      this.error = e?.body?.message || e?.message || 'The pending action could not be completed. Retry again.';
+      this.loading = false;
+      await this.refresh();
     }
   }
 
@@ -201,13 +237,22 @@ export default class HousieBoardHub extends LightningElement {
     const boardId = event.currentTarget.dataset.boardId;
     this.loading = true;
     try {
-      const result = await withdrawFromGameAction({ boardId, accountId: this.accountKey });
+      const prepared = await prepareWaitingGameWithdrawal({
+        boardId,
+        accountId: this.accountKey,
+        requestId: this.createRequestId()
+      });
+      const result = await commitTicketCommand({
+        requestId: prepared.requestId,
+        accountId: this.accountKey
+      });
       this.success = result.message;
       this.loading = false;
       await this.refresh();
     } catch (e) {
-      this.error = e?.body?.message || e?.message || 'Unable to withdraw from this game.';
+      this.error = e?.body?.message || e?.message || 'Withdrawal is pending. Use the retry action below.';
       this.loading = false;
+      await this.refresh();
     }
   }
 
