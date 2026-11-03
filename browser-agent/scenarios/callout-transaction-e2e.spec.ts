@@ -69,39 +69,43 @@ test("public test-user ticket purchase reports exact failing transaction stage",
   }
 
   let result = await visiblePageText();
-  let ticketId = result.match(/\b(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/i)?.[1]
-    || result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1];
+  const initialActiveCount = Number(result.match(/Active tickets:\\s*(\\d+)/)?.[1] || 0);
+  const initialTicketIds = [...result.matchAll(/(?:MANUAL|AUTO)\\s*·\\s*[0-9.]+\\s*points\\s*·\\s*([a-f0-9]{32})/gi)]
+    .map(match => match[1]);
+  let ticketId = result.match(/Ticket:\\s*([a-f0-9]{32})/i)?.[1]
+    || initialTicketIds[0];
 
-  // Only create a ticket when this test account has none. This keeps hourly
-  // reruns read-only after the first successful purchase and avoids exhausting
-  // the account's ticket limit.
-  const activeMatch = result.match(/Active tickets:\s*(\d+)/);
-  if (!ticketId && Number(activeMatch?.[1] || 0) === 0) {
+  // The account is configured for two human tickets per game. Buy one more
+  // only while capacity remains; once full, hourly reruns become read-only.
+  // Use the real request ID generator so this exercises a genuinely new
+  // prepare -> commit -> complete command rather than replaying an old ID.
+  if (initialActiveCount < 2) {
     const purchase = page.getByRole("button", { name: /Buy ticket/ }).first();
     await expect(purchase, "A waiting game must be available for this account").toBeVisible({ timeout: 30000 });
-    await page.evaluate(() => {
-      const w = window as any;
-      w.__housieE2eOriginalDateNow = Date.now;
-      w.__housieE2eOriginalRandom = Math.random;
-      Date.now = () => 1900000000000;
-      Math.random = () => 0.3141592653589793;
-    });
     await purchase.click();
-    await page.evaluate(() => {
-      const w = window as any;
-      Date.now = w.__housieE2eOriginalDateNow;
-      Math.random = w.__housieE2eOriginalRandom;
-      delete w.__housieE2eOriginalDateNow;
-      delete w.__housieE2eOriginalRandom;
-    });
-    await expect.poll(async () => await visiblePageText(), { timeout: 60000 }).toMatch(/Ticket:|Ticket purchase failed during/);
+
+    await expect.poll(async () => {
+      const text = await visiblePageText();
+      return /Ticket:\\s*[a-f0-9]{32}|A callout was unsuccessful|pending uncommitted work|maximum number of tickets|Not enough available points/i.test(text);
+    }, { timeout: 60000 }).toBe(true);
+
     result = await visiblePageText();
-    ticketId = result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1]
-      || result.match(/\b(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/i)?.[1];
+    const successId = result.match(/Ticket:\\s*([a-f0-9]{32})/i)?.[1];
+    expect(successId, "A fresh purchase must return its own Ticket ID, not only reuse an existing ticket").toMatch(/^[a-f0-9]{32}$/i);
+    expect(initialTicketIds, "A fresh purchase must create a distinct ticket").not.toContain(successId);
+    ticketId = successId;
+
+    await expect.poll(async () => {
+      const text = await visiblePageText();
+      return Number(text.match(/Active tickets:\\s*(\\d+)/)?.[1] || 0);
+    }, { timeout: 60000 }).toBeGreaterThan(initialActiveCount);
   }
 
   expect(ticketId, "The public account must show an active ticket result").toMatch(/^[a-f0-9]{32}$/i);
-  result += "\nTicket: " + ticketId;
+  result = await visiblePageText() + "\\nTicket: " + ticketId;
+  expect(await page.getByRole("button", { name: /Finish ticket purchase/ }).count(),
+    "No prepared purchase may remain after the test").toBe(0);
+
   await Promise.all(pendingCaptures);
   housie.note("Ticket purchase UI result: " + result.slice(0, 2000));
   housie.note("Salesforce Aura purchase diagnostics: " + JSON.stringify(auraDiagnostics).slice(0, 7000));
