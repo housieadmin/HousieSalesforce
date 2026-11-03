@@ -317,16 +317,66 @@ public without sharing class HousieGameTicketService {
         } else {
             throw new HousieErrors.HousieException('Unsupported prepared ticket command type.');
         }
-        command.Status__c = 'COMMITTED';
-        command.Updated_At__c = System.now();
-        command.Committed_At__c = command.Updated_At__c;
-        // This DML deliberately follows the final Big Object insertImmediate call.
-        update command;
         result.requestId = command.Request_Key__c;
         result.boardId = command.Board_Id__c;
         result.actionType = command.Action_Type__c;
-        result.status = 'COMMITTED';
+        result.status = 'PERSISTED';
         return result;
+    }
+
+    @AuraEnabled
+    public static TicketActionResult completeTicketCommand(String requestId, String accountId) {
+        HousieOperationService.lockForWrite();
+        HousieErrors.require(String.isNotBlank(requestId), 'A command request id is required.');
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        List<Housie_Ticket_Command__c> commands = [
+            SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
+                   Action_Type__c, Ticket_Id__c, Payload__c, Status__c, Updated_At__c
+            FROM Housie_Ticket_Command__c
+            WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
+            LIMIT 1
+            FOR UPDATE
+        ];
+        HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
+        Housie_Ticket_Command__c command = commands[0];
+        if (command.Status__c == 'COMMITTED') return commandResult(command);
+
+        if (command.Action_Type__c == 'PURCHASE') {
+            List<Ticket__b> rows = [
+                SELECT Record_Id__c, Operation_Id__c
+                FROM Ticket__b
+                WHERE Game_Id__c = :command.Game_Id__c
+                  AND Ticket_Kind__c = 'HUMAN'
+                  AND Record_Id__c = :command.Ticket_Id__c
+                LIMIT 1
+            ];
+            HousieErrors.require(!rows.isEmpty() &&
+                HousieBigObjectStore.isCommitted(rows[0].Operation_Id__c),
+                'The ticket Big Object operation has not committed yet. Retry finalization.');
+        } else if (command.Action_Type__c == 'WITHDRAW') {
+            Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
+            List<Object> rawIds = (List<Object>)payload.get('ticketIds');
+            Set<String> requestedTicketIds = new Set<String>();
+            for (Object rawId : rawIds) requestedTicketIds.add(String.valueOf(rawId));
+            Set<String> withdrawn = withdrawnTicketIds(command.Game_Id__c);
+            for (String ticketId : requestedTicketIds) {
+                HousieErrors.require(withdrawn.contains(ticketId),
+                    'The withdrawal Big Object operation has not committed yet. Retry finalization.');
+            }
+            ParticipantState participant = currentParticipant(command.Game_Id__c, actor.Account_Key__c);
+            HousieErrors.require(participant != null && participant.status == 'WITHDRAWN',
+                'The participant withdrawal state has not committed yet. Retry finalization.');
+        } else {
+            throw new HousieErrors.HousieException('Unsupported prepared ticket command type.');
+        }
+
+        // This request performs DML only. The Big Object insertImmediate writes
+        // completed in commitTicketCommand in the preceding request.
+        command.Status__c = 'COMMITTED';
+        command.Updated_At__c = System.now();
+        command.Committed_At__c = command.Updated_At__c;
+        update command;
+        return commandResult(command);
     }
 
     private static TicketActionResult commitPreparedPurchase(
