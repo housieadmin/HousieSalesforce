@@ -47,7 +47,7 @@ jobs:
             if (!line) continue;
             if (!line.startsWith('- ')) break;
             const file = line.slice(2).trim();
-            if (!/^browser-agent\\/scenarios\\/[A-Za-z0-9._/-]+\\.spec\\.ts$/.test(file) || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
+            if (!/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(file) || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
             scenarios.push(file);
           }
           if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length) throw new Error('Supply 1-10 unique scenario files');
