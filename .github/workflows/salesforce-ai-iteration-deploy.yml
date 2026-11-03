@@ -41,7 +41,6 @@ jobs:
     name: Deploy selected feature-branch metadata
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: development-iteration
     env:
       SOURCE_REF: ${{ inputs.source_ref }}
       SOURCE_PATHS_INPUT: ${{ inputs.source_paths }}
