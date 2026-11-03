@@ -304,7 +304,6 @@ public without sharing class HousieGameTicketService {
             FROM Housie_Ticket_Command__c
             WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
             LIMIT 1
-            FOR UPDATE
         ];
         HousieErrors.require(!commands.isEmpty(), 'Prepared ticket command not found.');
         Housie_Ticket_Command__c command = commands[0];
