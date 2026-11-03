@@ -135,7 +135,7 @@ jobs:
                 };
                 if (command === '/sf deploy-and-verify') {
                   const scenarios = (fields.scenarios || '').split('\n').map(x => x.trim()).filter(Boolean);
-                  if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length || scenarios.some(x => !/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\.spec\\.ts$/.test(x) || x.includes('..') || x.includes('//'))) throw new Error('Provide 1–10 unique scenario paths under browser-agent/scenarios/*.spec.ts.');
+                  if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length || scenarios.some(x => !x.startsWith('browser-agent/scenarios/') || !x.endsWith('.spec.ts') || x.includes('..') || x.includes('//'))) throw new Error('Provide 1–10 unique scenario paths under browser-agent/scenarios/*.spec.ts.');
                   inputs.scenarios_json = JSON.stringify(scenarios);
                   inputs.run_description = (fields.description || 'AI-requested deploy and browser verification').slice(0, 300);
                 }
