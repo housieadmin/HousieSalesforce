@@ -169,8 +169,7 @@ jobs:
           exit "$TEST_EXIT"
 
       - name: Upload execution artifacts
-        if: github.event_name == 'issue_comment'
-        if: always()
+        if: always() && github.event_name == 'issue_comment'
         uses: actions/upload-artifact@v4
         with:
           name: housie-browser-agent-${{ github.run_id }}-${{ github.run_attempt }}
