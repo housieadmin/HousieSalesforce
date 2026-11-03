@@ -58,7 +58,7 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 - Source and metadata have been reviewed statically in this feature branch.
 - HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
-- The repository GitHub Actions PR workflow validates Salesforce metadata and runs local Apex tests, but its test command runs against the already-deployed org version after a dry-run; it does not execute the candidate code in the org. This branch's pipeline result is pending. Runtime verification requires the AI iteration deploy workflow or controlled deployment workflow, followed by UI/API testing.
+- The repository GitHub Actions PR workflow validates candidate metadata with a dry-run and runs local Apex tests against the current org. This does not execute candidate Apex at runtime. An attempted candidate dry-run with `RunLocalTests` executed 38/38 tests successfully but failed the org-wide deployment coverage gate (22%, below the required 75%); the PR workflow therefore keeps metadata validation and existing-org tests separate. Runtime verification requires deploying the selected changed classes with the AI iteration deploy workflow, then testing account creation, ticket purchase, withdrawal and retry in the Developer Edition.
 - Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
 
 ## Consistency note
