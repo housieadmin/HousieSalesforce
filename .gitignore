@@ -1,2 +1,15 @@
+# Salesforce CLI and local authentication
 .sf/
 .sfdx/
+.localdevserver/
+*.log
+
+# Node / tooling
+node_modules/
+.tmp/
+coverage/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
