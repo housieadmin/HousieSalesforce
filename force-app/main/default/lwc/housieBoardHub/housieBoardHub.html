@@ -96,7 +96,7 @@
             </div>
             <lightning-button label={board.joinLabel} variant="brand"
               data-board-id={board.boardId} onclick={joinPublicBoard}
-              disabled={board.alreadyMember || loading}></lightning-button>
+              disabled={board.alreadyMember}></lightning-button>
           </article>
         </template>
       </template>
