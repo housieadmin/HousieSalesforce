@@ -176,11 +176,12 @@ public without sharing class HousieGameTicketService {
                     new Map<String,Object>{
                         'adminAccountId' => actor.Account_Key__c,
                         'reason' => 'FIRST_ELIGIBLE_PARTICIPANT'
-                    }, nowAt.addMilliseconds(1)));
+                    }, nowAt, Decimal.valueOf(String.valueOf(nowAt.getTime()))));
             }
         }
         writes.add(gameEvent(context.gameRow.Record_Id__c, actor.Account_Key__c, 'TICKET_PURCHASED',
-            new Map<String,Object>{'ticketId' => ticketId, 'mode' => safeMode, 'entryFee' => fee}, nowAt));
+            new Map<String,Object>{'ticketId' => ticketId, 'mode' => safeMode, 'entryFee' => fee},
+            nowAt, Decimal.valueOf(String.valueOf(nowAt.getTime())) + 1));
         HousieOperationService.executeOperation('PURCHASE_HUMAN_TICKET', writes);
 
         TicketActionResult result = new TicketActionResult();
@@ -218,6 +219,7 @@ public without sharing class HousieGameTicketService {
         Datetime nowAt = System.now();
         Decimal releaseTotal = 0;
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
+        Decimal withdrawalEventOffset = 0;
         for (Ticket__b ticket : mine) {
             Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
             HousieErrors.require(hold != null && hold.Status__c == 'ACTIVE',
@@ -240,7 +242,9 @@ public without sharing class HousieGameTicketService {
             writes.add(resourceTransaction(actor.Account_Key__c, 'POINTS', 'HOLD_RELEASE', -amount,
                 'HUMAN_TICKET', ticket.Record_Id__c, 'TICKET_HOLD_RELEASE:' + ticket.Wallet_Hold_Id__c));
             writes.add(gameEvent(context.gameRow.Record_Id__c, actor.Account_Key__c, 'TICKET_WITHDRAWN',
-                new Map<String,Object>{'ticketId' => ticket.Record_Id__c}, nowAt));
+                new Map<String,Object>{'ticketId' => ticket.Record_Id__c},
+                nowAt, Decimal.valueOf(String.valueOf(nowAt.getTime())) + withdrawalEventOffset));
+            withdrawalEventOffset++;
         }
         actor.Reserved_Points__c = (actor.Reserved_Points__c == null ? 0 : actor.Reserved_Points__c) - releaseTotal;
         HousieDomainRules.assertWalletInvariant(actor);
@@ -513,12 +517,13 @@ public without sharing class HousieGameTicketService {
     }
 
     private static HousieOperationService.WriteItem gameEvent(
-        String gameId, String actorId, String type, Map<String,Object> payload, Datetime eventAt
+        String gameId, String actorId, String type, Map<String,Object> payload,
+        Datetime eventAt, Decimal sequence
     ) {
         return writeItem('Game_Event__b', new Map<String,Object>{
             'Record_Id__c' => HousieIds.newId(),
             'Game_Id__c' => gameId,
-            'Sequence__c' => eventAt.getTime(),
+            'Sequence__c' => sequence,
             'Event_Type__c' => type,
             'Actor_Account_Id__c' => actorId,
             'Payload__c' => JSON.serialize(payload),
