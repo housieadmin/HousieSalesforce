@@ -3,6 +3,11 @@ name: Housie Browser Agent
 on:
   issue_comment:
     types: [created]
+  workflow_call:
+    inputs:
+      source_ref: { required: true, type: string }
+      scenarios_json: { required: true, type: string }
+      run_description: { required: false, type: string, default: Combined deploy and browser verification }
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -14,7 +19,7 @@ permissions:
   issues: write
 
 concurrency:
-  group: browser-agent-${{ github.event.issue.number || github.event.pull_request.number }}
+  group: browser-agent-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -22,6 +27,7 @@ jobs:
     name: Browser agent validation
     if: >-
       github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_call' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 9 &&
        github.event.issue.pull_request == null &&
@@ -62,33 +68,53 @@ jobs:
           node .browser-agent-tools/browser-agent/scripts/parse-request.mjs
           cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
-      - name: Check out requested ref
-        if: github.event_name == 'issue_comment'
+      - name: Check out trusted browser-agent tooling for reusable call
+        if: github.event_name == 'workflow_call'
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.request.outputs.ref }}
+          ref: main
+          persist-credentials: false
+          path: .browser-agent-tools
+
+      - name: Prepare reusable workflow request
+        if: github.event_name == 'workflow_call'
+        id: reusable-request
+        env:
+          REQUESTED_REF: ${{ inputs.source_ref }}
+          SCENARIOS_JSON: ${{ inputs.scenarios_json }}
+          RUN_DESCRIPTION: ${{ inputs.run_description }}
+        run: |
+          set -euo pipefail
+          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!x.startsWith("browser-agent/scenarios/")||!x.endsWith(".spec.ts")||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); const nl=String.fromCharCode(10); fs.appendFileSync(process.env.GITHUB_OUTPUT,["ref="+process.env.REQUESTED_REF,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300),"scenarios="+JSON.stringify(a)].join(nl)+nl);'
+          cp .browser-agent-tools/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
+
+      - name: Check out requested ref
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
           fetch-depth: 0
           persist-credentials: false
           path: .browser-agent-source
 
       - name: Set up Node.js
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         working-directory: .browser-agent-source/browser-agent
         run: npm install --no-audit --no-fund
 
       - name: Install Chromium
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         working-directory: .browser-agent-source/browser-agent
         run: npx playwright install --with-deps chromium
 
       - name: Authenticate to Salesforce
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         env:
           SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
@@ -108,14 +134,51 @@ jobs:
           echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
 
+      - name: Enable Apex debug logging for the browser transaction
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
+        continue-on-error: true
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "APEX_DEBUG_ENABLED=false" >> "$GITHUB_ENV"
+          user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org housie-browser-agent --json)"
+          user_id="$(jq -r '.result.records[0].Id // empty' <<< "$user_json")"
+          test -n "$user_id"
+
+          level_json="$(sf data query --use-tooling-api --query "SELECT Id FROM DebugLevel WHERE DeveloperName = 'HousieBrowserE2E' LIMIT 1" --target-org housie-browser-agent --json)"
+          debug_id="$(jq -r '.result.records[0].Id // empty' <<< "$level_json")"
+          if [[ -z "$debug_id" ]]; then
+            level_create="$(sf data create record --use-tooling-api --sobject DebugLevel --values "DeveloperName=HousieBrowserE2E MasterLabel=HousieBrowserE2E ApexCode=FINEST ApexProfiling=FINE Callout=FINEST Database=FINEST System=DEBUG Validation=INFO Visualforce=NONE Workflow=FINE" --target-org housie-browser-agent --json)"
+            debug_id="$(jq -r '.result.id // .result.Id // empty' <<< "$level_create")"
+          fi
+          test -n "$debug_id"
+
+          trace_json="$(sf data query --use-tooling-api --query "SELECT Id FROM TraceFlag WHERE TracedEntityId = '$user_id' ORDER BY StartDate DESC LIMIT 1" --target-org housie-browser-agent --json)"
+          trace_id="$(jq -r '.result.records[0].Id // empty' <<< "$trace_json")"
+          start="$(date -u +%Y-%m-%dT%H:%M:%S.000+0000)"
+          expires="$(date -u -d '+60 minutes' +%Y-%m-%dT%H:%M:%S.000+0000)"
+          values="TracedEntityId=$user_id DebugLevelId=$debug_id LogType=DEVELOPER_LOG StartDate=$start ExpirationDate=$expires"
+          if [[ -n "$trace_id" ]]; then
+            sf data update record --use-tooling-api --sobject TraceFlag --record-id "$trace_id" --values "$values" --target-org housie-browser-agent --json >/dev/null
+          else
+            sf data create record --use-tooling-api --sobject TraceFlag --values "$values" --target-org housie-browser-agent --json >/dev/null
+          fi
+
+          echo "APEX_LOG_START=$start" >> "$GITHUB_ENV"
+          echo "APEX_TRACE_USER_ID=$user_id" >> "$GITHUB_ENV"
+          echo "APEX_DEBUG_ENABLED=true" >> "$GITHUB_ENV"
+          echo "Apex debug trace enabled for the browser integration user."
+
       - name: Execute selected scenarios
-        if: github.event_name == 'issue_comment'
+        if: ${{ github.event_name == 'issue_comment' || github.event_name == 'workflow_call' }}
         id: run
         working-directory: .browser-agent-source/browser-agent
         env:
-          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios }}
-          RUN_DESCRIPTION: ${{ steps.request.outputs.description }}
-          REQUESTED_REF: ${{ steps.request.outputs.ref }}
+          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
+          RUN_DESCRIPTION: ${{ steps.request.outputs.description || steps.reusable-request.outputs.description }}
+          REQUESTED_REF: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
           BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
@@ -178,8 +241,32 @@ jobs:
           NODE
           exit "$TEST_EXIT"
 
+      - name: Collect Apex debug logs
+        if: always() && (github.event_name == 'issue_comment' || github.event_name == 'workflow_call') && env.APEX_DEBUG_ENABLED == 'true'
+        working-directory: .browser-agent-source/browser-agent
+        env:
+          BROWSER_AGENT_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set +e
+          log_dir="$BROWSER_AGENT_ARTIFACT_DIR/apex-logs"
+          mkdir -p "$log_dir"
+          query="$(sf data query --use-tooling-api --query "SELECT Id, StartTime, LogUserId, Operation, Status, LogLength FROM ApexLog WHERE LogUserId = '$APEX_TRACE_USER_ID' ORDER BY StartTime DESC LIMIT 30" --target-org housie-browser-agent --json)"
+          query_status=$?
+          if [[ $query_status -ne 0 ]]; then
+            echo "ApexLog query failed with exit code $query_status" > "$log_dir/collection-error.txt"
+            exit 0
+          fi
+          printf '%s\n' "$query" > "$log_dir/index.json"
+          mapfile -t log_ids < <(jq -r --arg start "$APEX_LOG_START" '.result.records[]? | select(.StartTime >= $start) | .Id' <<< "$query")
+          for log_id in "${log_ids[@]}"; do
+            sf apex get log --log-id "$log_id" --output-dir "$log_dir" --target-org housie-browser-agent >/dev/null 2>&1
+          done
+          echo "Apex debug logs collected: ${#log_ids[@]}"
+          printf '%s\n' "Apex debug logs collected: ${#log_ids[@]}" >> "$BROWSER_AGENT_ARTIFACT_DIR/summary.md"
+
       - name: Upload execution artifacts
-        if: always() && github.event_name == 'issue_comment'
+        if: always() && (github.event_name == 'issue_comment' || github.event_name == 'workflow_call')
         uses: actions/upload-artifact@v4
         with:
           name: housie-browser-agent-${{ github.run_id }}-${{ github.run_attempt }}
@@ -196,8 +283,8 @@ jobs:
             const body = [
               'Browser execution finished.',
               '- Workflow run: ' + url,
-              '- Requested ref: ${{ steps.request.outputs.ref }}',
-              '- Scenarios: ${{ steps.request.outputs.scenarios }}',
+              '- Requested ref: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}',
+              '- Scenarios: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}',
               '- Evidence: download the artifact from the workflow run.'
             ].join('\n');
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 9, body });

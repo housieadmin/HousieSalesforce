@@ -11,6 +11,12 @@ on:
         description: "Comma-separated or newline-separated paths under force-app/ (class .cls, LWC bundle folder, object folder, etc.)"
         required: true
         type: string
+      deployment_mode:
+        description: Standard validates; fast skips dry-run and Apex tests
+        required: true
+        type: choice
+        default: standard
+        options: [standard, fast]
       test_mode:
         description: Apex tests to run after deployment
         required: true
@@ -29,6 +35,15 @@ on:
         required: true
         type: string
 
+  workflow_call:
+    inputs:
+      source_ref: { required: true, type: string }
+      source_paths: { required: true, type: string }
+      deployment_mode: { required: false, type: string, default: standard }
+      test_mode: { required: false, type: string, default: none }
+      apex_test_classes: { required: false, type: string }
+      confirm_deployment: { required: true, type: string }
+
 permissions:
   contents: read
 
@@ -39,12 +54,13 @@ concurrency:
 jobs:
   deploy:
     name: Deploy selected feature-branch metadata
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     env:
       SOURCE_REF: ${{ inputs.source_ref }}
       SOURCE_PATHS_INPUT: ${{ inputs.source_paths }}
-      TEST_MODE: ${{ inputs.test_mode }}
+      DEPLOYMENT_MODE: ${{ inputs.deployment_mode || 'standard' }}
+      TEST_MODE: ${{ inputs.test_mode || 'none' }}
       APEX_TEST_CLASSES_INPUT: ${{ inputs.apex_test_classes }}
       CONFIRM_DEPLOYMENT: ${{ inputs.confirm_deployment }}
     steps:
@@ -53,6 +69,8 @@ jobs:
           set -euo pipefail
           [[ "$CONFIRM_DEPLOYMENT" == "DEPLOY" ]] || { echo "Type DEPLOY to authorize this iteration deployment." >&2; exit 1; }
           [[ -n "$SOURCE_REF" ]] || { echo "Source ref is required." >&2; exit 1; }
+          [[ "$DEPLOYMENT_MODE" == "standard" || "$DEPLOYMENT_MODE" == "fast" ]] || { echo "Unsupported deployment mode." >&2; exit 1; }
+          if [[ "$DEPLOYMENT_MODE" == "fast" && "$TEST_MODE" != "none" ]]; then echo "Fast mode requires test_mode=none." >&2; exit 1; fi
 
       - name: Check out selected feature branch or commit
         uses: actions/checkout@v4
@@ -145,6 +163,7 @@ jobs:
           sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
 
       - name: Validate selected metadata (dry run)
+        if: env.DEPLOYMENT_MODE == 'standard'
         env:
           DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
         run: |
@@ -165,7 +184,7 @@ jobs:
           sf project deploy start "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
 
       - name: Run selected Apex tests
-        if: inputs.test_mode != 'none'
+        if: env.DEPLOYMENT_MODE == 'standard' && inputs.test_mode != 'none'
         env:
           TEST_MODE: ${{ inputs.test_mode }}
           APEX_TEST_CLASSES_INPUT: ${{ inputs.apex_test_classes }}
@@ -194,6 +213,7 @@ jobs:
             printf '%s\n' "### Salesforce AI iteration deployment"
             printf '%s\n' "- Source ref: $SOURCE_REF"
             printf '%s\n' "- Commit: $commit_sha"
+            printf '%s\n' "- Deployment mode: $DEPLOYMENT_MODE"
             printf '%s\n' "- Test mode: $TEST_MODE"
             printf '%s\n' "- Selected paths:"
             if [[ -n "${DEPLOY_PATHS_JSON:-}" ]]; then

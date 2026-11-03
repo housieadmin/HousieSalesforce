@@ -48,13 +48,12 @@ jobs:
               }
 
               const command = lines[0];
-              if (command !== '/sf deploy' && command !== '/sf restore') {
-                return await fail('Supported commands are `/sf deploy` and `/sf restore`.');
+              if (!['/sf deploy', '/sf deploy-and-verify', '/sf restore'].includes(command)) {
+                return await fail('Supported commands are `/sf deploy`, `/sf deploy-and-verify`, and `/sf restore`.');
               }
 
-              const allowed = command === '/sf deploy'
-                ? new Set(['ref', 'paths', 'tests', 'apex_test_classes', 'confirm'])
-                : new Set(['ref', 'paths', 'run_local_tests', 'confirm']);
+              const isDeploy = command === '/sf deploy' || command === '/sf deploy-and-verify';
+              const allowed = isDeploy ? new Set(['ref', 'paths', 'mode', 'tests', 'apex_test_classes', 'scenarios', 'description', 'confirm']) : new Set(['ref', 'paths', 'run_local_tests', 'confirm']);
               const fields = {};
               let listField = null;
 
@@ -67,7 +66,7 @@ jobs:
                     throw new Error(`Unknown or duplicate field: ${key}`);
                   }
                   fields[key] = match[2];
-                  listField = (key === 'paths' || key === 'apex_test_classes') ? key : null;
+                  listField = (['paths', 'apex_test_classes', 'scenarios'].includes(key)) ? key : null;
                   if (listField && fields[key] !== '') {
                     throw new Error(`Use a list under ${key}: with one "- value" per line.`);
                   }
@@ -104,11 +103,14 @@ jobs:
 
               let workflowId;
               let inputs;
-              if (command === '/sf deploy') {
+              if (isDeploy) {
+                const deploymentMode = (fields.mode || 'standard').trim();
+                if (!['standard', 'fast'].includes(deploymentMode)) throw new Error('mode must be standard or fast.');
                 const testMode = (fields.tests || 'none').trim();
                 if (!['none', 'specified', 'local'].includes(testMode)) {
                   throw new Error('tests must be none, specified, or local.');
                 }
+                if (deploymentMode === 'fast' && testMode !== 'none') throw new Error('mode: fast requires tests: none.');
                 const testClasses = (fields.apex_test_classes || '').split('\n').map(x => x.trim()).filter(Boolean);
                 if (testMode === 'specified') {
                   if (!testClasses.length || testClasses.length > 30 ||
@@ -122,14 +124,21 @@ jobs:
                 if ((fields.confirm || '').trim() !== 'DEPLOY') {
                   throw new Error('Deployment requires the exact confirmation: confirm: DEPLOY.');
                 }
-                workflowId = '.github/workflows/salesforce-ai-iteration-deploy.yml';
+                workflowId = command === '/sf deploy-and-verify' ? '.github/workflows/salesforce-deploy-and-verify.yml' : '.github/workflows/salesforce-ai-iteration-deploy.yml';
                 inputs = {
                   source_ref: ref,
                   source_paths: paths.join('\n'),
+                  deployment_mode: deploymentMode,
                   test_mode: testMode,
                   apex_test_classes: testClasses.join('\n'),
                   confirm_deployment: 'DEPLOY'
                 };
+                if (command === '/sf deploy-and-verify') {
+                  const scenarios = (fields.scenarios || '').split('\n').map(x => x.trim()).filter(Boolean);
+                  if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length || scenarios.some(x => !x.startsWith('browser-agent/scenarios/') || !x.endsWith('.spec.ts') || x.includes('..') || x.includes('//'))) throw new Error('Provide 1–10 unique scenario paths under browser-agent/scenarios/*.spec.ts.');
+                  inputs.scenarios_json = JSON.stringify(scenarios);
+                  inputs.run_description = (fields.description || 'AI-requested deploy and browser verification').slice(0, 300);
+                }
               } else {
                 const runTests = (fields.run_local_tests || 'false').trim();
                 if (!['true', 'false'].includes(runTests)) {
@@ -151,11 +160,11 @@ jobs:
                 owner, repo, workflow_id: workflowId, ref: 'main', inputs
               });
 
-              const label = command === '/sf deploy' ? 'AI iteration deploy' : 'AI iteration restore';
+              const label = command === '/sf deploy-and-verify' ? 'AI deploy and browser verification' : command === '/sf deploy' ? 'AI iteration deploy' : 'AI iteration restore';
               const workflowUrl = `https://github.com/${owner}/${repo}/actions/workflows/${workflowId}`;
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `<strong>${label} dispatched.</strong>\n\n- Requested ref: \`${ref}\`\n- Selected paths:\n${paths.map(p => `  - \`${p}\``).join('\n')}\n- Workflow definition: \`main\`\n\n[Open the workflow runs](${workflowUrl}). The workflow performs its own path validation, dry run, Salesforce authentication and deployment checks.`
+                body: `<strong>${label} dispatched.</strong>\n\n- Requested ref: \`${ref}\`\n- Selected paths:\n${paths.map(p => `  - \`${p}\``).join('\n')}\n- Workflow definition: \`main\`\n\n[Open the workflow runs](${workflowUrl}). Deployment mode: ${isDeploy ? (fields.mode || 'standard') : 'n/a'}.`
               });
             } catch (error) {
               const message = String(error.message || error).replace(/[\r\n]+/g, ' ').slice(0, 500);
