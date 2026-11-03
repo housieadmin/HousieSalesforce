@@ -2,10 +2,15 @@ public with sharing class HousieAccountService {
     @AuraEnabled
     public static Housie_Account__c createAccount(String email, String displayName) {
         HousieSecurity.requireSuperAdmin();
+        HousieOperationService.lockForWrite();
 
         String normalizedEmail = String.isBlank(email) ? null : email.trim().toLowerCase();
         HousieErrors.require(String.isNotBlank(normalizedEmail), 'Email is required.');
         HousieErrors.require(normalizedEmail.length() <= 80, 'Email cannot exceed 80 characters.');
+        List<Housie_Account__c> existingAccounts = [
+            SELECT Id FROM Housie_Account__c WHERE Email__c = :normalizedEmail LIMIT 1
+        ];
+        HousieErrors.require(existingAccounts.isEmpty(), 'An account with this email already exists.');
         HousieErrors.require(Pattern.matches('^[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}$',
             normalizedEmail.toUpperCase()), 'Enter a valid email address.');
 
