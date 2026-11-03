@@ -26,7 +26,7 @@ public without sharing class HousieGameTicketService {
         Datetime eventAt;
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<TicketView> listMyTickets(String boardId, String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
