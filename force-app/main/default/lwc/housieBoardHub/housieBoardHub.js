@@ -99,7 +99,8 @@ export default class HousieBoardHub extends LightningElement {
           ticketCount: tickets.length,
           canPurchase: board.currentGameStatus === 'WAITING' && pending.length === 0,
           canWithdraw: hasTickets && board.currentGameStatus === 'WAITING' && pending.length === 0,
-          canLeave: pending.length === 0
+          canLeave: pending.length === 0,
+          disableLeave: pending.length > 0
         };
       }));
       this.boards = boardsWithTickets;
