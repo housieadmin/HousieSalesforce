@@ -204,7 +204,11 @@ export default class HousieBoardHub extends LightningElement {
       });
       let result = prepared;
       if (prepared.requestId && prepared.status !== 'ACTIVE' && prepared.status !== 'COMMITTED') {
-        result = await commitTicketCommand({
+        await commitTicketCommand({
+          requestId: prepared.requestId,
+          accountId: this.accountKey
+        });
+        result = await completeTicketCommand({
           requestId: prepared.requestId,
           accountId: this.accountKey
         });
