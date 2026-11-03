@@ -127,9 +127,8 @@ Under **Settings → Secrets and variables → Actions**, configure:
 
 Also:
 
-- Create **Settings → Environments → development**.
-- Restrict the Environment to deployments from `main`.
-- Add required reviewers if a second-person approval gate is appropriate.
+- Create **Settings → Environments → development** and restrict it to deployments from `main`; use required reviewers for controlled release deployments.
+- Create **Settings → Environments → development-iteration** and restrict it to `main`. This environment is intentionally separate and should not require manual reviewers for every iteration; the workflow requires the explicit `DEPLOY` confirmation and serializes changes to the same Developer Edition org.
 - For org sync, enable **Settings → Actions → General → Workflow permissions → Read and write permissions** and allow GitHub Actions to create pull requests.
 - Use a dedicated integration user with only the permissions needed to deploy metadata and run Apex tests. Do not use a personal administrator account.
 - Configure Salesforce JWT bearer OAuth, upload the matching public certificate, enable the flow, and authorize the integration user.
