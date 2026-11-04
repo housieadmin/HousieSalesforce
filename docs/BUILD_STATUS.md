@@ -1,6 +1,8 @@
 # Build status and release gate
 
-This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. Validation and deployment are driven by the repository GitHub Actions pipeline. The current fix is awaiting a PR validation run; no successful Salesforce compilation/deployment is claimed yet.
+This project is delivered in reviewable vertical slices. The ticket-purchase transaction-order defect and its related lock-order corrections are complete in [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24). PR validation, targeted Developer Edition deployment and public Experience Cloud purchase regression succeeded; the two-ticket test scenario completed without the pending-uncommitted-work error. See [the recorded evidence](../.project/sessions/2026-11-04-ticket-purchase-transaction-fix-status.md). Do not repeat this verification routinely; reopen it only if a later change causes a regression or a specific evidence gap is identified.
+
+The active next-step roadmap and milestone acceptance criteria are in [`.project/MILESTONES.md`](../.project/MILESTONES.md).
 
 ## Implemented
 
@@ -56,10 +58,12 @@ Do not describe the product as end-to-end playable, and do not process productio
 
 ## Validation status
 
-- Source and metadata have been reviewed statically in this feature branch.
-- HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
-- The repository GitHub Actions pipeline now validates Salesforce metadata and runs all local Apex tests for pull requests; deployment is gated to pushes or manual runs on main. This branch's pipeline result is still pending.
-- Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
+- PR #24 validation on final source head passed metadata validation and local Apex tests.
+- The four transaction-boundary Apex classes were deployed successfully to the Developer Edition.
+- Public Experience Cloud purchase regression passed on the dedicated `test-user-3` fixture: two distinct active tickets were created; no pending-uncommitted-work error was observed.
+- The fixture cleanup run passed and removed a duplicate scenario-owned board.
+- These checks close the agreed ticket-purchase fix milestone. They are not a blanket verification of withdrawal, bot funding, gameplay, settlement, concurrency or security.
+- Future milestones should run the tests required by their own acceptance criteria. Do not rerun completed milestone checks without a concrete regression or changed requirement.
 
 ## Consistency note
 
