@@ -4,7 +4,7 @@ This is the cross-session delivery roadmap. The order reflects dependencies in `
 
 ## Milestone 0 — Ticket-purchase transaction boundaries
 
-<badge>Status: COMPLETE — 2026-11-04</badge>
+**Status: COMPLETE — 2026-11-04**
 
 - [x] Fix the pending-uncommitted-work failure in ticket-command completion.
 - [x] Correct related Big Object / standard-object lock ordering in account, board and ticket flows.
@@ -18,7 +18,7 @@ This closes the agreed transaction-boundary defect only. The PR workflow's `RunL
 
 ## Milestone 1 — Big Object operation recovery and command repair
 
-<badge>Status: NEXT</badge>
+**Status: NEXT**
 
 **Why this comes first:** the current writer leaves a PENDING journal when an `insertImmediate` sequence fails, and the scheduler is only a heartbeat. Ticket purchase/withdrawal has a retryable command outbox, but there is no general repair worker. Bot funding and game-start capture add more multi-record financial operations; they should not be built on an undefined recovery contract.
 
