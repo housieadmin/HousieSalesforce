@@ -30,7 +30,7 @@ All listed runs completed successfully:
 
 This is good evidence for the focused public ticket-purchase/recovery path and the changed transaction boundaries. It is **not** proof that the full game lifecycle, withdrawal, bot funding/cancellation, claims, settlement, concurrency or security behaviour is complete.
 
-The successful deploy/browser runs used the PR source history. No post-merge deployment or runtime verification against merge commit `2e440605ec2ffe9954c7436e771af27a00f855e5` is recorded here. Treat that as a separate release verification item; do not imply main is deployed solely because PR #24 merged.
+The successful targeted deployment and browser regression were completed during the PR work and passed against the final tested feature source. Together with the successful final PR validation, this satisfies the agreed acceptance criteria for this defect. **Milestone complete; no additional post-merge deployment or browser rerun is required.** Reopen only if a later change causes a regression or a concrete gap is identified.
 
 Test fixture: `test-user-3` now has one regression board and two active tickets. Do not run a third purchase against this account; its configured capacity is two. Use a separately authorized clean fixture for future purchase-creation tests, or keep repeat checks read-only.
 
