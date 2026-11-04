@@ -5,7 +5,7 @@
 **Merged to `main`** in [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24).
 
 - Merge commit: `2e440605ec2ffe9954c7436e771af27a00f855e5`
-- Final PR source head: `7cf63ac33ff7cefbf35dfd7fdda536433`
+- Final PR source head: `7cf63ac33ff7cefbf35fdf277dee32fdda536433`
 - Scope: ticket-command transaction ordering plus related Big Object lock-order corrections in account and board operations; purchase-stage diagnostics and browser scenario updates are included.
 
 ## Defect and correction
