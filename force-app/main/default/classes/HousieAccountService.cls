@@ -41,13 +41,12 @@ public with sharing class HousieAccountService {
     @AuraEnabled
     public static Housie_Account__c writeSignupGrants(String accountKey) {
         HousieSecurity.requireSuperAdmin();
-        HousieOperationService.lockForWrite();
+        // Big Object writes below run in their own transaction; do not acquire DML row locks here.
         List<Housie_Account__c> rows = [
             SELECT Id, Account_Key__c, Status__c, Created_At__c
             FROM Housie_Account__c
             WHERE Account_Key__c = :accountKey
             LIMIT 1
-            FOR UPDATE
         ];
         HousieErrors.require(!rows.isEmpty(), 'Account not found.');
         Housie_Account__c account = rows[0];
