@@ -1,37 +1,44 @@
 # Project state
 
-**Last reviewed baseline:** `main` at `5637e00fd0461ecc02f89c3db7b74d2407ee4ea9`  
-**Review date:** 2026-11-03  
-**Purpose:** Compact orientation only. Re-verify branch and commit before relying on this snapshot.
+**Last reviewed baseline:** `main` at `2e440605ec2ffe9954c7436e771af27a00f855e5`  
+**Review date:** 2026-11-04  
+**Purpose:** Compact orientation only. The active roadmap is [MILESTONES.md](MILESTONES.md); verify current `main` before implementation.
 
 ## Product
+
 Build an automated multiplayer Housie/Tambola platform. Product behaviour is specified in `docs/SPEC.md`; the technology-independent logical model is in `docs/DATA_MODEL.md`.
 
-## Repository at the reviewed baseline
-Salesforce DX project with Apex services, four LWC bundles, permission sets, custom/Big Object metadata and GitHub Actions for validation, deployment, browser-agent execution and metadata sync. The reviewed tree had no committed Flow, Apex trigger, Aura or ExperienceBundle source.
+## Implemented source slices
 
-## Implemented source slices observed
 - Account setup and signup resource grants.
-- Board creation, owner membership, private join by board ID, public directory/join and membership operations.
-- Human ticket generation and purchase in WAITING games.
-- Manual/automatic mode selection, wallet holds/ledger records and automatic-token consumption.
-- WAITING-game human-ticket withdrawal and release.
-- Board Hub purchase, preview and withdrawal UI.
+- Board creation, owner membership, private join, public directory/join and membership operations.
+- Human ticket generation, purchase and WAITING-game withdrawal.
+- Wallet holds/ledger records and automatic-token consumption.
+- Board Hub purchase, preview, withdrawal UI and purchase-stage diagnostics.
+- Durable ticket-command prepare / Big Object persist / completion flow with per-game command gate.
+- Transaction-order correction merged in [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24).
 
-These are source observations, not claims of full runtime verification.
+These are implementation observations, not claims that the complete game is playable.
 
-## Major incomplete product areas observed
-Full game lifecycle and start approvals; bot offers/funding; number calling and marking; claims and validation; category closure, payouts and settlement; admin rotation and recovery; secure session lifecycle; chat/presence and progression; durable repair processing; comprehensive integration/security/concurrency/load testing.
+## Completed recent milestone
 
-## Verification limits
-The baseline review found one Apex test class focused mainly on domain helpers and ticket-layout rules. Browser-agent infrastructure existed, but navigation smoke coverage did not establish end-to-end gameplay. Live org automation and Experience Cloud configuration were not inspected.
+**Ticket-purchase transaction-boundary fix — complete (2026-11-04).** PR #24 merged at `2e440605ec2ffe9954c7436e771af27a00f855e5`. PR validation, targeted Developer Edition deployment, public Experience Cloud purchase regression and fixture cleanup all passed. The browser test created two distinct active tickets and did not reproduce the pending-uncommitted-work error. See [session evidence](sessions/2026-11-04-ticket-purchase-transaction-fix-status.md).
 
-## Detailed references
-Read these only when the task needs them:
-- `IMPLEMENTATION_STATUS.md` — feature-level implementation assessment.
-- `REQUIREMENTS_TRACEABILITY.md` — requirement-to-source mapping.
-- `ARCHITECTURE_DECISIONS.md` — integrity and design invariants.
-- `KNOWN_ISSUES.md` — confirmed discrepancies.
+Do not rerun this verification as routine setup. Reopen only if a later change causes a regression or new evidence identifies a specific defect.
 
-## Snapshot maintenance
-Update this file only when a material repository/product baseline change makes the summary misleading. Record the new main SHA/date and re-check evidence. Do not infer the state of independently managed workstreams.
+## Major incomplete product areas
+
+Game-start approvals and wallet capture; bot offers/funding/cancellation; number calling and marking; automatic play; administrator rotation and pause/recovery; claims and validation; category closure, payouts and settlement; secure session lifecycle; chat/presence and progression; durable repair processing; broader integration/security/concurrency/load coverage.
+
+## Important architecture constraints
+
+- Big Object writes are non-transactional; the journal protocol provides fail-closed visibility, not native rollback or multi-record atomicity.
+- Account keys currently act as bearer secrets. Do not expose them or enable broad public account-specific access without proper session controls.
+- Do not describe the product as end-to-end playable or process production points until the required game lifecycle, settlement and security controls are implemented.
+
+## Navigation
+
+- `.project/MILESTONES.md` — next deliverables, order and acceptance criteria.
+- `.project/README.md` — session continuity and working rules.
+- `docs/BUILD_STATUS.md` — detailed implementation/release status.
+- `docs/SPEC.md`, `docs/DATA_MODEL.md`, `docs/ARCHITECTURE.md` — product and technical contracts.
