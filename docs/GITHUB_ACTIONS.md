@@ -11,7 +11,7 @@ This guide explains how to operate the Salesforce workflows in this repository. 
 | **Salesforce AI Iteration Deploy** | Manually dispatched from `main` | Deploys explicitly selected source paths from a pushed feature branch or commit to Developer Edition | Does not merge code or write to `main`; does not deploy the whole project by default |
 | **Salesforce Deploy and Browser Verification** | Manually dispatched from `main` or `/sf deploy-and-verify` on issue #11 | Deploys selected metadata, then runs selected browser-agent scenarios only after deployment succeeds | Does not merge code; a skipped or failed browser run is not an end-to-end pass |
 | **Salesforce AI Iteration Restore** | Manually dispatched from `main` | Redeploys explicitly selected metadata paths from a known-good Git ref | Does not reverse data changes, Apex side effects, or destructive metadata changes |
-| **Salesforce Issue Commands** | Owner comments on issue #11 | Validates and dispatches AI iteration deploy, combined deploy-and-verify, or restore workflows | Does not contain Salesforce credentials or deploy metadata itself |
+| **Salesforce Issue Commands** | Owner comments on issue #11 | Validates and dispatches AI iteration deploy, combined deploy-and-verify, restore or org-retrieve workflows | Does not contain Salesforce credentials or perform the downstream operation itself |
 | **Salesforce Controlled Deployment** | Manually dispatched from `main` | Deploys one selected release manifest after explicit confirmation and pre-deployment checks | Does not deploy arbitrary feature branches; does not run automatically on merge |
 | **Salesforce Org Metadata Sync** | Manually dispatched from `main` | Retrieves an allowlisted manifest from Salesforce and opens a PR with changes | Does not write directly to `main` or approve/deploy retrieved changes |
 
@@ -95,11 +95,11 @@ This redeploys the selected source paths as they exist at the known-good ref. It
 
 Treat the Developer Edition org as shared mutable state. Concurrent AI sessions working on overlapping components can overwrite one another. The workflows serialize deployments, but they cannot prevent a later run from intentionally deploying a different version.
 
-## 5. Issue-comment commands for AI deploy and restore
+## 5. Issue-comment commands
 
-After `Salesforce Issue Commands` is merged to `main`, repository owners can trigger the two AI iteration workflows by commenting on [Salesforce command center issue #11](https://github.com/housieadmin/HousieSalesforce/issues/11). This is a command channel, not a PR review mechanism.
+The `Salesforce Issue Commands` workflow is present on `main`. Repository owners can trigger AI iteration deploy, deploy-and-browser-verify, restore, and org-retrieve operations by commenting on [Salesforce command center issue #11](https://github.com/housieadmin/HousieSalesforce/issues/11). This is an owner-only command channel, not a PR review mechanism. It accepts ordinary issue comments only; PR comments are ignored.
 
-Deploy example:
+### Deploy
 
 ```text
 /sf deploy
@@ -110,7 +110,7 @@ tests: none
 confirm: DEPLOY
 ```
 
-Combined deploy and browser verification example:
+### Deploy and browser verify
 
 ```text
 /sf deploy-and-verify
@@ -125,11 +125,9 @@ description: Verify the deployed account flow
 confirm: DEPLOY
 ```
 
-For this command, `scenarios:` is required and accepts 1–10 unique scenario paths under `browser-agent/scenarios/`. The supported deployment modes are `standard` and `fast`; fast mode requires `tests: none`. The command dispatches the combined workflow, not a PR-comment action. Use a public Community scenario when the user journey is public; do not add login steps solely to make a public-page test resemble an authenticated Lightning test.
+For deploy-and-verify, `scenarios:` is required and accepts 1–10 unique scenario paths under `browser-agent/scenarios/*.spec.ts`. The supported deployment modes are `standard` and `fast`; fast mode requires `tests: none`. For `tests: specified`, add an `apex_test_classes:` list with one class name per line. The other supported test modes are `none` and `local`.
 
-For `tests: specified`, add an `apex_test_classes:` list with one class name per line. The other supported test modes are `none` and `local`.
-
-Restore example:
+### Restore
 
 ```text
 /sf restore
@@ -140,9 +138,45 @@ run_local_tests: false
 confirm: RESTORE
 ```
 
-The dispatcher is restricted to issue #11, ordinary issue comments (not PR comments), and repository owners. It validates the command, safe Git ref, existing ref, metadata paths, test selection, and exact confirmation before dispatching the existing workflow from `main`. It has no Salesforce credentials and does not perform deployment itself. The dispatched workflow remains responsible for checkout, deeper path validation, Salesforce authentication, dry-run, deployment, tests, and shared-org concurrency.
+### Retrieve org metadata
 
-The dispatcher requires the workflow to be merged to `main` before it can respond to issue comments. Do not use the issue command channel for controlled release deployments, org sync, or arbitrary workflows.
+Retrieve accepts either individual component paths under `force-app/`, an XML manifest path under `manifest/`, or no path. If no path is supplied, it uses `manifest/package-retrieve.xml`.
+
+Retrieve selected components:
+
+```text
+/sf retrieve
+paths:
+- force-app/main/default/classes/HousieBoardService.cls
+- force-app/main/default/lwc/housieBoardHub
+create_pr: true
+description: Retrieve the selected board components
+```
+
+Retrieve using a manifest:
+
+```text
+/sf retrieve
+paths:
+- manifest/package-retrieve.xml
+create_pr: true
+```
+
+Retrieve using the default manifest and upload an artifact instead of opening a PR:
+
+```text
+/sf retrieve
+create_pr: false
+description: Inspect current account metadata
+```
+
+For retrieve, `create_pr` defaults to `true`. When true, the org-sync workflow creates an automation branch and PR if tracked metadata changed; when false, it uploads the retrieve result as a workflow artifact. A no-change retrieve does not create an empty PR. The issue command accepts up to 25 unique component/manifest paths; use a reviewed manifest when retrieving a broad set of metadata.
+
+### Command safety and execution
+
+The dispatcher is restricted to issue #11, ordinary issue comments (not PR comments), and repository owners. It validates command syntax, allowed fields, safe Git refs where applicable, metadata paths, test selection and exact `DEPLOY`/`RESTORE` confirmation before dispatching the trusted workflow from `main`. Retrieve dispatches the existing org-sync workflow with `SYNC` confirmation. The dispatcher has no Salesforce credentials and does not deploy or retrieve metadata itself.
+
+The downstream workflow performs checkout, deeper path/manifest validation, Salesforce authentication, metadata retrieval or deployment, tests where configured, and shared-org concurrency control. Review its run summary and artifacts/PR diff; dispatch confirmation is not proof that the downstream operation succeeded. Do not use the issue command channel for controlled release deployment or arbitrary workflows.
 
 ## 6. Controlled deployment
 

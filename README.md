@@ -1,6 +1,6 @@
 # Housie Salesforce DX
 
-Salesforce DX project for Housie, built against the supplied `build.md`, `final_data_model.md` and `final_spec.md`.
+Salesforce DX project for Housie. The canonical product requirements are in [`docs/SPEC.md`](docs/SPEC.md), and the technology-independent logical data model is in [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md).
 
 ## Quick start
 
@@ -25,21 +25,20 @@ After deployment:
 6. Do not grant guest users account creation, wallet, admin or simulation permissions.
 7. Configure account invitation/session security before public launch.
 
-## Current vertical slices
+## Implemented source slices
 
-- Account setup: admin account creation, default points/consumables and signup ledger grants. Account creation, Big Object grants and activation run in separate Apex requests.
-- Boards: create a board and initial WAITING game, owner membership, private board-ID invitation, public directory search/join, active membership listing and leave checks.
-- Human tickets: server-generated valid 90-ball layouts, manual/automatic purchase in WAITING games, account wallet holds, resource ledger entries, own-ticket display and pre-start human withdrawal/release. A DML-only command preparation, Big Object-only persistence and DML-only completion sequence keeps `insertImmediate` callouts out of transactions with pending record updates. A persistent per-game command gate prevents a second ticket/withdrawal command from running until the first is finalized; prepared commands remain visible and retryable. Withdrawal keeps points reserved until the Big Object hold releases are verified.
+- **Account setup:** admin account creation, default points/consumables and signup ledger grants. Account creation, Big Object grants and activation run in separate Apex requests.
+- **Boards:** create a board and initial WAITING game, owner membership, private board-ID invitation, public directory search/join, active membership listing and leave checks.
+- **Human tickets:** server-generated 90-ball layouts, manual/automatic mode selection, WAITING-game purchase, account wallet holds and resource ledger entries, own-ticket display, and pre-start human withdrawal/release. Ticket purchase/withdrawal uses DML-only preparation, Big Object-only persistence and DML-only completion, with a durable per-game command gate and retryable prepared commands.
 
-A purchased ticket is not yet playable: game-start approvals, hold capture, number calls, marking, claims and settlement remain unimplemented. The full scope and release gate are tracked in `docs/BUILD_STATUS.md`.
+These are implemented source paths, not a claim that the product is playable. The current game command endpoint only records a `COMMAND_RECEIVED` event; it does not execute start, pause, resume, draw, marking, claim or settlement actions. The scheduled Apex class is currently a heartbeat, not a game or recovery worker.
 
-## Deployment errors
+**A purchased ticket is not yet playable.** Game-start approvals and wallet capture, bot funding, number calling, marking, claims and settlement remain incomplete. See [build status](docs/BUILD_STATUS.md) and the [delivery milestones](.project/MILESTONES.md).
 
-The attached 51-error deployment report has been analyzed and patched in this branch. The exact mapping is in `docs/DEPLOYMENT_ERRORS_FIXED.md`.
 
 ## Architecture caveat
 
-Big Objects are non-transactional. Apex validation, the infrastructure lock and operation journal provide serialized writes and fail-closed visibility; they do not provide rollback of successful Big Object writes. See `docs/ARCHITECTURE.md` and `docs/BUILD_STATUS.md`.
+Big Object writes are non-transactional. The writer uses `Database.insertImmediate()` and a PENDING/COMMITTED operation journal; it does not acquire the standard-object infrastructure lock. DML-only preparation/finalization paths may use that lock, and ticket purchase/withdrawal uses a durable per-game command gate where cross-request ordering is required. The journal provides fail-closed visibility, not database rollback or multi-record atomicity. See [architecture](docs/ARCHITECTURE.md).
 
 ## Project layout
 
@@ -51,10 +50,11 @@ Big Objects are non-transactional. Apex validation, the infrastructure lock and 
 - `manifest/package-org-setup.xml`: permission sets, custom tabs and custom permissions
 - `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
 - `scripts`: deploy, bootstrap and test scripts
-- `docs`: architecture, data mapping, deployment fixes and build status
+- `docs`: product specification, data model, architecture, workflow operations and build status
+- `.project/MILESTONES.md`: ordered delivery roadmap and acceptance criteria
 
 ## GitHub Actions
 
-Salesforce CI/CD separates PR validation, manual validation, feature-branch AI iteration deployments/restores, controlled release deployment, and org-to-Git metadata sync. AI sessions can deploy selected paths from a pushed feature branch to Developer Edition without merging; approved release deployment remains manually gated from `main`.
+Salesforce CI/CD separates PR validation, manual validation, feature-branch AI iteration deployments/restores, controlled release deployment, browser verification and org-to-Git metadata sync. Owner-only issue-comment commands on issue #11 support deploy, deploy-and-verify, restore and retrieve operations.
 
-See the [GitHub Actions operations guide](docs/GITHUB_ACTIONS.md) for workflow usage, required GitHub/Salesforce configuration, security boundaries, test limitations, and troubleshooting.
+See the [GitHub Actions operations guide](docs/GITHUB_ACTIONS.md) for workflow usage, command formats, required GitHub/Salesforce configuration, security boundaries, test limitations and troubleshooting.

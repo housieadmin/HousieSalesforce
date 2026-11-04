@@ -39,12 +39,22 @@ For a task spanning multiple areas, start with the most useful guide and add onl
 
 Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is broad or cross-cutting. If sources conflict, identify the conflict instead of silently choosing one.
 
+## Project tracking and control session
+
+- `.project/MILESTONES.md` is the single delivery tracker: priority, sequence, dependencies, acceptance criteria, milestone status and evidence links.
+- `docs/BUILD_STATUS.md` is the implementation inventory: what exists in source, what is not implemented, what has been verified and the limits of that verification. It does not own roadmap order or duplicate milestone acceptance criteria.
+- Use one ongoing ChatGPT conversation named **Housie — Project Control** for periodic project-level reviews. Compare actual work against the tracker and build status, identify drift, and record the reason and approval for any change of direction. The conversation is an accountability workspace, not the source of truth; durable decisions and status changes must be committed to the repository.
+- At the start of substantial work, identify the active milestone and acceptance item. If work is outside that milestone, state the concrete reason (blocker, production defect, dependency or explicit reprioritization) and whether the roadmap changes.
+- At meaningful stopping points, update milestone evidence/status and build status only when implementation facts change. Keep implementation details and test logs in PRs, issues and workflow runs; do not create session notes for routine progress.
+- A milestone is complete only when its acceptance criteria pass and evidence (PR/commit, relevant workflow/browser run, environment and date) is linked in the tracker. Do not repeat verification absent a concrete regression, new requirement, changed environment or specific evidence gap.
+
 ## Context depth
 
 - **Small/local change:** this router, one workstream guide, affected files and nearby tests.
 - **Feature/multi-file change:** also inspect relevant SPEC/DATA_MODEL sections, callers, dependencies, permissions and tests.
 - **Cross-cutting/architectural change:** expand to the relevant technical architecture docs and any additional project evidence the task requires.
 - **Unclear task:** ask one focused clarification rather than preloading the repository.
+
 
 ## Working rules
 
@@ -53,7 +63,7 @@ Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is
 - Use QA scenarios and independent review when they add confidence. They are not mandatory approval stages for every fix.
 - Use release-engineering context when GitHub/deployment mechanics are the problem, not for every deployment performed during development.
 - Preserve useful findings in GitHub or the relevant source docs when they are durable and likely to help future sessions. Do not record every failed attempt or transient debugging detail.
-- Distinguish source implementation, automated test coverage, deployment and runtime verification.
+- Distinguish source implementation, automated test coverage, deployment and runtime verification. Record only the evidence needed to close the current milestone.
 - A schema, UI control, placeholder method or audit event does not prove a feature works.
 - Preserve relevant data-integrity and security constraints.
 - Never claim org-side configuration or runtime behaviour was inspected without evidence.

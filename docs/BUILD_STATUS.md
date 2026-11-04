@@ -1,66 +1,48 @@
 # Build status and release gate
 
-This project is being delivered in small, reviewable vertical slices. The current feature branch adds the first human ticket-purchase/withdrawal slice on top of the merged board-management implementation. Validation and deployment are driven by the repository GitHub Actions pipeline. The current fix is awaiting a PR validation run; no successful Salesforce compilation/deployment is claimed yet.
+This project is delivered in reviewable vertical slices. The ticket-purchase transaction-order defect and related lock-order corrections are complete in [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24); its description links the accepted validation, targeted-deployment and public Experience Cloud regression evidence. The ordered next work and acceptance criteria live only in [the delivery milestones](../.project/MILESTONES.md). This file is the implementation inventory and verification snapshot—not a second roadmap.
 
-## Implemented
+## Implemented source slices
 
-- Salesforce DX project layout, package manifest, deploy/bootstrap scripts and Apex test runner.
-- Housie account object, infrastructure-only operation lock and Big Object metadata for the 15 logical entities plus the technical operation journal.
-- Apex Big Object persistence, serialized write lock, operation journal and fail-closed committed-record reads.
-- Account creation through flat Apex parameters (rather than an Aura-exposed inner-class argument), with a pending-setup state and four immutable signup grant ledger records written in a separate Apex request before a DML-only activation request.
+- Salesforce DX project layout, package manifests, deploy/bootstrap scripts and Apex test runner.
+- `Housie_Account__c`, the singleton infrastructure lock, the 15 logical Big Objects and the technical operation journal.
+- Big Object persistence through `Database.insertImmediate()` with PENDING/COMMITTED journal visibility. The writer does **not** take the standard-object infrastructure lock and does not provide generic cross-request serialization.
+- Selected DML-only preparation/finalization paths use the infrastructure lock. Ticket purchase/withdrawal additionally use a durable per-game command gate and a prepared-command outbox.
+- Account creation through flat Apex parameters, pending-setup state, four immutable signup grant ledger records written in a separate Apex request, and DML-only activation.
 - Route-context lookup by opaque account key.
-- Board lifecycle:
-  - create a board with a game configuration snapshot and initial WAITING game;
-  - create the owner's BOARD_ADMIN membership;
-  - list a user's active board memberships;
-  - join private boards using the board ID invitation token;
-  - list/search public boards and join them;
-  - leave only when the latest committed participant state and bot contribution state allow it.
-- Durable ticket-command outbox using a DML-only preparation request, a Big Object-only persistence request and a DML-only completion request. Prepared commands remain visible and retryable if persistence or completion is interrupted.
-- Persistent per-game command gate held from command preparation until DML completion. This does not depend on a `FOR UPDATE` row lock surviving `insertImmediate`; Salesforce releases Apex `FOR UPDATE` locks when a callout occurs.
-- Withdrawal holds points reserved until committed Big Object hold releases and the DML-only completion step; only then are reserved points returned to the available balance.
-- Human ticket purchase while the current game is WAITING:
-  - server-generated 90-ball ticket layouts satisfying the existing layout validator;
-  - no identical layouts within the game's current human-ticket set;
-  - one or two human tickets per account according to the game snapshot;
-  - manual or automatic mode selection;
-  - fee reservation against available account points using append-only wallet-hold state;
-  - immutable account resource transactions for the point hold and automatic-token spend;
-  - automatic-mode token consumed only for an automatic ticket and only as part of the committed purchase;
-  - one distinct Game_Participant state for each participating account;
-  - initial game-admin assignment event when the first eligible human participant purchases a ticket.
-- Purchase request IDs derive stable ticket/hold IDs so a client retry of the same request does not reserve points twice.
-- The owning account can list its own current human tickets and view layouts.
-- WAITING-game withdrawal for human-ticket owners, using the same DML prepare / Big Object persist / DML complete sequence:
-  - voids their active tickets through append-only withdrawal events;
-  - appends RELEASED wallet-hold versions and immutable HOLD_RELEASE ledger transactions;
-  - returns reserved points to available balance;
-  - appends a withdrawn participant state;
-  - allows board leave after the participant withdrawal is committed.
-- Board Hub UI for ticket mode selection, purchase, ticket preview and pre-start withdrawal.
-- Developer domain tests now also generate and validate 30 random ticket layouts per test run.
+- Board lifecycle: create a board with a game configuration snapshot and initial WAITING game; create the owner's BOARD_ADMIN membership; list active memberships; join private boards using the board ID invitation token; list/search public boards and join them; leave only when active human participation and funded bot-contribution checks permit it.
+- Human ticket purchase in a WAITING game: server-generated 90-ball layouts, duplicate-layout prevention within a game, one/two-ticket account limit from the game snapshot, manual/automatic mode selection, fee reservation, immutable account resource transactions, and automatic-token consumption only for a committed automatic-mode purchase.
+- Human-ticket purchase retries use stable request-derived IDs and a durable command record so the same request does not reserve the fee twice.
+- Human ticket withdrawal while the game is WAITING: void active human tickets through append-only events, release their wallet holds with immutable ledger transactions, return reserved points only after the Big Object release is committed, record the withdrawn participant state, and permit board leave after withdrawal completes.
+- Board Hub UI for board management, ticket purchase, ticket preview, pending-command retry and pre-start human withdrawal. Purchase-stage diagnostics identify prepare, commit or complete failures.
 
-## Not yet implemented
+These are implementation observations. They do not establish that every path is runtime-verified or that the full game is playable.
 
-- Game start approval flow and capture of active holds into the Game Wallet. Until this exists, there is no playable game start or ticket-fee capture.
-- Bot offer creation, equal-share revision acceptance, bot contribution holds, and cancellation/release of all bot offers when a WAITING-game participant withdraws. Current withdrawal handles human ticket holds only.
-- Automatic marking and automatic claims. AUTOMATIC currently means mode selection plus token consumption; it does not yet auto-play.
-- Manual marking, number-call engine, admin presence/rotation beyond initial assignment, pause/recovery, claims, category closure, disqualification, payouts and settlement.
-- Account authentication/session lifecycle, secure URL token expiry/revocation and replay controls. The account key is currently a bearer secret. Do not expose it in rendered UI or grant broad guest read access.
-- Complete Experience Cloud site/ExperienceBundle, page routing, guest profile and sharing configuration; these are org-specific.
+## Not implemented
+
+- **Pre-start reliability:** a general repair/reconciliation worker for PENDING operation journals and stale command gates. `HousieScheduler` currently logs a heartbeat only; it does not dispatch recovery work.
+- **Bot lifecycle:** bot offer creation, contribution funding/holds, equal-share revisions and acceptance, cancellation when any contributor withdraws, and release of all contributors' holds.
+- **Ticket pre-start actions:** flip/regenerate a ticket before start and consume/audit the account flip resource.
+- **Game start:** minimum-participation enforcement, eligible-admin checks, START approval requests/responses, expiry/stale-request handling, freezing participation/tickets/offers, and capture of human and bot holds into the Game Wallet with immutable ledger evidence.
+- **Game runtime:** ordered number calling, manual marking, automatic marking and automatic claims, fixes, admin rotation, pause/resume approvals, missed-call detection and recovery.
+- **Claims and settlement:** manual claims, authoritative validation, category closure, disqualification/disputes, cancellation voting/settlement, prize payouts, refunds, completion rewards and automatic creation of the next WAITING game.
+- **Security:** authenticated scoped sessions, expiry/revocation/replay protection and rate limiting. The account key is currently a bearer secret; do not expose it or grant broad guest access.
+- **Complete Experience Cloud setup:** site/page routing, guest profile, sharing and org-specific activation/configuration.
 - Paging beyond the current 200-board directory/membership query limits.
-- Durable repair worker for PENDING operation journals.
-- Integration, security, concurrency and load testing in the target Developer Org.
+- Full integration, failure-injection, concurrency, load and security coverage in the target Developer Org.
 
-Do not describe the product as end-to-end playable, and do not process production points until start/capture, bot cancellation, settlement and the security controls are implemented and verified.
+Do not describe the product as end-to-end playable or process production points until the required game lifecycle, financial recovery, settlement and security controls are implemented and verified.
 
 ## Validation status
 
-- Source and metadata have been reviewed statically in this feature branch.
-- HousieDomainRulesTest contains helper tests and a generated-ticket layout test.
-- The repository GitHub Actions pipeline now validates Salesforce metadata and runs all local Apex tests for pull requests; deployment is gated to pushes or manual runs on main. This branch's pipeline result is still pending.
-- Run the PR validation workflow before merge. After merge, the main-branch workflow deploys the wildcard manifest to the Developer Edition and runs local Apex tests.
+- PR #24 validation run [#41770869570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770869570) succeeded: metadata dry-run validation and the workflow's `RunLocalTests` step both completed successfully. Important limitation: `RunLocalTests` executes tests already deployed in the Developer Edition; this workflow does not execute Apex test classes that exist only in the PR branch.
+- Targeted deployment run [#41760108157](https://github.com/housieadmin/HousieSalesforce/actions/runs/41760108157) successfully validated and deployed the four selected transaction-boundary Apex classes, then completed its selected Apex test step.
+- Public Experience Cloud purchase regression runs [#41770200570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770200570) and [#41770555276](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770555276) succeeded on the dedicated `test-user-3` fixture. The scenario created two distinct active tickets; Aura actions returned SUCCESS and no pending-uncommitted-work error was observed.
+- Cleanup run [#41770878933](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770878933) succeeded and removed a duplicate scenario-owned board.
+- These checks close the agreed ticket-purchase transaction-boundary defect. They do not verify bot funding, game start, gameplay, claims, settlement, generic journal repair, concurrency or security.
+
+No routine rerun of the completed ticket-purchase evidence is required. Reopen that fix only for a concrete regression or a specific new evidence gap. Future milestones must run the tests and runtime checks in their own acceptance criteria.
 
 ## Consistency note
 
-Big Object writes are non-transactional and Database.insertImmediate() can leave physical records behind after a partial operation. Apex serializes business commands through the infrastructure lock and writes a COMMITTED journal marker last. Application reads reject records belonging to non-committed operation IDs. This provides fail-closed application visibility, not native rollback or multi-record atomicity.
+Big Object writes are non-transactional. The operation journal's COMMITTED marker controls application visibility but cannot undo physical rows from a partial `insertImmediate()` operation. The writer does not hold the standard-object infrastructure lock. Cross-request ordering must be implemented by the relevant caller using a durable coordination mechanism; the existing per-game command gate covers the ticket purchase/withdrawal command flow only.
