@@ -1,6 +1,6 @@
 # Housie delivery milestones
 
-This is the cross-session delivery roadmap. The order reflects dependencies in `docs/SPEC.md` and the current source—not just a feature wishlist. Work on the first actionable incomplete milestone. Keep implementation details in its PR and session notes; update status and evidence when it is complete.
+This is the cross-session delivery roadmap. The order reflects dependencies in `docs/SPEC.md` and the current source—not just a feature wishlist. Work on the first actionable incomplete milestone. Keep implementation details in its PR; update status and evidence here when a milestone is complete.
 
 ## Milestone 0 — Ticket-purchase transaction boundaries
 
@@ -12,9 +12,9 @@ This is the cross-session delivery roadmap. The order reflects dependencies in `
 - [x] PR metadata validation and the configured org-resident Apex test step passed.
 - [x] Targeted deployment of the four transaction-boundary Apex classes passed.
 - [x] Public Experience Cloud purchase regression created two distinct active tickets without the pending-uncommitted-work error.
-- Evidence: [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24), [validation #41770869570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770869570), [targeted deploy #41760108157](https://github.com/housieadmin/HousieSalesforce/actions/runs/41760108157), [browser runs #41770200570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770200570) and [#41770555276](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770555276), [cleanup #41770878933](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770878933), [session record](sessions/2026-11-04-ticket-purchase-transaction-fix-status.md).
+- Evidence: [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24), [validation #41770869570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770869570), [targeted deploy #41760108157](https://github.com/housieadmin/HousieSalesforce/actions/runs/41760108157), [browser runs #41770200570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770200570) and [#41770555276](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770555276), [cleanup #41770878933](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770878933).
 
-This closes the agreed transaction-boundary defect only. The PR workflow's `RunLocalTests` step executes tests already deployed in the org; it does not execute branch-only Apex test classes. No routine revalidation is required. Reopen only for a concrete regression or a specific new evidence gap.
+This closes the agreed transaction-boundary defect only. The PR workflow's `RunLocalTests` step executes tests already deployed in the Developer Edition; it does not execute branch-only Apex test classes. No routine revalidation is required. Reopen only for a concrete regression or a specific new evidence gap.
 
 ## Milestone 1 — Big Object operation recovery and command repair
 
