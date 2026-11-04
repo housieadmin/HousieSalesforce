@@ -9,7 +9,8 @@ public without sharing class HousieOperationService {
         @AuraEnabled public Integer written;
     }
 
-    // Serialize validation and writes that must not race with another command.
+    // DML-only preparation/finalization transactions may use the infrastructure
+    // row lock. Never call this method from a transaction that invokes insertImmediate.
     public static void lockForWrite() {
         List<Housie_Operation_Lock__c> locks = [
             SELECT Id, Lock_Key__c
@@ -21,14 +22,17 @@ public without sharing class HousieOperationService {
         HousieErrors.require(!locks.isEmpty(), 'Infrastructure lock is not initialized. Run bootstrap.apex.');
     }
 
-    // A single infrastructure row serializes all writes. Big Object records are
-    // written immediately; the journal's COMMITTED marker is written last.
+    // Each operation is journaled independently. This transaction performs only
+    // Big Object insertImmediate writes; it must not depend on a standard-object
+    // row lock for serialization because those locks are released by callouts.
+    // Callers must use a durable command gate when cross-request ordering matters.
     // Readers must reject records whose Operation_Journal__b status is not COMMITTED.
     public static OperationResult executeOperation(String operationType, List<WriteItem> writes) {
         HousieErrors.require(String.isNotBlank(operationType), 'Operation type is required.');
         HousieErrors.require(writes != null && !writes.isEmpty(), 'At least one write is required.');
         HousieErrors.require(writes.size() <= 40, 'Operation exceeds the safe write batch size.');
-        lockForWrite();
+        // This transaction is Big-Object-only: do not acquire DML row locks here.
+        // Callers must not hold standard-object FOR UPDATE locks when invoking this method.
         String opId = HousieIds.newId();
         Datetime nowAt = System.now();
         Map<String,Object> journal = new Map<String,Object>{
