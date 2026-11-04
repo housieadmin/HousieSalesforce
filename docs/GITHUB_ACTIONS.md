@@ -9,6 +9,7 @@ This guide explains how to operate the Salesforce workflows in this repository. 
 | **Salesforce PR Validation** | Pull request targeting `main` | Checks out the PR head, dry-run validates `manifest/package.xml`, then runs local Apex tests in the Developer Edition org | Does not deploy metadata |
 | **Salesforce Manual Validation** | Manually dispatched from `main` | Validates a selected branch or PR ref against a selected manifest; can optionally run local Apex tests | Does not deploy metadata |
 | **Salesforce AI Iteration Deploy** | Manually dispatched from `main` | Deploys explicitly selected source paths from a pushed feature branch or commit to Developer Edition | Does not merge code or write to `main`; does not deploy the whole project by default |
+| **Salesforce Deploy and Browser Verification** | Manually dispatched from `main` or `/sf deploy-and-verify` on issue #11 | Deploys selected metadata, then runs selected browser-agent scenarios only after deployment succeeds | Does not merge code; a skipped or failed browser run is not an end-to-end pass |
 | **Salesforce AI Iteration Restore** | Manually dispatched from `main` | Redeploys explicitly selected metadata paths from a known-good Git ref | Does not reverse data changes, Apex side effects, or destructive metadata changes |
 | **Salesforce Issue Commands** | Owner comments on issue #11 | Validates and dispatches the existing AI iteration deploy or restore workflow | Does not contain Salesforce credentials or deploy metadata itself |
 | **Salesforce Controlled Deployment** | Manually dispatched from `main` | Deploys one selected release manifest after explicit confirmation and pre-deployment checks | Does not deploy arbitrary feature branches; does not run automatically on merge |
@@ -66,6 +67,18 @@ Use this workflow for the fast edit-deploy-test loop on a feature branch. It dep
 
 The workflow validates the selected paths, performs a metadata dry run, deploys only those paths, then runs the selected test mode. It records the source ref, resolved commit, paths, and test mode in the run summary. It serializes with the controlled deployment and restore workflows so two runs cannot deploy to the shared org concurrently.
 
+### Combined deploy and browser verification
+
+Use **Salesforce Deploy and Browser Verification** when a change needs both a Salesforce metadata deployment and a browser-level check in one ordered run.
+
+1. Push the feature branch or commit you want to test.
+2. Dispatch the combined workflow from `main`, or use the `/sf deploy-and-verify` command on issue #11 (example below).
+3. Supply the same source ref for deployment and browser execution, the exact metadata paths under `force-app/`, and one or more scenario paths under `browser-agent/scenarios/*.spec.ts`.
+4. Choose `standard` or `fast` deployment mode. Standard performs the metadata dry run and selected Apex test mode; fast skips the dry run and Apex tests and requires test mode `none`.
+5. Type exactly `DEPLOY` to authorize the deployment.
+
+The combined workflow runs browser verification only after the deployment job succeeds. It reports deployment and browser results separately and fails the overall run if either stage fails or browser verification is skipped. Review the browser artifact (scenario notes, screenshots, diagnostics, and any captured Apex logs) rather than treating a successful deployment alone as proof of the user journey. The workflow does not merge the source branch. Public Community scenarios should navigate directly to their public URL; they should not invoke the authenticated Salesforce Lightning login flow unless that scenario actually requires it.
+
 **Important:** push before dispatching. ChatGPT Desktop can edit locally, but GitHub Actions can only deploy a commit that exists in the repository. The AI session should commit/push its current iteration branch, dispatch this workflow, inspect the run and test output, then continue editing and repeat. Do not merge merely to test.
 
 ## 4. AI iteration restore
@@ -96,6 +109,23 @@ paths:
 tests: none
 confirm: DEPLOY
 ```
+
+Combined deploy and browser verification example:
+
+```text
+/sf deploy-and-verify
+ref: feature/my-change
+paths:
+- force-app/main/default/classes/HousieAccountService.cls
+mode: standard
+tests: none
+scenarios:
+- browser-agent/scenarios/inspect-housie-account.spec.ts
+description: Verify the deployed account flow
+confirm: DEPLOY
+```
+
+For this command, `scenarios:` is required and accepts 1–10 unique scenario paths under `browser-agent/scenarios/`. The supported deployment modes are `standard` and `fast`; fast mode requires `tests: none`. The command dispatches the combined workflow, not a PR-comment action. Use a public Community scenario when the user journey is public; do not add login steps solely to make a public-page test resemble an authenticated Lightning test.
 
 For `tests: specified`, add an `apex_test_classes:` list with one class name per line. The other supported test modes are `none` and `local`.
 
