@@ -81,11 +81,13 @@ jobs:
               }
 
               const ref = (fields.ref || '').trim();
-              if (!ref || ref.length > 200 || ref.startsWith('-') ||
+              if (!isRetrieve && (!ref || ref.length > 200 || ref.startsWith('-') ||
                   ref.includes('..') || ref.includes('//') ||
-                  !/^[A-Za-z0-9._/-]+$/.test(ref)) {
+                  !/^[A-Za-z0-9._/-]+$/.test(ref))) {
                 throw new Error('ref must be an existing branch, tag, or commit SHA using safe Git ref characters.');
               }
+              let workflowId;
+              let inputs;
 
               const paths = (fields.paths || '').split('\n').map(x => x.trim()).filter(Boolean);
               if (isRetrieve) {
@@ -123,9 +125,9 @@ jobs:
                 await github.rest.repos.getCommit({ owner, repo, ref });
               }
 
-              let workflowId;
-              let inputs;
-              if (isDeploy) {
+              if (isRetrieve) {
+                // Retrieval inputs were prepared above.
+              } else if (isDeploy) {
                 const deploymentMode = (fields.mode || 'standard').trim();
                 if (!['standard', 'fast'].includes(deploymentMode)) throw new Error('mode must be standard or fast.');
                 const testMode = (fields.tests || 'none').trim();
