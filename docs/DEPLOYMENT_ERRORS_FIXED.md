@@ -1,10 +1,10 @@
-# Deployment errors fixed
+# Historical deployment errors and source corrections
 
-Source: deployment output supplied as `deploy_errors.txt` (51 errors).
+Source: a deployment output supplied during initial development (`deploy_errors.txt`, 51 reported errors). The original report is not a current release checklist. This document preserves the root-cause mapping for future reference.
 
-| Reported error group | Root cause | Change in this branch |
+| Reported error group | Root cause | Source correction |
 |---|---|---|
-| `HousieOperationService.cls` parser errors at `commit`, plus undefined `writes` cascade | `commit` is reserved in Apex parsing in this context; subsequent parse failures made the method body invalid | Renamed public Apex method to internal `executeOperation`; removed Aura exposure from the generic writer |
+| `HousieOperationService.cls` parser errors at `commit`, plus undefined `writes` cascade | `commit` is reserved in Apex parsing in this context; subsequent parse failures made the method body invalid | Renamed the public Apex method to `executeOperation`; removed Aura exposure from the generic writer |
 | `HousieGameService` / `HousieSimulationController` cannot find `commit` | Callers still used the old method name | Updated both callers to `executeOperation` |
 | `HousieBigObjectStore.cls: Operation_Id__c can not be filtered` | Big Object index metadata had not deployed correctly, and the query path depended on that index | Added required Big Object index metadata names; journal reads filter on the journal's leading `Operation_Id__c` index field. Added bulk committed-operation lookup using `IN` on that indexed field |
 | 16 errors: `element fullName missing for a child of type Index` | Big Object `indexes` metadata omitted the index `fullName` | Added `<fullName>Primary_Query_Index</fullName>` to each Big Object index |
@@ -22,6 +22,8 @@ Source: deployment output supplied as `deploy_errors.txt` (51 errors).
 - The owner account bearer key is no longer returned in board-list results or required for board join/leave. The random board ID is the private invite token.
 - Board membership transitions are written as immutable Big Object versions and the latest committed transition is treated as the current logical membership. This preserves the previous committed state if an update fails before its journal commit.
 
-## Validation status
+## Later validation evidence
 
-The repository source and metadata were inspected and the reported root causes were patched. The changes have **not** been compiled or deployed against the target Salesforce org in this environment. A successful target-org validation/deploy is still required to confirm API-version-specific metadata and Apex compilation.
+The source corrections were subsequently included in the repository state that passed PR metadata dry-run validation in [PR #24 validation run #41770869570](https://github.com/housieadmin/HousieSalesforce/actions/runs/41770869570). The PR workflow also completed its `RunLocalTests` step against tests already deployed in the Developer Edition; it does not execute branch-only test classes.
+
+The targeted deployment [run #41760108157](https://github.com/housieadmin/HousieSalesforce/actions/runs/41760108157) deployed four selected transaction-boundary Apex classes. It was not a full wildcard deployment of every metadata correction listed above. Do not describe that targeted deployment as proof that every listed metadata member was separately deployed.
