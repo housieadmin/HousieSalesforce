@@ -12,4 +12,4 @@ test("inspect Housie Account record", async ({ page, housie }) => {
   const visibleText = (await page.locator("body").innerText()).slice(0, 20000);
   housie.note("Visible record content:\n" + visibleText);
   await housie.screenshot("housie-account-record");
-};
+});
