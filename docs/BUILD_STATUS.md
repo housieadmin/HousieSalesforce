@@ -1,6 +1,6 @@
 # Build status and release gate
 
-This project is delivered in reviewable vertical slices. The ticket-purchase transaction-order defect and related lock-order corrections are complete in [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24). Accepted validation, targeted deployment and public Experience Cloud purchase-regression evidence is recorded in [the session record](../.project/sessions/2026-11-04-ticket-purchase-transaction-fix-status.md). The next work is defined by [the delivery milestones](../.project/MILESTONES.md).
+This project is delivered in reviewable vertical slices. The ticket-purchase transaction-order defect and related lock-order corrections are complete in [PR #24](https://github.com/housieadmin/HousieSalesforce/pull/24); its description links the accepted validation, targeted-deployment and public Experience Cloud regression evidence. The ordered next work and acceptance criteria live only in [the delivery milestones](../.project/MILESTONES.md). This file is the implementation inventory and verification snapshot—not a second roadmap.
 
 ## Implemented source slices
 
