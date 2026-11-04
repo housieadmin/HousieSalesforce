@@ -39,13 +39,14 @@ For a task spanning multiple areas, start with the most useful guide and add onl
 
 Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is broad or cross-cutting. If sources conflict, identify the conflict instead of silently choosing one.
 
-## Milestone tracking and completion rules
+## Project tracking and control session
 
-- The active roadmap and acceptance criteria live in [`.project/MILESTONES.md`](MILESTONES.md). Start each new session by selecting the next actionable milestone; do not restart completed milestones by default.
-- A milestone is **complete** when its stated acceptance criteria pass and the evidence (PR/commit, relevant workflow/browser run, environment and date) is recorded in the tracker. Mark it complete and move on.
-- Do not repeat deployment, retrieval, comparison, or browser verification for a completed milestone unless a concrete regression, new requirement, changed environment, or specific evidence gap is found. If a later task exposes a defect, create a follow-up fix and reopen only the affected acceptance item.
-- Keep the active milestone small enough to finish in one focused delivery. Long debugging sessions can remain in one session; update the tracker at meaningful stopping points rather than writing a handoff after every iteration.
-- The tracker is the cross-session roadmap; GitHub PRs/issues and workflow runs hold implementation details and evidence. Do not duplicate long narratives across session notes.
+- `.project/MILESTONES.md` is the single delivery tracker: priority, sequence, dependencies, acceptance criteria, milestone status and evidence links.
+- `docs/BUILD_STATUS.md` is the implementation inventory: what exists in source, what is not implemented, what has been verified and the limits of that verification. It does not own roadmap order or duplicate milestone acceptance criteria.
+- Use one ongoing ChatGPT conversation named **Housie — Project Control** for periodic project-level reviews. Compare actual work against the tracker and build status, identify drift, and record the reason and approval for any change of direction. The conversation is an accountability workspace, not the source of truth; durable decisions and status changes must be committed to the repository.
+- At the start of substantial work, identify the active milestone and acceptance item. If work is outside that milestone, state the concrete reason (blocker, production defect, dependency or explicit reprioritization) and whether the roadmap changes.
+- At meaningful stopping points, update milestone evidence/status and build status only when implementation facts change. Keep implementation details and test logs in PRs, issues and workflow runs; do not create session notes for routine progress.
+- A milestone is complete only when its acceptance criteria pass and evidence (PR/commit, relevant workflow/browser run, environment and date) is linked in the tracker. Do not repeat verification absent a concrete regression, new requirement, changed environment or specific evidence gap.
 
 ## Context depth
 
@@ -54,11 +55,6 @@ Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is
 - **Cross-cutting/architectural change:** expand to the relevant technical architecture docs and any additional project evidence the task requires.
 - **Unclear task:** ask one focused clarification rather than preloading the repository.
 
-## Milestone completion and evidence
-
-A completed milestone is not a permanent claim that the whole application is bug-free. It means the agreed scope passed its acceptance criteria at the recorded point in time. New defects are handled when discovered; routine revalidation is not a prerequisite for starting the next milestone.
-
-Record only evidence relevant to the milestone: source/PR, tests, deployment or retrieval when part of the agreed scope, browser/runtime result when required, and known limits. A successful test does not imply unrelated paths are verified.
 
 ## Working rules
 
