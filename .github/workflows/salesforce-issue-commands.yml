@@ -48,12 +48,13 @@ jobs:
               }
 
               const command = lines[0];
-              if (!['/sf deploy', '/sf deploy-and-verify', '/sf restore'].includes(command)) {
-                return await fail('Supported commands are `/sf deploy`, `/sf deploy-and-verify`, and `/sf restore`.');
+              if (!['/sf deploy', '/sf deploy-and-verify', '/sf restore', '/sf retrieve'].includes(command)) {
+                return await fail('Supported commands are `/sf deploy`, `/sf deploy-and-verify`, `/sf restore`, and `/sf retrieve`.');
               }
 
+              const isRetrieve = command === '/sf retrieve';
               const isDeploy = command === '/sf deploy' || command === '/sf deploy-and-verify';
-              const allowed = isDeploy ? new Set(['ref', 'paths', 'mode', 'tests', 'apex_test_classes', 'scenarios', 'description', 'confirm']) : new Set(['ref', 'paths', 'run_local_tests', 'confirm']);
+              const allowed = isRetrieve ? new Set(['paths', 'create_pr', 'description']) : isDeploy ? new Set(['ref', 'paths', 'mode', 'tests', 'apex_test_classes', 'scenarios', 'description', 'confirm']) : new Set(['ref', 'paths', 'run_local_tests', 'confirm']);
               const fields = {};
               let listField = null;
 
@@ -87,19 +88,40 @@ jobs:
               }
 
               const paths = (fields.paths || '').split('\n').map(x => x.trim()).filter(Boolean);
-              if (!paths.length || paths.length > 25 || new Set(paths).size !== paths.length) {
-                throw new Error('Provide 1–25 unique paths under force-app/.');
-              }
-              for (const path of paths) {
-                if (path.length > 240 || !/^force-app\/[A-Za-z0-9._/-]+$/.test(path) ||
-                    path.includes('..') || path.includes('//') || path.endsWith('/')) {
-                  throw new Error(`Invalid metadata path: ${path}`);
+              if (isRetrieve) {
+                if (paths.length > 25 || new Set(paths).size !== paths.length) throw new Error('Provide at most 25 unique retrieve paths.');
+                const xmlPaths = paths.filter(path => path.endsWith('.xml'));
+                if (xmlPaths.length > 1 || (xmlPaths.length && paths.length > 1)) throw new Error('Use either one retrieve manifest XML path or one or more component paths, not both.');
+                for (const path of paths) {
+                  if (path.length > 240 || path.includes('..') || path.includes('//') || path.endsWith('/') ||
+                      !( /^force-app\/[A-Za-z0-9._/-]+$/.test(path) || /^manifest\/[A-Za-z0-9._/-]+\.xml$/.test(path))) {
+                    throw new Error(`Invalid retrieve path: ${path}. Use force-app component paths or one manifest/*.xml file.`);
+                  }
                 }
+                const createPr = (fields.create_pr || 'true').trim();
+                if (!['true', 'false'].includes(createPr)) throw new Error('create_pr must be true or false.');
+                workflowId = '.github/workflows/salesforce-org-sync.yml';
+                inputs = {
+                  confirm_sync: 'SYNC',
+                  retrieve_paths: paths.filter(path => !path.endsWith('.xml')).join('\n'),
+                  retrieve_manifest: paths.find(path => path.endsWith('.xml')) || 'manifest/package-retrieve.xml',
+                  create_pr: createPr,
+                  run_description: (fields.description || 'Issue-comment initiated Salesforce metadata retrieve').slice(0, 300)
+                };
+              } else {
+                if (!paths.length || paths.length > 25 || new Set(paths).size !== paths.length) {
+                  throw new Error('Provide 1–25 unique paths under force-app/.');
+                }
+                for (const path of paths) {
+                  if (path.length > 240 || !/^force-app\/[A-Za-z0-9._/-]+$/.test(path) ||
+                      path.includes('..') || path.includes('//') || path.endsWith('/')) {
+                    throw new Error(`Invalid metadata path: ${path}`);
+                  }
+                }
+                // Resolve the ref through GitHub before dispatching; the downstream workflow
+                // still checks out and validates the exact requested ref and paths.
+                await github.rest.repos.getCommit({ owner, repo, ref });
               }
-
-              // Resolve the ref through GitHub before dispatching; the downstream workflow
-              // still checks out and validates the exact requested ref and paths.
-              await github.rest.repos.getCommit({ owner, repo, ref });
 
               let workflowId;
               let inputs;
@@ -160,11 +182,11 @@ jobs:
                 owner, repo, workflow_id: workflowId, ref: 'main', inputs
               });
 
-              const label = command === '/sf deploy-and-verify' ? 'AI deploy and browser verification' : command === '/sf deploy' ? 'AI iteration deploy' : 'AI iteration restore';
+              const label = isRetrieve ? 'Salesforce metadata retrieve' : command === '/sf deploy-and-verify' ? 'AI deploy and browser verification' : command === '/sf deploy' ? 'AI iteration deploy' : 'AI iteration restore';
               const workflowUrl = `https://github.com/${owner}/${repo}/actions/workflows/${workflowId}`;
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `<strong>${label} dispatched.</strong>\n\n- Requested ref: \`${ref}\`\n- Selected paths:\n${paths.map(p => `  - \`${p}\``).join('\n')}\n- Workflow definition: \`main\`\n\n[Open the workflow runs](${workflowUrl}). Deployment mode: ${isDeploy ? (fields.mode || 'standard') : 'n/a'}.`
+                body: isRetrieve ? `<strong>${label} dispatched.</strong>\n\n- Retrieve selection: ${paths.length ? paths.map(p => `\`${p}\``).join(', ') : '`manifest/package-retrieve.xml` (default)'}\n- Create pull request: ${fields.create_pr || 'true'}\n- Workflow definition: \`main\`\n\n[Open the workflow runs](${workflowUrl}).` : `<strong>${label} dispatched.</strong>\n\n- Requested ref: \`${ref}\`\n- Selected paths:\n${paths.map(p => `  - \`${p}\``).join('\n')}\n- Workflow definition: \`main\`\n\n[Open the workflow runs](${workflowUrl}). Deployment mode: ${isDeploy ? (fields.mode || 'standard') : 'n/a'}.`
               });
             } catch (error) {
               const message = String(error.message || error).replace(/[\r\n]+/g, ' ').slice(0, 500);
