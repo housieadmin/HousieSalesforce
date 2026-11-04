@@ -195,6 +195,7 @@ export default class HousieBoardHub extends LightningElement {
     const boardId = event.currentTarget.dataset.boardId;
     const board = this.boards.find(item => item.boardId === boardId);
     this.loading = true;
+    let purchaseStage = 'prepare';
     try {
       const prepared = await prepareTicketPurchase({
         boardId,
@@ -204,10 +205,12 @@ export default class HousieBoardHub extends LightningElement {
       });
       let result = prepared;
       if (prepared.requestId && prepared.status !== 'ACTIVE' && prepared.status !== 'COMMITTED') {
+        purchaseStage = 'commit';
         await commitTicketCommand({
           requestId: prepared.requestId,
           accountId: this.accountKey
         });
+        purchaseStage = 'complete';
         result = await completeTicketCommand({
           requestId: prepared.requestId,
           accountId: this.accountKey
@@ -220,7 +223,7 @@ export default class HousieBoardHub extends LightningElement {
       const message = e?.body?.message || e?.message || 'Ticket purchase is pending. Use the retry action below.';
       this.loading = false;
       await this.refresh();
-      this.error = message;
+      this.error = 'Ticket purchase failed during ' + purchaseStage + ': ' + message;
     }
   }
 
