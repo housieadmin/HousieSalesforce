@@ -39,12 +39,26 @@ For a task spanning multiple areas, start with the most useful guide and add onl
 
 Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is broad or cross-cutting. If sources conflict, identify the conflict instead of silently choosing one.
 
+## Milestone tracking and completion rules
+
+- The active roadmap and acceptance criteria live in [`.project/MILESTONES.md`](MILESTONES.md). Start each new session by selecting the next actionable milestone; do not restart completed milestones by default.
+- A milestone is **complete** when its stated acceptance criteria pass and the evidence (PR/commit, relevant workflow/browser run, environment and date) is recorded in the tracker. Mark it complete and move on.
+- Do not repeat deployment, retrieval, comparison, or browser verification for a completed milestone unless a concrete regression, new requirement, changed environment, or specific evidence gap is found. If a later task exposes a defect, create a follow-up fix and reopen only the affected acceptance item.
+- Keep the active milestone small enough to finish in one focused delivery. Long debugging sessions can remain in one session; update the tracker at meaningful stopping points rather than writing a handoff after every iteration.
+- The tracker is the cross-session roadmap; GitHub PRs/issues and workflow runs hold implementation details and evidence. Do not duplicate long narratives across session notes.
+
 ## Context depth
 
 - **Small/local change:** this router, one workstream guide, affected files and nearby tests.
 - **Feature/multi-file change:** also inspect relevant SPEC/DATA_MODEL sections, callers, dependencies, permissions and tests.
 - **Cross-cutting/architectural change:** expand to the relevant technical architecture docs and any additional project evidence the task requires.
 - **Unclear task:** ask one focused clarification rather than preloading the repository.
+
+## Milestone completion and evidence
+
+A completed milestone is not a permanent claim that the whole application is bug-free. It means the agreed scope passed its acceptance criteria at the recorded point in time. New defects are handled when discovered; routine revalidation is not a prerequisite for starting the next milestone.
+
+Record only evidence relevant to the milestone: source/PR, tests, deployment or retrieval when part of the agreed scope, browser/runtime result when required, and known limits. A successful test does not imply unrelated paths are verified.
 
 ## Working rules
 
@@ -53,7 +67,7 @@ Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is
 - Use QA scenarios and independent review when they add confidence. They are not mandatory approval stages for every fix.
 - Use release-engineering context when GitHub/deployment mechanics are the problem, not for every deployment performed during development.
 - Preserve useful findings in GitHub or the relevant source docs when they are durable and likely to help future sessions. Do not record every failed attempt or transient debugging detail.
-- Distinguish source implementation, automated test coverage, deployment and runtime verification.
+- Distinguish source implementation, automated test coverage, deployment and runtime verification. Record only the evidence needed to close the current milestone.
 - A schema, UI control, placeholder method or audit event does not prove a feature works.
 - Preserve relevant data-integrity and security constraints.
 - Never claim org-side configuration or runtime behaviour was inspected without evidence.
