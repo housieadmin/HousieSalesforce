@@ -63,9 +63,14 @@ test("public test-user-3 recovers pending purchase and creates a fresh ticket wh
   const boardCard = page.locator("c-housie-board-hub article.board-card")
     .filter({ hasText: regressionBoardName }).first();
 
+  // Wait for the asynchronous board-list request before deciding whether
+  // setup is needed; the empty-state UI can render before account data arrives.
+  const existingBoardLoaded = await boardCard.waitFor({ state: "visible", timeout: 15000 })
+    .then(() => true).catch(() => false);
+
   // This is a newly provisioned account and may not belong to any board yet.
   // Create one dedicated private test board once; subsequent runs reuse it.
-  if (await boardCard.count() === 0) {
+  if (!existingBoardLoaded) {
     await page.getByRole("textbox", { name: "Board name" }).fill(regressionBoardName);
     await page.getByRole("button", { name: "Create board", exact: true }).click();
     await expect(boardCard, "The test account must be able to create its regression board")
@@ -125,9 +130,20 @@ test("public test-user-3 recovers pending purchase and creates a fresh ticket wh
   }
 
   expect(ticketId, "The public account must show an active ticket result").toMatch(/^[a-f0-9]{32}$/i);
-  result = await visiblePageText() + "\nTicket: " + ticketId;
   expect(await boardCard.getByRole("button", { name: /Finish ticket purchase/ }).count(),
     "No prepared purchase may remain after the test").toBe(0);
+
+  // Clean up any duplicate regression boards from earlier test setup attempts.
+  // Only boards with this scenario-owned name are eligible for this cleanup.
+  const regressionBoards = page.locator("c-housie-board-hub article.board-card")
+    .filter({ hasText: regressionBoardName });
+  for (let index = await regressionBoards.count() - 1; index >= 1; index--) {
+    const duplicate = regressionBoards.nth(index);
+    await duplicate.getByRole("button", { name: "Leave board", exact: true }).click();
+    await expect(duplicate, "Duplicate test board membership should be removed").toHaveCount(0, { timeout: 60000 });
+  }
+  await expect(regressionBoards, "The test account should retain one regression board").toHaveCount(1);
+  result = await visiblePageText() + "\nTicket: " + ticketId;
 
   await Promise.all(pendingCaptures);
   housie.note("Ticket purchase UI result: " + result.slice(0, 2000));
