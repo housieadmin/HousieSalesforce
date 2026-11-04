@@ -18,7 +18,7 @@ Source: a deployment output supplied during initial development (`deploy_errors.
 - `Ticket__b.Owner_Account_Id__c` is nullable because bot tickets have no human owner. It was removed from the ticket primary index so BOT tickets can have a null owner.
 - Board queries use `(Visibility__c, Record_Id__c)` so public boards can be enumerated while both public and private boards remain resolvable by ID. `Visibility__c` is required because it is an index field. Board Member listing is keyed by `Account_Id__c`.
 - The board-list path bulk-loads journal commit states instead of issuing one SOQL query for each membership, board and game record.
-- The public Experience permission set grants only the route and board-service Apex classes; it does not grant direct account record read or admin/simulation access.
+- The public Experience permission set grants Apex access to `HousieRouteController`, `HousieBoardService` and `HousieGameTicketService`; it grants no direct account-object read or admin/simulation access.
 - The owner account bearer key is no longer returned in board-list results or required for board join/leave. The random board ID is the private invite token.
 - Board membership transitions are written as immutable Big Object versions and the latest committed transition is treated as the current logical membership. This preserves the previous committed state if an update fails before its journal commit.
 
