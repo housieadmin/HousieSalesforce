@@ -30,6 +30,7 @@ public without sharing class HousieOperationService {
         HousieErrors.require(writes != null && !writes.isEmpty(), 'At least one write is required.');
         HousieErrors.require(writes.size() <= 40, 'Operation exceeds the safe write batch size.');
         // This transaction is Big-Object-only: do not acquire DML row locks here.
+        // Callers must not hold standard-object FOR UPDATE locks when invoking this method.
         String opId = HousieIds.newId();
         Datetime nowAt = System.now();
         Map<String,Object> journal = new Map<String,Object>{
