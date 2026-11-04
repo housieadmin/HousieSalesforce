@@ -1,9 +1,9 @@
 import { test, expect } from "../core";
 
 const site = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s";
-const playerUrl = site + "/housie-account/a00g500001D7iIrAAJ/housie-test-user-2";
+const playerUrl = site + "/housie-account/a00g500001DFWqoAAH/housie-test-user-3";
 
-test("public test-user recovers pending purchase and creates a fresh ticket when capacity remains", async ({ page, housie }) => {
+test("public test-user-3 recovers pending purchase and creates a fresh ticket when capacity remains", async ({ page, housie }) => {
   const auraDiagnostics = [];
   const pendingCaptures = [];
   let capturePurchase = false;
