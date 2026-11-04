@@ -18,26 +18,36 @@ The Product Requirements Specification remains authoritative for behaviour. This
 
 This closes the agreed transaction-boundary defect only. It does not mean the full ticket-to-settlement game path is implemented.
 
-## Milestone 1 — Verify and complete account, board and ticket setup
+## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — source paths exist; org setup and two-player journey need verification**
+**Status: IN PROGRESS — significant source/schema and UI configuration gaps identified**
 
-**Goal:** reliably prepare a real WAITING game with at least two human participants and paid tickets.
+**Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
-Acceptance criteria:
-- A platform admin can create an account through the supported admin UI; the account receives the four signup grants and becomes ACTIVE only after all grants commit.
-- The account invitation route resolves to the correct active account context.
-- The owner can create a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership.
-- A second human can join through the private invitation board ID or public-board search.
-- At least two distinct human accounts can purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
-- Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
-- WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed.
-- Independent, reusable browser scenarios cover account creation, board creation, board join, ticket purchase and withdrawal. Scenarios verify persisted outcomes, not just successful clicks.
-- Apex tests cover the business invariants; the browser journey is run against the Developer Org using dedicated test accounts and scenario-owned data.
+### 1A. Source and org reconciliation
+
+- [ ] Bring all deployed Housie object fields and Big Object indexes into source control. The org retrieve found 213 field definitions and 16 indexes missing from main; curated draft [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) contains these 229 files.
+- [ ] Review the retrieved fields and index ordering against the logical data model and SOQL leading-key query patterns.
+- [ ] Reconcile the Housie Network, tabs and permission sets. Org retrieval proposals are [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) and [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36); neither is merged.
+- [ ] Enable **ExperienceBundle Metadata API** in Setup → Digital Experiences → Settings, then retrieve the Aura site's page definitions. The current org setting prevented ExperienceBundle retrieval.
+- [ ] Retrieve/track the Lightning App Page definitions and identify the authoritative Housie Account Admin page. Setup currently shows two similarly named App Pages and a Housie Account Admin tab; component placement and activation still need verification.
+- [ ] Keep Salesforce-generated community login/profile controllers out of Housie business source unless the application actually depends on them. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) is an audit artifact, not a merge candidate as-is.
+
+### 1B. Positive account, board and ticket journey
+
+- [ ] A platform admin creates a test account through the supported admin UI; the account receives the four signup grants and becomes ACTIVE only after all grants commit.
+- [ ] The account invitation route resolves to the correct active account context.
+- [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership.
+- [ ] A second human joins through the private invitation board ID or public-board search.
+- [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
+- [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
+- [ ] WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed.
+- [ ] Independent, reusable browser scenarios cover account creation, board creation, board join, ticket purchase and withdrawal. Scenarios verify persisted outcomes, not just successful clicks.
+- [ ] Apex tests cover business invariants; the browser journey runs against dedicated Developer Org test accounts and scenario-owned data.
 
 Scope discipline:
 - This is the human-only path. Bot offers, bot funding, flips, fixes, chat and progression are not prerequisites for the first playable game.
-- Keep the existing Big Object / DML transaction boundaries and the ticket command idempotency already required for correct purchases. Do not expand into a generic recovery dispatcher here.
+- Keep the existing Big Object / DML transaction boundaries and ticket command idempotency already required for correct purchases. Do not expand into a general recovery dispatcher here.
 
 ## Milestone 2 — Start a human-only game
 
@@ -63,7 +73,7 @@ Acceptance criteria:
 - Number calling persists a unique, ordered 1–90 history using the game configuration snapshot and configured interval.
 - Manual marking is accepted only for the ticket owner and valid called numbers; client marking never changes official call history.
 - Automatic human tickets are read-only to owners, mark from official call history and submit qualifying claims automatically.
-- Game-admin succession follows participant join order and the configured offline grace. If no eligible admin is available, the game pauses.
+- Game-admin succession follows participant join order and configured offline grace. If no eligible admin is available, the game pauses.
 - Pause/resume follows the approval roles and state rules in SPEC §§5.3–5.5. Pause stops game-changing work; resume continues from persisted state and resets the next call interval.
 - Missed-call handling applies the configured delay grace, never bursts missed calls and requires authorized resume.
 - Apex tests cover ordered unique calls, idempotent scheduled execution, ticket ownership, manual/automatic marking, admin rotation, pause/resume and missed calls.
@@ -80,7 +90,7 @@ Acceptance criteria:
 - Every payout, refund and adjustment is idempotent, recorded in immutable ledgers and bounded by Game Wallet funds.
 - Completion retains permanent game history and creates the next WAITING game using current board settings.
 - Apex tests cover invalid/duplicate/simultaneous claims, category closure, rounding, payouts, refunds, interrupted settlement and duplicate requests.
-- Browser coverage proves a complete human-only game from board setup through final settlement and verifies the account and game ledgers.
+- Browser coverage proves a complete human-only game from board setup through final settlement and verifies account and game ledgers.
 
 ## Milestone 5 — Production hardening, recovery and security
 
