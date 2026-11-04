@@ -59,14 +59,23 @@ test("public test-user-3 recovers pending purchase and creates a fresh ticket wh
   };
 
   capturePurchase = true;
-  const pendingBanner = page.getByText("A previous action is prepared and needs to be finalized.", { exact: true });
-  const finishPending = page.getByRole("button", { name: /Finish ticket purchase/ }).first();
-  const purchaseButton = page.getByRole("button", { name: /Buy ticket/ }).first();
+  const regressionBoardName = "Transaction Regression - test-user-3";
+  const boardCard = page.locator("c-housie-board-hub article.board-card")
+    .filter({ hasText: regressionBoardName }).first();
 
-  // The Board Hub heading renders before its asynchronous board/action data.
-  // Wait for the actual board card and one of its actionable states before
-  // deciding whether a pending command needs recovery.
-  await expect(page.getByRole("heading", { name: "B-0001", exact: true })).toBeVisible({ timeout: 60000 });
+  // This is a newly provisioned account and may not belong to any board yet.
+  // Create one dedicated private test board once; subsequent runs reuse it.
+  if (await boardCard.count() === 0) {
+    await page.getByRole("textbox", { name: "Board name" }).fill(regressionBoardName);
+    await page.getByRole("button", { name: "Create board", exact: true }).click();
+    await expect(boardCard, "The test account must be able to create its regression board")
+      .toBeVisible({ timeout: 60000 });
+  }
+
+  const pendingBanner = boardCard.getByText("A previous action is prepared and needs to be finalized.", { exact: true });
+  const finishPending = boardCard.getByRole("button", { name: /Finish ticket purchase/ }).first();
+  const purchaseButton = boardCard.getByRole("button", { name: /Buy ticket/ }).first();
+
   await expect.poll(async () => {
     return await pendingBanner.isVisible().catch(() => false)
       || await finishPending.isVisible().catch(() => false)
@@ -85,20 +94,18 @@ test("public test-user-3 recovers pending purchase and creates a fresh ticket wh
   }
 
   let result = await visiblePageText();
-  const initialActiveCount = Number(result.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
-  const initialTicketIds = [...result.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)]
+  const initialBoardText = await boardCard.innerText();
+  const initialActiveCount = Number(initialBoardText.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
+  const initialTicketIds = [...initialBoardText.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)]
     .map(match => match[1]);
   let ticketId = result.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1]
     || initialTicketIds[0];
 
-  // The account is configured for two human tickets per game. Buy one more
-  // only while capacity remains; once full, hourly reruns become read-only.
-  // Use the real request ID generator so this exercises a genuinely new
-  // prepare -> commit -> complete command rather than replaying an old ID.
+  // The board is configured for two human tickets per account. Buy only while
+  // capacity remains; repeated runs become read-only once the limit is reached.
   if (initialActiveCount < 2) {
-    const purchase = page.getByRole("button", { name: /Buy ticket/ }).first();
-    await expect(purchase, "A waiting game must be available for this account").toBeVisible({ timeout: 30000 });
-    await purchase.click();
+    await expect(purchaseButton, "The regression board must be in its WAITING state").toBeVisible({ timeout: 30000 });
+    await purchaseButton.click();
 
     await expect.poll(async () => {
       const text = await visiblePageText();
@@ -112,14 +119,14 @@ test("public test-user-3 recovers pending purchase and creates a fresh ticket wh
     ticketId = successId;
 
     await expect.poll(async () => {
-      const text = await visiblePageText();
+      const text = await boardCard.innerText();
       return Number(text.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
     }, { timeout: 60000 }).toBeGreaterThan(initialActiveCount);
   }
 
   expect(ticketId, "The public account must show an active ticket result").toMatch(/^[a-f0-9]{32}$/i);
   result = await visiblePageText() + "\nTicket: " + ticketId;
-  expect(await page.getByRole("button", { name: /Finish ticket purchase/ }).count(),
+  expect(await boardCard.getByRole("button", { name: /Finish ticket purchase/ }).count(),
     "No prepared purchase may remain after the test").toBe(0);
 
   await Promise.all(pendingCaptures);
