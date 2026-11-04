@@ -35,9 +35,6 @@ These are implemented source paths, not a claim that the product is playable. Th
 
 **A purchased ticket is not yet playable.** Game-start approvals and wallet capture, bot funding, number calling, marking, claims and settlement remain incomplete. See [build status](docs/BUILD_STATUS.md) and the [delivery milestones](.project/MILESTONES.md).
 
-## Historical deployment-error record
-
-The original 51-error deployment report was analyzed and its source-level corrections are documented in [`docs/DEPLOYMENT_ERRORS_FIXED.md`](docs/DEPLOYMENT_ERRORS_FIXED.md). That file records historical fixes and their later validation evidence; it is not a current deployment checklist.
 
 ## Architecture caveat
 
@@ -53,7 +50,7 @@ Big Object writes are non-transactional. The writer uses `Database.insertImmedia
 - `manifest/package-org-setup.xml`: permission sets, custom tabs and custom permissions
 - `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
 - `scripts`: deploy, bootstrap and test scripts
-- `docs`: product specification, data model, architecture, deployment history, workflow operations and build status
+- `docs`: product specification, data model, architecture, workflow operations and build status
 - `.project/MILESTONES.md`: ordered delivery roadmap and acceptance criteria
 
 ## GitHub Actions
