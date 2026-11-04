@@ -12,6 +12,12 @@ public without sharing class HousieBigObjectStore {
     public static Database.SaveResult writeJournal(Map<String,Object> values) {
         return insertRaw('Operation_Journal__b', values);
     }
+    public static Database.SaveResult writeRecoveryIndex(Map<String,Object> values) {
+        return insertRaw('Operation_Recovery__b', values);
+    }
+    public static Database.SaveResult writeRecoveryCursor(Map<String,Object> values) {
+        return insertRaw('Operation_Recovery_Cursor__b', values);
+    }
     private static Database.SaveResult insertRaw(String objectApiName, Map<String,Object> values) {
         Schema.SObjectType token = Schema.getGlobalDescribe().get(objectApiName);
         HousieErrors.require(token != null, 'Big Object metadata is not deployed: ' + objectApiName);

@@ -26,5 +26,10 @@
   <fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type><required>true</required></fields>
   <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type><required>true</required></fields>
   <fields><fullName>Updated_At__c</fullName><label>Updated At</label><type>DateTime</type></fields>
+  <fields><fullName>Recovery_Status__c</fullName><label>Recovery Status</label><length>20</length><type>Text</type></fields>
+  <fields><fullName>Recovery_Attempts__c</fullName><label>Recovery Attempts</label><precision>3</precision><scale>0</scale><type>Number</type></fields>
+  <fields><fullName>Recovery_Last_Attempt_At__c</fullName><label>Recovery Last Attempt At</label><type>DateTime</type></fields>
+  <fields><fullName>Recovery_Finalization_Attempts__c</fullName><label>Recovery Finalization Attempts</label><precision>3</precision><scale>0</scale><type>Number</type></fields>
+  <fields><fullName>Recovery_Error__c</fullName><label>Recovery Error</label><length>255</length><type>Text</type></fields>
   <fields><fullName>Committed_At__c</fullName><label>Committed At</label><type>DateTime</type></fields>
 </CustomObject>

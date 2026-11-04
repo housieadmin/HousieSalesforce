@@ -31,7 +31,7 @@ After deployment:
 - **Boards:** create a board and initial WAITING game, owner membership, private board-ID invitation, public directory search/join, active membership listing and leave checks.
 - **Human tickets:** server-generated 90-ball layouts, manual/automatic mode selection, WAITING-game purchase, account wallet holds and resource ledger entries, own-ticket display, and pre-start human withdrawal/release. Ticket purchase/withdrawal uses DML-only preparation, Big Object-only persistence and DML-only completion, with a durable per-game command gate and retryable prepared commands.
 
-These are implemented source paths, not a claim that the product is playable. The current game command endpoint only records a `COMMAND_RECEIVED` event; it does not execute start, pause, resume, draw, marking, claim or settlement actions. The scheduled Apex class is currently a heartbeat, not a game or recovery worker.
+These are implemented source paths, not a claim that the product is playable. The current game command endpoint only records a COMMAND_RECEIVED event; it does not execute start, pause, resume, draw, marking, claim or settlement actions. HousieScheduler now dispatches recovery work when scheduled; it is not a game runtime, and this PR does not install a CronTrigger. See the [recovery runbook](docs/RECOVERY.md).
 
 **A purchased ticket is not yet playable.** Game-start approvals and wallet capture, bot funding, number calling, marking, claims and settlement remain incomplete. See [build status](docs/BUILD_STATUS.md) and the [delivery milestones](.project/MILESTONES.md).
 
@@ -50,7 +50,7 @@ Big Object writes are non-transactional. The writer uses `Database.insertImmedia
 - `manifest/package-org-setup.xml`: permission sets, custom tabs and custom permissions
 - `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
 - `scripts`: deploy, bootstrap and test scripts
-- `docs`: product specification, data model, architecture, workflow operations and build status
+- `docs`: product specification, data model, architecture, workflow operations, recovery runbook and build status
 - `.project/MILESTONES.md`: ordered delivery roadmap and acceptance criteria
 
 ## GitHub Actions

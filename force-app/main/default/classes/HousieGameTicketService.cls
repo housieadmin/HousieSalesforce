@@ -337,7 +337,8 @@ public without sharing class HousieGameTicketService {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
             SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
-                   Action_Type__c, Ticket_Id__c, Payload__c, Status__c, Updated_At__c
+                   Action_Type__c, Ticket_Id__c, Payload__c, Status__c, Updated_At__c,
+                   Recovery_Status__c, Recovery_Attempts__c, Recovery_Last_Attempt_At__c, Recovery_Error__c
             FROM Housie_Ticket_Command__c
             WHERE Request_Key__c = :requestId AND Account_Key__c = :actor.Account_Key__c
             LIMIT 1
@@ -394,6 +395,8 @@ public without sharing class HousieGameTicketService {
         command.Status__c = 'COMMITTED';
         command.Updated_At__c = System.now();
         command.Committed_At__c = command.Updated_At__c;
+        command.Recovery_Status__c = 'COMPLETED';
+        command.Recovery_Error__c = null;
         TicketActionResult completedResult = commandResult(command);
 
         // The Big Object insertImmediate writes completed in commitTicketCommand
@@ -616,8 +619,8 @@ public without sharing class HousieGameTicketService {
             FOR UPDATE
         ];
         if (rows.isEmpty()) return null;
-        HousieErrors.require(rows[0].Status__c != 'PROCESSING',
-            'Another game command is still being finalized. Retry after that command completes.');
+        HousieErrors.require(rows[0].Status__c == 'IDLE' || String.isBlank(rows[0].Status__c),
+            'The game command gate is busy or quarantined. Operator recovery is required before another command can run.');
         return rows[0];
     }
 

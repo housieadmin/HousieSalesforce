@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+  <deploymentStatus>Deployed</deploymentStatus>
+  <description>Append-only discovery index for operation journals that may require quarantine. Payloads are deliberately not stored here.</description>
+  <label>Housie Operation Recovery Index</label>
+  <pluralLabel>Housie Operation Recovery Index Records</pluralLabel>
+  <fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Recovery_Bucket__c</fullName><label>Recovery Bucket</label><length>12</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Operation_Type__c</fullName><label>Operation Type</label><length>60</length><type>Text</type></fields>
+  <fields><fullName>Expected_Record_Count__c</fullName><label>Expected Record Count</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
+  <fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
+  <indexes>
+    <fullName>Primary_Query_Index</fullName><label>Primary Query Index</label>
+    <fields><name>Recovery_Bucket__c</name><sortDirection>ASC</sortDirection></fields>
+    <fields><name>Operation_Id__c</name><sortDirection>ASC</sortDirection></fields>
+  </indexes>
+</CustomObject>

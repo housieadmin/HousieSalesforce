@@ -18,12 +18,13 @@ This closes the agreed transaction-boundary defect only. The PR workflow's `RunL
 
 ## Milestone 1 — Big Object operation recovery and command repair
 
-**Status: NEXT**
+**Status: IN PROGRESS — implementation branch `milestone-1/recovery-dispatcher`**
 
-**Why this comes first:** the current writer leaves a PENDING journal when an `insertImmediate` sequence fails, and the scheduler is only a heartbeat. Ticket purchase/withdrawal has a retryable command outbox, but there is no general repair worker. Bot funding and game-start capture add more multi-record financial operations; they should not be built on an undefined recovery contract.
+**Why this comes first:** the baseline writer leaves a PENDING journal when an `insertImmediate` sequence fails, and the baseline scheduler is only a heartbeat. Ticket purchase/withdrawal has a retryable command outbox but no automated recovery path. Bot funding and game-start capture add more multi-record financial operations; they should not be built on an undefined recovery contract.
 
 Acceptance criteria:
 - Define explicit recovery states and safe actions for PENDING journals, partially written Big Object operations, PREPARED ticket commands and stale per-game command gates.
+- Current implementation slice: bounded scheduler dispatch for stale PREPARED ticket commands; Big-Object-only retry and DML-only finalization queueables with independent three-attempt caps; fail-closed per-game gate quarantine; time-bucketed Big Object recovery index/cursor to quarantine incomplete PENDING journals. Branch-only tests cover PENDING/partial-write/pre-COMMITTED failures, deterministic retry, finalization interruption and stale/mismatched gates. Draft [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) metadata dry-run and org-resident RunLocalTests passed in [validation #41835474017](https://github.com/housieadmin/HousieSalesforce/actions/runs/41835474017). This is not yet acceptance-complete: branch-only tests remain unexecuted; concurrency, operational exactly-once, deployment/runtime validation and actual schedule installation remain open.
 - Implement a bounded, durable recovery dispatcher; `HousieScheduler` must do real recovery work rather than only log a heartbeat.
 - Make retries and repair idempotent. Do not assume Big Object rows can be rolled back; preserve fail-closed visibility and provide a deliberate repair/compensation path for partial operations.
 - Define when a command can be retried automatically, when it must be quarantined, and what operator-visible diagnostics are required.

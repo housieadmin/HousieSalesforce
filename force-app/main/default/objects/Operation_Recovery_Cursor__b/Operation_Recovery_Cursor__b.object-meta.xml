@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+  <deploymentStatus>Deployed</deploymentStatus>
+  <description>Single-row Big Object cursor for bounded operation-journal recovery scans.</description>
+  <label>Housie Operation Recovery Cursor</label>
+  <pluralLabel>Housie Operation Recovery Cursors</pluralLabel>
+  <fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
+  <fields><fullName>Last_Recovery_Bucket__c</fullName><label>Last Recovery Bucket</label><length>12</length><type>Text</type></fields>
+  <fields><fullName>Last_Operation_Id__c</fullName><label>Last Operation Id</label><length>32</length><type>Text</type></fields>
+  <fields><fullName>Updated_At__c</fullName><label>Updated At</label><type>DateTime</type></fields>
+  <indexes>
+    <fullName>Primary_Query_Index</fullName><label>Primary Query Index</label>
+    <fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields>
+  </indexes>
+</CustomObject>
