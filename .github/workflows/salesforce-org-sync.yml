@@ -4,14 +4,27 @@ on:
   workflow_dispatch:
     inputs:
       confirm_sync:
-        description: Type SYNC to retrieve metadata and open a pull request
+        description: Type SYNC to retrieve metadata from the Developer Edition org
         required: true
+        type: string
+      retrieve_paths:
+        description: Optional component paths under force-app, one per line
+        required: false
         type: string
       retrieve_manifest:
-        description: Retrieve manifest path (must be under manifest/)
-        required: true
+        description: Manifest XML under manifest, used when no component paths are supplied
+        required: false
         type: string
         default: manifest/package-retrieve.xml
+      create_pr:
+        description: Create a pull request with retrieved changes; otherwise upload an artifact
+        required: false
+        type: boolean
+        default: true
+      run_description:
+        description: Short reason for this retrieval
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -22,8 +35,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  retrieve-and-open-pr:
-    name: Retrieve allowlisted metadata and create PR
+  retrieve:
+    name: Retrieve selected metadata from Salesforce org
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -32,10 +45,7 @@ jobs:
           CONFIRM_SYNC: ${{ inputs.confirm_sync }}
         run: |
           set -euo pipefail
-          if [[ "$CONFIRM_SYNC" != "SYNC" ]]; then
-            echo "Org sync not authorized. Type SYNC in the confirmation input." >&2
-            exit 1
-          fi
+          [[ "$CONFIRM_SYNC" == "SYNC" ]] || { echo "Type SYNC to authorize retrieval." >&2; exit 1; }
 
       - name: Check out main
         uses: actions/checkout@v4
@@ -43,16 +53,39 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Validate retrieve manifest path
+      - name: Validate retrieve selection
+        id: selection
         env:
+          RETRIEVE_PATHS_INPUT: ${{ inputs.retrieve_paths }}
           RETRIEVE_MANIFEST: ${{ inputs.retrieve_manifest }}
+        shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$RETRIEVE_MANIFEST" =~ ^manifest/[A-Za-z0-9._/-]+\.xml$ || "$RETRIEVE_MANIFEST" == *".."* ]]; then
-            echo "Retrieve manifest must be a safe path under manifest/ ending in .xml" >&2
-            exit 1
+          declare -a paths=()
+          while IFS= read -r path || [[ -n "$path" ]]; do
+            path="${path%$'\r'}"
+            [[ -z "$path" ]] && continue
+            [[ "$path" =~ ^force-app/[A-Za-z0-9._/-]+$ && "$path" != *".."* && "$path" != *"//"* && "$path" != */ ]] || { echo "Invalid component path: $path" >&2; exit 1; }
+            [[ -e "$path" ]] || { echo "Component path does not exist in main: $path" >&2; exit 1; }
+            resolved="$(realpath -e -- "$path")"
+            case "$resolved" in "$GITHUB_WORKSPACE"/force-app/*) ;; *) echo "Path escapes force-app/: $path" >&2; exit 1 ;; esac
+            paths+=("$path")
+          done <<< "$RETRIEVE_PATHS_INPUT"
+
+          if [[ ${#paths[@]} -gt 0 ]]; then
+            [[ -z "$RETRIEVE_MANIFEST" || "$RETRIEVE_MANIFEST" == "manifest/package-retrieve.xml" ]] || { echo "Specify component paths OR a manifest XML path, not both." >&2; exit 1; }
+            json="$(printf '%s\n' "${paths[@]}" | jq -R . | jq -s -c .)"
+            echo "mode=source" >> "$GITHUB_OUTPUT"
+            echo "paths=$json" >> "$GITHUB_OUTPUT"
+            printf 'Selected component path: %s\n' "${paths[@]}"
+          else
+            manifest="${RETRIEVE_MANIFEST:-manifest/package-retrieve.xml}"
+            [[ "$manifest" =~ ^manifest/[A-Za-z0-9._/-]+\.xml$ && "$manifest" != *".."* && "$manifest" != *"//"* ]] || { echo "Manifest must be a safe XML path under manifest/." >&2; exit 1; }
+            test -f "$manifest" || { echo "Retrieve manifest not found: $manifest" >&2; exit 1; }
+            echo "mode=manifest" >> "$GITHUB_OUTPUT"
+            echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+            echo "Selected manifest: $manifest"
           fi
-          test -f "$RETRIEVE_MANIFEST"
 
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
@@ -72,27 +105,87 @@ jobs:
 
       - name: Retrieve selected metadata from org
         env:
-          RETRIEVE_MANIFEST: ${{ inputs.retrieve_manifest }}
-        run: sf project retrieve start --manifest "$RETRIEVE_MANIFEST" --target-org housie-dev --wait 60
+          RETRIEVE_MODE: ${{ steps.selection.outputs.mode }}
+          RETRIEVE_PATHS_JSON: ${{ steps.selection.outputs.paths }}
+          RETRIEVE_MANIFEST: ${{ steps.selection.outputs.manifest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$RETRIEVE_MODE" == "manifest" ]]; then
+            sf project retrieve start --manifest "$RETRIEVE_MANIFEST" --target-org housie-dev --wait 60
+          else
+            mapfile -t paths < <(jq -r '.[]' <<< "$RETRIEVE_PATHS_JSON")
+            declare -a args=()
+            for path in "${paths[@]}"; do args+=(--source-dir "$path"); done
+            sf project retrieve start "${args[@]}" --target-org housie-dev --wait 60
+          fi
 
-      - name: Create branch and pull request when changes exist
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RETRIEVE_MANIFEST: ${{ inputs.retrieve_manifest }}
+      - name: Report retrieved metadata changes
+        id: changes
         shell: bash
         run: |
           set -euo pipefail
           if [[ -z "$(git status --porcelain -- force-app)" ]]; then
-            echo "No retrieved metadata changes; no pull request is needed."
-            exit 0
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No retrieved metadata changes."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git status --short -- force-app
           fi
-          branch="automation/org-sync-${GITHUB_RUN_ID}"
+
+      - name: Create branch and pull request when requested
+        if: inputs.create_pr && steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RETRIEVE_MANIFEST: ${{ steps.selection.outputs.manifest }}
+          RETRIEVE_MODE: ${{ steps.selection.outputs.mode }}
+          RETRIEVE_PATHS_JSON: ${{ steps.selection.outputs.paths }}
+          RUN_DESCRIPTION: ${{ inputs.run_description }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="automation/org-retrieve-${GITHUB_RUN_ID}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
           git add force-app/
-          git commit -m "chore: sync allowlisted metadata from Salesforce org"
+          git commit -m "chore: retrieve metadata from Salesforce org"
           git push origin "$branch"
-          gh pr create --base main --head "$branch" --title "Sync allowlisted metadata from Salesforce org" --body "Automated Salesforce metadata retrieval using $RETRIEVE_MANIFEST.
+          if [[ "$RETRIEVE_MODE" == "manifest" ]]; then selection="$RETRIEVE_MANIFEST"; else selection="$(jq -r 'join(", ")' <<< "$RETRIEVE_PATHS_JSON")"; fi
+          gh pr create --base main --head "$branch" --title "Retrieve Salesforce metadata from org" --body "Automated Salesforce metadata retrieval.
 
-          Review the full diff carefully. This workflow never writes retrieved metadata directly to main."
+          Selection: $selection
+          Description: ${RUN_DESCRIPTION:-Not provided}
+
+          Review the full diff carefully. Retrieved metadata is proposed through this PR and is never written directly to main."
+
+      - name: Upload retrieved metadata when PR creation is disabled
+        if: ${{ !inputs.create_pr && steps.changes.outputs.changed == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: salesforce-org-retrieve-${{ github.run_id }}
+          path: force-app/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Write retrieval summary
+        if: always()
+        env:
+          CREATE_PR: ${{ inputs.create_pr }}
+          CHANGED: ${{ steps.changes.outputs.changed }}
+          RETRIEVE_MODE: ${{ steps.selection.outputs.mode }}
+          RETRIEVE_MANIFEST: ${{ steps.selection.outputs.manifest }}
+          RETRIEVE_PATHS_JSON: ${{ steps.selection.outputs.paths }}
+          RUN_DESCRIPTION: ${{ inputs.run_description }}
+        run: |
+          {
+            echo "### Salesforce org metadata retrieve"
+            echo "- Result: ${{ job.status }}"
+            echo "- Changes detected: ${CHANGED:-unknown}"
+            echo "- Pull request requested: $CREATE_PR"
+            echo "- Selection mode: ${RETRIEVE_MODE:-unknown}"
+            if [[ "${RETRIEVE_MODE:-}" == "manifest" ]]; then echo "- Manifest: ${RETRIEVE_MANIFEST:-}"; else echo "- Component paths: ${RETRIEVE_PATHS_JSON:-[]}"; fi
+            echo "- Description: ${RUN_DESCRIPTION:-Not provided}"
+            if [[ "${CHANGED:-}" == "false" ]]; then echo "- No metadata changes were retrieved."; fi
+            if [[ "$CREATE_PR" == "false" && "${CHANGED:-}" == "true" ]]; then echo "- Retrieved files are available in the workflow artifact."; fi
+          } >> "$GITHUB_STEP_SUMMARY"
