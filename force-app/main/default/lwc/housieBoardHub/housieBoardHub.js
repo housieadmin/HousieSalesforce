@@ -222,6 +222,7 @@ export default class HousieBoardHub extends LightningElement {
     } catch (e) {
       const message = e?.body?.message || e?.message || 'Ticket purchase is pending. Use the retry action below.';
       this.loading = false;
+      this.error = 'Ticket purchase failed during ' + purchaseStage + ': ' + message;
       await this.refresh();
       this.error = 'Ticket purchase failed during ' + purchaseStage + ': ' + message;
     }

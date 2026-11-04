@@ -22,10 +22,8 @@ public without sharing class HousieOperationService {
         HousieErrors.require(!locks.isEmpty(), 'Infrastructure lock is not initialized. Run bootstrap.apex.');
     }
 
-    // Each operation is journaled independently. This transaction performs only
-    // Big Object insertImmediate writes; it must not depend on a standard-object
-    // row lock for serialization because those locks are released by callouts.
-    // Callers must use a durable command gate when cross-request ordering matters.
+    // A single infrastructure row serializes all writes. Big Object records are
+    // written immediately; the journal's COMMITTED marker is written last.
     // Readers must reject records whose Operation_Journal__b status is not COMMITTED.
     public static OperationResult executeOperation(String operationType, List<WriteItem> writes) {
         HousieErrors.require(String.isNotBlank(operationType), 'Operation type is required.');
