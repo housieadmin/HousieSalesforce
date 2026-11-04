@@ -4,7 +4,7 @@ This is the cross-session roadmap. Work on the first actionable milestone; keep 
 
 ## Milestone 0 — Ticket-purchase transaction boundaries
 
-<badge>COMPLETE · 2026-11-04</badge>
+**Status: COMPLETE — 2026-11-04**
 
 - [x] Fix pending-uncommitted-work failure in ticket-command completion.
 - [x] Correct related Big Object / standard-object lock ordering in account, board and ticket flows.
@@ -17,7 +17,7 @@ No routine revalidation required. Handle regressions if future work introduces o
 
 ## Milestone 1 — Game start and wallet capture
 
-<badge color="info">NEXT</badge>
+**Status: NEXT**
 
 **Goal:** Turn a WAITING game with funded human tickets into a correctly started game with captured ticket fees.
 
