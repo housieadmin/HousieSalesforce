@@ -243,11 +243,11 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   );
 
   await ownerReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
-  await expect(ownerReloadedCard.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
-  await expect(ownerReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible();
+  await expect(ownerReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 60000 });
+  await expect(ownerReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
   await memberReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
-  await expect(memberReloadedCard.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
-  await expect(memberReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible();
+  await expect(memberReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 60000 });
+  await expect(memberReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
 
   for (const account of [owner, member]) {
     const rows = sfQuery<Record<string, unknown>>(
@@ -317,7 +317,8 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   // Release the replacement ticket as fixture cleanup, then prove board leave
   // is permitted only after every human ticket hold has been released.
   await ownerReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
-  await expect(ownerReloadedCard.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(ownerReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 60000 });
+  await expect(ownerReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
   const ownerAfterFinalWithdrawal = sfQuery<Record<string, unknown>>(
     "SELECT Points_Balance__c, Reserved_Points__c FROM Housie_Account__c WHERE Account_Key__c = '" + owner.key + "'"
   );
