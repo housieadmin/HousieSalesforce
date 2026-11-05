@@ -20,8 +20,9 @@ Never put credentials, access tokens or other secrets in scenario files.
 - `inspect-public-housie-app-route.spec.ts` — confirms the public site root mounts HousieApp.
 - `verify-signup-grants.spec.ts` — creates an isolated account, verifies ACTIVE status, exact resource balances and four signup resource-ledger index rows; redacts the bearer key before retained artifacts.
 - `two-human-waiting-board-setup.spec.ts` — creates two synthetic ACTIVE accounts, creates a private board, joins the second human, reloads both token sessions and verifies both memberships plus one WAITING game.
-- `two-human-ticket-purchase.spec.ts` — **do not run until the one-class HousieGameTicketService deployment is explicitly authorized and completed.** Verifies two distinct MANUAL tickets/layouts, reserved balances, wallet-hold/resource rows and participant records.
-- `ticket-withdrawal-regression.spec.ts` — **same Apex deployment gate.** Recovers the existing PREPARED withdrawal, verifies reserved-point release and ledger deltas, then repurchases a different ticket.
+- `deploy-ticket-service-apex.spec.ts` — user-authorized, narrowly scoped deployment of only `ApexClass:HousieGameTicketService`; performs a dry-run before the real deployment and runs `RunLocalTests`. Do not broaden its metadata selection.
+- `two-human-ticket-purchase.spec.ts` — run only after the targeted Apex deployment succeeds. Verifies two distinct MANUAL tickets/layouts, reserved balances, wallet-hold/resource rows, participant records, withdrawal of both tickets, release ledger rows and a fresh repurchase.
+- `ticket-withdrawal-regression.spec.ts` — separate fixed-fixture regression for WAITING withdrawal and repurchase; same Apex deployment gate.
 - `suspend-milestone1-synthetic-accounts.spec.ts` — suspends only accounts created by these Milestone 1 scenarios; it never reads account keys or emails.
 - `validate-housie-code-source-roundtrip.spec.ts` — read-only curated retrieve. It allows only the explicitly documented comment-only difference in `HousieOperationService.cls`; every other Apex delta remains a failure.
 
