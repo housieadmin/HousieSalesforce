@@ -65,7 +65,7 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
 
   const tabPath = path.join(projectRoot, "force-app", "main", "default", "tabs", "Housie_Account_Admin.tab-meta.xml");
   const tabXml = fs.existsSync(tabPath) ? fs.readFileSync(tabPath, "utf8") : "";
-  const tabFlexiPage = tabXml.match(/<flexiPage>([\\s\\S]*?)<\\/flexiPage>/)?.[1] || "";
+  const tabFlexiPage = tabXml.match(/<flexiPage>([\s\S]*?)<\/flexiPage>/)?.[1] || "";
   housie.note("Housie FlexiPages: " + JSON.stringify(pageDetails, null, 2));
   housie.note("Housie_Account_Admin custom tab targets FlexiPage: " + tabFlexiPage);
   housie.note("ExperienceBundle files retrieved: " + experienceFiles.map(file => path.relative(projectRoot, file)).join(", "));
