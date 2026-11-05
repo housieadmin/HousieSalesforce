@@ -90,7 +90,8 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   const boardId = (await ownerCard.innerText()).match(/Board ID:\s*([a-f0-9]{32})/i)?.[1];
   expect(boardId).toMatch(/^[a-f0-9]{32}$/i);
 
-  const memberHub = await openAccount(page, member.key, member.displayName);
+  const memberPage = await page.context().newPage();
+  const memberHub = await openAccount(memberPage, member.key, member.displayName);
   await expect(memberHub.getByText("No boards yet. Create your first board above.", { exact: true })).toBeVisible({ timeout: 60000 });
   await memberHub.getByRole("textbox", { name: "Invitation board ID", exact: true }).fill(boardId as string);
   await memberHub.getByRole("button", { name: "Join board", exact: true }).click();
@@ -170,4 +171,5 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
 
   housie.note("Two distinct ACTIVE humans each own one unique ACTIVE ticket in the same WAITING game. Each account has a 10-point active hold, matching HOLD_RESERVE ledger row and COMMITTED operation journal; two active Game_Participant rows exist. Board ID=" + boardId + "; ticket IDs=" + ownerTicketId + "," + memberTicketId + ". Bearer keys and emails omitted.");
   await housie.screenshot("two-human-ticket-holds-verified-redacted");
+  await memberPage.close();
 });
