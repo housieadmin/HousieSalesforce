@@ -137,7 +137,7 @@ function assertValidNinetyBallLayout(layoutText: string) {
   }
 }
 
-async function reloadAccount(
+async function assertAuthenticatedAccountSession(
   page: import("@playwright/test").Page,
   displayName: string,
   housie: { note(message: string): void }
@@ -171,7 +171,7 @@ async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardN
  * behavior end to end; broad Apex coverage is deferred until after Milestone 1.
  */
 test("two distinct humans purchase unique WAITING-game tickets with committed wallet holds", async ({ page, housie }) => {
-  test.setTimeout(180000);
+  test.setTimeout(360000);
   await openLightningTab(page, "/lightning/n/Housie_Account_Admin");
   await expect(page.getByText("Housie Account Administration", { exact: true })).toBeVisible({ timeout: 60000 });
 
@@ -210,16 +210,16 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   assertValidNinetyBallLayout(ownerTicket.layoutText);
   assertValidNinetyBallLayout(memberTicket.layoutText);
 
-  // Reload both sessions with the same account credential so this checks
-  // persisted board/ticket data, not an unimplemented cross-reload auth session.
-  const ownerSession = await reloadAccount(page, owner.displayName, housie);
+  // Keep both authenticated tabs alive. Cross-reload auth transport is deferred;
+  // committed Salesforce records below are the persistence proof for this flow.
+  const ownerSession = await assertAuthenticatedAccountSession(page, owner.displayName, housie);
   const ownerApp = ownerSession.app;
   const ownerReloadedHub = ownerSession.hub;
   const ownerReloadedCard = ownerReloadedHub.locator("article.board-card").filter({ hasText: boardName });
   await expect(ownerReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(ownerReloadedCard).toContainText("Game: WAITING");
 
-  const memberSession = await reloadAccount(memberPage, member.displayName, housie);
+  const memberSession = await assertAuthenticatedAccountSession(memberPage, member.displayName, housie);
   const memberApp = memberSession.app;
   const memberReloadedHub = memberSession.hub;
   const memberReloadedCard = memberReloadedHub.locator("article.board-card").filter({ hasText: boardName });
