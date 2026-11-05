@@ -7,12 +7,14 @@ export default class HousieApp extends LightningElement {
   error;
   loading = true;
   pageRef;
+  routeToken;
   @wire(CurrentPageReference)
   setPageRef(ref) {
     this.pageRef = ref;
     const params = new URLSearchParams(window.location.search);
     const queryToken = params.get('c__token') || params.get('token');
-    const token = ref?.state?.c__token || ref?.state?.token || queryToken || this.readTokenFromPath();
+    const token = ref?.state?.c__token || ref?.state?.token || queryToken || this.routeToken || this.readTokenFromPath();
+    if (token && token !== 's') this.routeToken = token;
 
     // Experience Cloud does not consistently expose unnamespaced query
     // parameters through CurrentPageReference. Read them directly as a
@@ -34,6 +36,7 @@ export default class HousieApp extends LightningElement {
   }
   readTokenFromPath() {
     const parts = window.location.pathname.split('/').filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : null;
+    const siteIndex = parts.lastIndexOf('s');
+    return siteIndex >= 0 && parts.length > siteIndex + 1 ? parts[siteIndex + 1] : null;
   }
 }
