@@ -253,7 +253,8 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     const releasedHolds = queryBigObject<Record<string, unknown>>(
       "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
     );
-    expect(releasedHolds, "Withdrawal must release the account's active wallet hold").toHaveLength(0);
+    expect(releasedHolds, "Withdrawal must append a release row to the wallet-hold ledger").toHaveLength(2);
+    expect(new Set(releasedHolds.map(row => String(row.Record_Id__c))).size).toBe(2);
   }
   const ownerLedgerAfterWithdrawal = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
@@ -279,7 +280,8 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   const replacementHolds = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + owner.key + "' AND Game_Id__c = '" + gameId + "'"
   );
-  expect(replacementHolds, "Repurchase must create a fresh active wallet hold").toHaveLength(1);
+  expect(replacementHolds, "Repurchase must append a fresh wallet-hold row after reserve and release").toHaveLength(3);
+  expect(new Set(replacementHolds.map(row => String(row.Record_Id__c))).size).toBe(3);
   const ownerLedgerAfterRepurchase = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
   );
