@@ -86,7 +86,7 @@ test("two distinct active humans create and join the same WAITING board", async 
   expect(memberMembership[0].Board_Id__c).toBe(boardId);
 
   const games = queryBigObject<Record<string, unknown>>(
-    "SELECT Board_Id__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
+    "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   expect(games).toHaveLength(1);
 
