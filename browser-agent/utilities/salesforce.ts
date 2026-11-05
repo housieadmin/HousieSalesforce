@@ -80,3 +80,56 @@ export function captureAuraErrors(page: Page): {
     stop() { page.off("response", onResponse); }
   };
 }
+
+import fs from "node:fs";
+import os from "node:os";
+
+/** Query a Big Object through Bulk API 2.0; REST data query/describe does not support Big Objects. */
+export function queryBigObject<T extends Record<string, unknown>>(
+  soql: string,
+  targetOrg = "housie-browser-agent"
+): T[] {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "housie-bigobject-query-"));
+  const outputFile = path.join(dir, "records.json");
+  try {
+    try {
+      execFileSync("sf", [
+        "data", "export", "bulk",
+        "--query", soql,
+        "--target-org", targetOrg,
+        "--output-file", outputFile,
+        "--result-format", "json",
+        "--wait", "5",
+        "--api-version", "66.0",
+        "--json"
+      ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 8 * 1024 * 1024 });
+    } catch (error) {
+      const failure = error as NodeJS.ErrnoException & { stderr?: string | Buffer; stdout?: string | Buffer };
+      const detail = [failure.stderr, failure.stdout, failure.message]
+        .map(value => String(value ?? ""))
+        .filter(Boolean)
+        .join("\n")
+        .replace(/\u001b\[[0-9;]*m/g, "")
+        .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+        .slice(0, 1200);
+      throw new Error("Salesforce Bulk API 2.0 Big Object query failed. " + detail);
+    }
+    const raw = fs.readFileSync(outputFile, "utf8").replace(/^\\uFEFF/, "").trim();
+    if (!raw) return [];
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      try { parsed = raw.split(/\\r?\\n/).filter(Boolean).map(line => JSON.parse(line)); }
+      catch { throw new Error("Salesforce Bulk API 2.0 returned an invalid JSON result file."); }
+    }
+    if (Array.isArray(parsed)) return parsed as T[];
+    if (parsed && typeof parsed === "object" && Array.isArray((parsed as { records?: unknown[] }).records)) {
+      return (parsed as { records: T[] }).records;
+    }
+    throw new Error("Salesforce Bulk API 2.0 result file did not contain a record array.");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}

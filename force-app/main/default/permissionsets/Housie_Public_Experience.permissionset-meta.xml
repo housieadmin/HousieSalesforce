@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <classAccesses><apexClass>HousieBoardService</apexClass><enabled>true</enabled></classAccesses>
-    <classAccesses><apexClass>HousieGameTicketService</apexClass><enabled>true</enabled></classAccesses>
-    <classAccesses><apexClass>HousieRouteController</apexClass><enabled>true</enabled></classAccesses>
-    <hasActivationRequired>false</hasActivationRequired><label>Housie Public Experience</label>
+    <classAccesses>
+        <apexClass>HousieBoardService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>HousieGameTicketService</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <classAccesses>
+        <apexClass>HousieRouteController</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Housie Public Experience</label>
 </PermissionSet>
