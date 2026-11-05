@@ -49,9 +49,9 @@ Important implementation boundary: `HousieGameService.submitCommand()` currently
   - `Housie_Operation_Lock__c`: keep provisionally, but mark as a removal candidate. It is a global DML-only lock; account, command and game-specific locks already exist for most operations. Account creation currently uses it to serialize duplicate-email check-and-insert. Remove only after validating a unique-email constraint against current org data and passing concurrency tests with the narrower locks.
 - No additional recovery-index or cursor objects are part of the current design. General recovery remains deferred to Milestone 5.
 - Broad org retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) contains 352 files, including Salesforce-generated Experience Cloud login/profile controllers and incidental formatting changes. Keep it audit-only; do not merge as-is.
-- Network metadata [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) identifies site `Housie`, URL prefix `housie`, status `UnderConstruction`, self-registration disabled. Review settings before curating it into source.
+- Combined ExperienceBundle and Network retrieve [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) now exists after the user enabled ExperienceBundle Metadata API. It identifies site `Housie`, URL prefix `housie`, status `UnderConstruction`, and a standard starter ExperienceBundle with standard login/register routes. Treat it as review-only; verify route, guest and sender settings before adopting any of it.
 - Permissions/tabs retrieve [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) includes Housie permissions and tabs plus unrelated Salesforce-managed permission sets. Keep audit-only; curate only Housie-specific metadata after access review.
-- ExperienceBundle Metadata API has now been enabled by the user. A read-only retrieval of ExperienceBundle, Network and FlexiPage metadata is running; the previous blocker is cleared.
+- ExperienceBundle and Network retrieval succeeded in PR #37. A separate read-only FlexiPage retrieval is still running to identify the internal Account Admin page.
 - Lightning App Builder showed two similarly named `House Account Admin` App Pages and a `Housie_Account_Admin` tab. Verify the actual LWC placement and active page from retrieved FlexiPage metadata before creating or deleting any page.
 - Housie Experience Cloud root renders the welcome screen; the existing account-specific route renders Board Hub for the `test-user-3` fixture.
 
@@ -70,4 +70,4 @@ Important implementation boundary: `HousieGameService.submitCommand()` currently
 
 Do not describe Housie as end-to-end playable or enable public/real-value operation until the human game path, financial reconciliation, security and operational controls pass their milestone acceptance criteria.
 
-Do not merge or deploy draft [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) as part of the positive-path work. It is deferred for a later recovery design review. PRs #33, #34 and #36 are audit-only retrievals; PR #35 is closed as a duplicate representation proposal.
+Do not merge or deploy draft [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) as part of the positive-path work. It is deferred for a later recovery design review. PRs #34 and #36 remain audit-only retrievals; PRs #33 and #35 are closed as superseded.
