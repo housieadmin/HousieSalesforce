@@ -275,3 +275,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - `HousieOperationService.cls` differs only in comments explaining Big Object-only transactions and why the global DML row lock is not used for those writes. Source comments are more accurate and are retained. The round-trip test now explicitly allowlists only this file and asserts the exact expected/actual comment lines; any other Apex difference remains a failure.
 - `HousieGameTicketService.cls` remains the sole functional Apex delta and is the only class requiring deployment authorization.
+
+
+## PR #41 validation — 2026-11-05
+
+- Salesforce PR validation [#41995954503](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995954503) passed: curated metadata dry-run and all local Apex tests. No deployment occurred.
+- Final curated source/org round-trip #41995794186 showed zero differences for all 14 LWC files, 2 custom permissions, 3 permission sets and 3 tabs. Apex 30/30 files present; only functional ticket completion query delta plus the explicitly accepted comment-only HousieOperationService documentation drift remain.
