@@ -78,7 +78,7 @@ test("new account activation is backed by all four committed signup grants", asy
   expect(grants.every(row => row.Account_Id__c === accountKey)).toBe(true);
   expect(new Set(grants.map(row => row.Record_Id__c)).size).toBe(4);
 
-  housie.note("Signup grant audit passed: one ACTIVE account, balances match SPEC, and four distinct committed-grant records exist. Bearer account key redacted; synthetic email and key omitted from artifacts.");
+  housie.note("Signup grant audit passed: one ACTIVE account, all four resource balances match SPEC, and four distinct signup ledger rows exist; activation logic checks committed grants before setting ACTIVE. Bearer account key redacted; synthetic email and key omitted from artifacts.");
 
   // The public app resolves its opaque invitation token from the query string.
   // The browser-agent diagnostics redact the token query parameter; redact the
