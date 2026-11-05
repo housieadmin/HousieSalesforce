@@ -189,3 +189,10 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Signup grant audit run #41990531319 created an ACTIVE account but failed in the browser test harness when parsing Salesforce CLI output containing ANSI escape sequences. This is not evidence of a product defect. The parser was fixed; rerun #6652827205 now checks the four grant rows and the public `HousieApp` token/accountKey path, with bearer key redaction.
 - Two-human WAITING setup scenario is added and requested (#6652842537): two isolated accounts, owner creates private board, second human joins, and SOQL verifies committed membership records and a committed WAITING game. No ticket purchases are attempted before the separately authorized Apex query deployment.
 - Results are pending; do not infer success from workflow dispatch.
+
+
+## Security cleanup blocker — 2026-11-05
+
+- Browser run #41990993847 artifact `13398760836` contains a generated synthetic account bearer key in its failure page snapshot. The account was created only for this test, but its key is still a credential and is treated as exposed.
+- A cleanup browser scenario is in progress to suspend both synthetic accounts from the failed run without retrieving or logging their keys. The two-human test was corrected to redact keys before any retained screenshot/trace and sanitize CLI diagnostics.
+- Artifact deletion is not available through the currently connected GitHub actions. Artifact `13398760836` must be deleted; do not claim security cleanup complete until this is done. A separate one-off workflow/process PR would be required; user approval is needed before creating it.
