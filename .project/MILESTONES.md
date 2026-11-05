@@ -219,3 +219,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Do not mark Apex parity or paid-ticket/withdrawal acceptance complete. Continue from .project/MILESTONE_1_CONTINUATION_CHECKLIST.md on branch milestone1/paid-ticket-acceptance.
 - GitHub Actions run inspection is available and has been used to inspect the issue-comment-triggered workflow, jobs, logs and artifact.
 - ExperienceBundle/Network route and guest-security review remains separate and SPEC-reviewed. Artifact #13398760836 remains retained; deletion is not authorized.
+
+
+### NoTestRun Apex deployment and Milestone 1 acceptance — 2026-11-05
+
+- The repository already had a supported NoTestRun deployment mode; no workflow change was required. The user chose to defer broad Apex coverage uplift until after Milestone 1.
+- Targeted dry-run and actual deployment of only `ApexClass:HousieGameTicketService` succeeded in [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389). Both reported Salesforce status Succeeded, CLI exit 0, zero component failures, and zero tests run. No unrelated metadata was deployed.
+- Source/org round-trip and two-human purchase/withdrawal/repurchase acceptance are now in progress. Apex coverage remains 22.43% and is explicitly deferred to post-Milestone 1 hardening; do not mark coverage complete.
+- ExperienceBundle/Network configuration remains unapproved for deployment: retrieved Network has guest file access enabled, a non-Housie sender address, and UnderConstruction status. Any curated route/security change must be SPEC-reviewed and must not expose the site publicly without separate user approval.
