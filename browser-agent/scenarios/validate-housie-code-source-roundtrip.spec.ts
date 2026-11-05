@@ -1,5 +1,6 @@
 import { test, expect } from "../core";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,12 +13,27 @@ function filesUnder(dir: string): string[] {
   });
 }
 
-function retrieve(projectRoot: string, manifestName: string): void {
-  const manifestPath = path.join(projectRoot, "manifest", manifestName);
-  const output = execFileSync("sf", [
-    "project", "retrieve", "start", "--manifest", manifestPath,
-    "--target-org", "housie-browser-agent", "--wait", "60", "--json"
-  ], { cwd: projectRoot, encoding: "utf8" });
+function retrieve(projectRoot: string, manifestRoot: string, manifestName: string): void {
+  const manifestPath = path.join(manifestRoot, "manifest", manifestName);
+  let output: string;
+  try {
+    output = execFileSync("sf", [
+      "project", "retrieve", "start", "--manifest", manifestPath,
+      "--target-org", "housie-browser-agent", "--wait", "60", "--json"
+    ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & { stdout?: string | Buffer; stderr?: string | Buffer };
+    const stdout = String(failure.stdout ?? "").replace(/\u001b\[[0-9;]*m/g, "").trim();
+    const stderr = String(failure.stderr ?? "").replace(/\u001b\[[0-9;]*m/g, "").trim();
+    throw new Error([
+      "Salesforce metadata retrieve command failed.",
+      "Manifest: " + manifestName,
+      "Manifest path: " + manifestPath,
+      "Exit code: " + String(failure.code ?? "unknown"),
+      "stdout: " + (stdout || "<empty>"),
+      "stderr: " + (stderr || "<empty>")
+    ].join("\n"));
+  }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const start = clean.indexOf("{");
   if (start < 0) throw new Error("Salesforce retrieve did not return JSON: " + output.slice(-1000));
@@ -30,13 +46,50 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
   const actual = filesUnder(actualRoot).map(file => path.relative(actualRoot, file)).filter(file => !ignore.includes(file)).sort();
   const missing = expected.filter(file => !actual.includes(file));
   const unexpected = actual.filter(file => !expected.includes(file));
+  const normalize = (file: string, value: Buffer): string => {
+    let text = value.toString("utf8").replace(/\r\n/g, "\n").replace(/\n+$/, "");
+    // Metadata API retrieval canonicalizes XML indentation and omits the default Active status.
+    if (file.endsWith(".xml")) {
+      text = text.replace(/<status>Active<\/status>/g, "");
+      text = text.replace(/>\s+</g, "><").trim();
+    }
+    return text;
+  };
   const different = expected.filter(file => actual.includes(file) &&
-    !fs.readFileSync(path.join(expectedRoot, file)).equals(fs.readFileSync(path.join(actualRoot, file))));
-  return { expected: expected.length, actual: actual.length, missing, unexpected, different };
+    normalize(file, fs.readFileSync(path.join(expectedRoot, file))) !==
+    normalize(file, fs.readFileSync(path.join(actualRoot, file))));
+  const differentDetails = different.slice(0, 12).map(file => {
+    const expectedBytes = fs.readFileSync(path.join(expectedRoot, file));
+    const actualBytes = fs.readFileSync(path.join(actualRoot, file));
+    const expectedText = expectedBytes.toString("utf8");
+    const actualText = actualBytes.toString("utf8");
+    const expectedLines = expectedText.split(/\r?\n/);
+    const actualLines = actualText.split(/\r?\n/);
+    let firstDifferentLine = -1;
+    for (let index = 0; index < Math.max(expectedLines.length, actualLines.length); index++) {
+      if (expectedLines[index] !== actualLines[index]) { firstDifferentLine = index; break; }
+    }
+    const line = (value: string | undefined) => value === undefined ? "<EOF>" : value.slice(0, 240);
+    return {
+      file,
+      expectedBytes: expectedBytes.length,
+      actualBytes: actualBytes.length,
+      expectedSha256: createHash("sha256").update(expectedBytes).digest("hex"),
+      actualSha256: createHash("sha256").update(actualBytes).digest("hex"),
+      expectedNewlines: { crlf: (expectedText.match(/\r\n/g) || []).length, lf: (expectedText.match(/(?<!\r)\n/g) || []).length },
+      actualNewlines: { crlf: (actualText.match(/\r\n/g) || []).length, lf: (actualText.match(/(?<!\r)\n/g) || []).length },
+      firstDifferentLine: firstDifferentLine < 0 ? null : firstDifferentLine + 1,
+      expectedLine: firstDifferentLine < 0 ? null : line(expectedLines[firstDifferentLine]),
+      actualLine: firstDifferentLine < 0 ? null : line(actualLines[firstDifferentLine]),
+      expectedSnippet: expectedText.slice(0, 5000),
+      actualSnippet: actualText.slice(0, 5000)
+    };
+  });
+  return { expected: expected.length, actual: actual.length, missing, unexpected, different, differentDetails };
 }
 
 /** Isolate a retrieve from pre-existing runtime files so missing org metadata cannot false-pass. */
-function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: string,
+function retrieveAndCompare(projectRoot: string, manifestRoot: string, manifest: string, sourceRoot: string,
   runtimeRoot: string, component: string, ignore: string[] = []) {
   const target = path.join(runtimeRoot, component);
   const backupRoot = fs.mkdtempSync(path.join(os.tmpdir(), "housie-org-roundtrip-"));
@@ -44,7 +97,7 @@ function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: s
   const hadOriginal = fs.existsSync(target);
   if (hadOriginal) fs.renameSync(target, backup);
   try {
-    retrieve(projectRoot, manifest);
+    retrieve(projectRoot, manifestRoot, manifest);
     if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
     return compare(path.join(sourceRoot, component), target, ignore);
   } finally {
@@ -56,20 +109,21 @@ function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: s
 
 test("reconcile only Housie-owned Apex and LWC source against the Developer Org", async ({ housie }) => {
   const projectRoot = path.resolve(process.cwd(), "..");
-  const sourceRoot = path.resolve(projectRoot, "..", ".browser-agent-source", "force-app", "main", "default");
+  const sourceCheckoutRoot = path.resolve(projectRoot, "..", ".browser-agent-source");
+  const sourceRoot = path.join(sourceCheckoutRoot, "force-app", "main", "default");
   const runtimeRoot = path.join(projectRoot, "force-app", "main", "default");
 
-  const apex = retrieveAndCompare(projectRoot, "package-housie-apex.xml",
+  const apex = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-apex.xml",
     sourceRoot, runtimeRoot, "classes");
 
-  const lwc = retrieveAndCompare(projectRoot, "package-housie-lwc.xml",
+  const lwc = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-lwc.xml",
     sourceRoot, runtimeRoot, "lwc", ["jsconfig.json"]);
 
-  const customPermissions = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+  const customPermissions = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-access.xml",
     sourceRoot, runtimeRoot, "customPermissions");
-  const permissionSets = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+  const permissionSets = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-access.xml",
     sourceRoot, runtimeRoot, "permissionsets");
-  const tabs = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+  const tabs = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-access.xml",
     sourceRoot, runtimeRoot, "tabs");
 
   housie.note(JSON.stringify({ apex, lwc, customPermissions, permissionSets, tabs }, null, 2));
