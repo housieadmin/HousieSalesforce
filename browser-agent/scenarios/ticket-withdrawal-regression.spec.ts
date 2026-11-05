@@ -73,14 +73,17 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
     before = await card.innerText();
     beforeCount = Number(before.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
   }
-  const beforeIds = [...before.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)].map(match => match[1]);
+  const beforeTickets = [...before.matchAll(/(?:MANUAL|AUTO)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
+  const beforeIds = beforeTickets.map(match => match[2]);
+  const beforeReserved = beforeTickets.reduce((total, match) => total + Number(match[1]), 0);
   expect(beforeCount, "The regression fixture must have an active ticket before withdrawal").toBeGreaterThan(0);
+  expect(beforeTickets).toHaveLength(beforeCount);
 
   const accountBefore = accountSnapshot();
   const accountKey = String(accountBefore.Account_Key__c);
   const ledgerBefore = resourceLedgerRows(accountKey);
   const reservedBefore = Number(accountBefore.Reserved_Points__c);
-  expect(reservedBefore).toBe(beforeCount * 10);
+  expect(reservedBefore).toBe(beforeReserved);
 
   const withdraw = card.getByRole("button", { name: "Withdraw from waiting game", exact: true });
   await expect(withdraw).toBeVisible();
@@ -105,14 +108,17 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect.poll(async () => await card.innerText(), { timeout: 60000 })
     .toMatch(/Ticket:\s*[a-f0-9]{32}/i);
   const afterRepurchase = await card.innerText();
-  const afterIds = [...afterRepurchase.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)].map(match => match[1]);
+  const afterTickets = [...afterRepurchase.matchAll(/(?:MANUAL|AUTO)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
+  const afterIds = afterTickets.map(match => match[2]);
   const newTicketId = afterRepurchase.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1] || afterIds.find(id => !beforeIds.includes(id));
+  const replacementTicket = afterTickets.find(match => match[2] === newTicketId);
   expect(newTicketId, "A new active ticket should be created after withdrawal releases the original hold").toMatch(/^[a-f0-9]{32}$/i);
   expect(beforeIds, "The replacement ticket must not reuse a withdrawn ticket ID").not.toContain(newTicketId);
+  expect(replacementTicket, "Replacement ticket card should expose its fee").toBeDefined();
   await expect(card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ })).toHaveCount(0);
   const accountAfterRepurchase = accountSnapshot();
   const ledgerAfterRepurchase = resourceLedgerRows(accountKey);
-  expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(10);
+  expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(Number(replacementTicket![1]));
   expect(ledgerAfterRepurchase).toHaveLength(ledgerAfterWithdrawal.length + 1);
   await housie.screenshot("waiting-ticket-repurchased");
   housie.note("Withdrawal and repurchase completed. Reserved points returned to 10; ledger has one new reserve row. Prior active ticket IDs=" + beforeIds.join(",") + "; replacement=" + newTicketId);
