@@ -14,10 +14,24 @@ function filesUnder(dir: string): string[] {
 
 function retrieve(projectRoot: string, manifestName: string): void {
   const manifestPath = path.join(projectRoot, "manifest", manifestName);
-  const output = execFileSync("sf", [
-    "project", "retrieve", "start", "--manifest", manifestPath,
-    "--target-org", "housie-browser-agent", "--wait", "60", "--json"
-  ], { cwd: projectRoot, encoding: "utf8" });
+  let output: string;
+  try {
+    output = execFileSync("sf", [
+      "project", "retrieve", "start", "--manifest", manifestPath,
+      "--target-org", "housie-browser-agent", "--wait", "60", "--json"
+    ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & { stdout?: string | Buffer; stderr?: string | Buffer };
+    const stdout = String(failure.stdout ?? "").replace(/\u001b\[[0-9;]*m/g, "").trim();
+    const stderr = String(failure.stderr ?? "").replace(/\u001b\[[0-9;]*m/g, "").trim();
+    throw new Error([
+      "Salesforce metadata retrieve command failed.",
+      "Manifest: " + manifestName,
+      "Exit code: " + String(failure.code ?? "unknown"),
+      "stdout: " + (stdout || "<empty>"),
+      "stderr: " + (stderr || "<empty>")
+    ].join("\n"));
+  }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const start = clean.indexOf("{");
   if (start < 0) throw new Error("Salesforce retrieve did not return JSON: " + output.slice(-1000));
