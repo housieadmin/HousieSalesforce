@@ -1,0 +1,46 @@
+{
+  "appPageId" : "bdf08461-16d1-48b9-8768-0c1d1d284d89",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "f755d6e8-253e-495f-a484-a3e3974f43b9",
+  "label" : "Home",
+  "regions" : [ {
+    "id" : "b6a37e37-9472-480b-a7ba-88687571f0e3",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : { },
+      "componentName" : "c:housieApp",
+      "id" : "1acd7924-e681-4bec-ab77-212d9cb88d1c",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "44cc8c8a-3065-4b0f-8ac1-d75a4d04cbe1",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "4ccc177c-a6ed-4559-b0ae-054d4d72e23d",
+    "regionName" : "footer",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customHeadTags" : "",
+        "description" : "",
+        "title" : "Home"
+      },
+      "componentName" : "forceCommunity:seoAssistant",
+      "id" : "c6395755-84ae-487b-9989-77d892321433",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "f351ab78-bdbd-45fa-a404-7ee452e28628",
+    "regionName" : "sfdcHiddenRegion",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "home"
+}

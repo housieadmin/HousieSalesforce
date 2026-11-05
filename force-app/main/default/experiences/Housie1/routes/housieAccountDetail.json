@@ -1,0 +1,12 @@
+{
+  "activeViewId" : "41143d9d-08d7-4911-8788-3dc5a6e0923c",
+  "appPageId" : "bdf08461-16d1-48b9-8768-0c1d1d284d89",
+  "configurationTags" : [ ],
+  "devName" : "Housie_Account_Detail__c",
+  "id" : "1cfa0bdd-0927-47f4-b547-c652e77dbd94",
+  "label" : "Housie Account Detail",
+  "objectApiName" : "Housie_Account__c",
+  "routeType" : "detail-a00",
+  "type" : "route",
+  "urlPrefix" : "housie-account"
+}

@@ -1,0 +1,39 @@
+{
+  "appPageId" : "bdf08461-16d1-48b9-8768-0c1d1d284d89",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "252a8b11-015f-4141-8a89-edbfab192ab9",
+  "label" : "Housie Account Related List",
+  "regions" : [ {
+    "id" : "81b01390-845e-4125-b9c4-93793a5a9b5e",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customTitle" : "",
+        "parentRecordId" : "{!recordId}",
+        "relatedListName" : "{!relationshipApiName}",
+        "showBreadCrumbs" : true,
+        "showCustomTitle" : false,
+        "showManualRefreshButton" : true,
+        "showRowNumbers" : true
+      },
+      "componentName" : "forceCommunity:relatedList",
+      "id" : "c1ca7876-8ebb-4ee8-b304-d178ebf50031",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "96e320f6-6647-49e9-a213-e996a1a8d494",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "c0a4d418-92dc-479d-8472-cbc09a34450e",
+    "regionName" : "footer",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "relatedlist-a00"
+}

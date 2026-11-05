@@ -1,0 +1,48 @@
+{
+  "appPageId" : "bdf08461-16d1-48b9-8768-0c1d1d284d89",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "41143d9d-08d7-4911-8788-3dc5a6e0923c",
+  "label" : "Housie Account Detail",
+  "regions" : [ {
+    "id" : "0bc98ae5-6edc-4188-be05-46d661079627",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "recordId" : "{!recordId}"
+      },
+      "componentName" : "c:housieBoardHub",
+      "id" : "1231640e-d3a6-4aaa-a017-405c49c5bb59",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "db0f9b90-3b94-480d-b67e-ef1a3856b682",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "913599e0-52dd-4560-ba31-77d87a4858f3",
+    "regionName" : "footer",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "customHeadTags" : "",
+        "description" : "",
+        "title" : "{!Record._Object}: {!Record._Title}"
+      },
+      "componentName" : "forceCommunity:seoAssistant",
+      "id" : "dcc29712-cf1c-4328-9b81-4e41117ba84d",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "617107d9-0283-4a8a-b8c2-4342145a2c26",
+    "regionName" : "sfdcHiddenRegion",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "detail-a00"
+}

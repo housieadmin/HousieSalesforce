@@ -1,0 +1,46 @@
+{
+  "appPageId" : "bdf08461-16d1-48b9-8768-0c1d1d284d89",
+  "componentName" : "siteforce:sldsOneColLayout",
+  "dataProviders" : [ ],
+  "id" : "0e732baa-1b0b-4332-b3b3-30b7e14574ef",
+  "label" : "Housie Account List",
+  "regions" : [ {
+    "id" : "8dfbabb6-3d37-4fe8-ad87-ab9614717bdd",
+    "regionName" : "header",
+    "type" : "region"
+  }, {
+    "components" : [ {
+      "componentAttributes" : {
+        "enableInlineEdit" : true,
+        "filterName" : "{!filterId}",
+        "layout" : "FULL",
+        "pageSize" : 25,
+        "scope" : "{!objectName}",
+        "showActionBar" : true,
+        "showChartsPanel" : true,
+        "showDisplay" : "showall",
+        "showFilterPanel" : true,
+        "showImageIcon" : true,
+        "showManualRefreshButton" : true,
+        "showObjectName" : true,
+        "showPinnedList" : true,
+        "showSearchBar" : true
+      },
+      "componentName" : "forceCommunity:objectHome",
+      "id" : "448e170e-16a2-4c51-95ba-0a3f35a4fa3e",
+      "renderPriority" : "NEUTRAL",
+      "renditionMap" : { },
+      "type" : "component"
+    } ],
+    "id" : "9e7bcd8d-18e2-4d48-893c-b0114c39db4b",
+    "regionName" : "content",
+    "type" : "region"
+  }, {
+    "id" : "a4c68ae7-fbef-47f1-a828-7e989276e4e4",
+    "regionName" : "footer",
+    "type" : "region"
+  } ],
+  "themeLayoutType" : "Inner",
+  "type" : "view",
+  "viewType" : "list-a00"
+}
