@@ -1,11 +1,20 @@
 import { test, expect } from "../core";
+import { execFileSync } from "node:child_process";
 
 test("create an active Housie test account through the admin UI", async ({ page, housie }) => {
-  await housie.login();
-  const adminTabUrl = new URL("/lightning/n/Housie_Account_Admin", page.url()).toString();
-  await page.goto(adminTabUrl, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(error => {
+  const projectRoot = process.cwd().replace(/\\/browser-agent$/, "");
+  const openOutput = execFileSync("sf", [
+    "org", "open", "--url-only", "--path", "/lightning/n/Housie_Account_Admin",
+    "--target-org", "housie-browser-agent", "--json"
+  ], { cwd: projectRoot, encoding: "utf8" });
+  const cleanOutput = openOutput.replace(/\\u001b\\[[0-9;]*m/g, "").trim();
+  const openResult = JSON.parse(cleanOutput.slice(cleanOutput.indexOf("{")));
+  const frontdoorUrl = openResult?.result?.url;
+  expect(frontdoorUrl, "Salesforce should provide a frontdoor URL for the admin tab").toMatch(/^https:\\/\\//);
+  await page.goto(frontdoorUrl, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(error => {
     if (!String(error).includes("ERR_ABORTED")) throw error;
   });
+  await page.waitForTimeout(2000);
 
   await expect(page.getByText("Housie Account Administration", { exact: true }))
     .toBeVisible({ timeout: 60000 });
