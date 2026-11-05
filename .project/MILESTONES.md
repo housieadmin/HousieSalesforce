@@ -154,3 +154,8 @@ A milestone is complete only when its acceptance criteria pass and the evidence 
 - The ExperienceBundle's Housie Account Detail route explicitly binds `c:housieBoardHub` to `recordId: {!recordId}`. The record-ID architecture is intentional and must remain supported. The `HousieApp` account-key route is a separate entry path.
 - Withdrawal run #41962935952 reached the actual Apex finalization and exposed a missing selected field in `completeTicketCommand()`. The source fix is committed to this PR branch; Salesforce PR validation #41963304619 is in progress. No deployment has occurred.
 - Source/org parity run #41963078143 completed its comparison after parser correction. It found real source drift in `HousieOperationService.cls`, `housieBoardHub.js`, custom permission descriptions and permission-set class access; tab metadata matched. Keep these as explicit reconciliation items, not normalization exclusions.
+
+
+### Session closure — 2026-11-05 (previous implementation session)
+
+The previous Milestone 1 implementation session is closed as a work period, **not as a completed milestone**. All its confirmed source changes, handoff notes, and open acceptance gaps are carried forward in PR #32. The next session must resume from this checklist and the session tracker. No Milestone 1 acceptance gate is waived.
