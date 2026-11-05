@@ -57,15 +57,17 @@ test("two distinct active humans create and join the same WAITING board", async 
   // Board_Member/Game rows, not only the optimistic create/join response.
   await page.reload({ waitUntil: "domcontentloaded" });
   const ownerApp = page.locator("c-housie-app");
-  await expect(ownerApp.getByText("Welcome, " + owner.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(ownerApp).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page);
+  await expect(ownerApp.getByText("Welcome, " + owner.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(ownerApp.locator("c-housie-board-hub").locator("article.board-card").filter({ hasText: boardName }))
     .toContainText("Game: WAITING", { timeout: 60000 });
 
   await memberPage.reload({ waitUntil: "domcontentloaded" });
   const memberApp = memberPage.locator("c-housie-app");
-  await expect(memberApp.getByText("Welcome, " + member.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(memberApp).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(memberPage);
+  await expect(memberApp.getByText("Welcome, " + member.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(memberApp.locator("c-housie-board-hub").locator("article.board-card").filter({ hasText: boardName }))
     .toContainText("Game: WAITING", { timeout: 60000 });
 
