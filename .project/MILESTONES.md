@@ -56,7 +56,7 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 
 - [x] Account Admin tab and form render in the Developer Org. Browser run #41945104195 showed account creation returning a key and `Status: ACTIVE`; its test assertion was corrected because the UI does not render a `Created:` line. Re-run corrected scenario before treating this as repeatable acceptance evidence.
 - [ ] The account invitation route resolves to the correct active account context.
-- [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership. Trace #41937185918 found a public-route context bug: BoardHub did not accept the account-key passed by HousieApp. Source fix added to `project/rebaseline`; deployment and browser verification pending.
+- [x] The owner creates a private board through the public `HousieApp` token route and receives an initial WAITING game in BoardHub (run #41992096929). The record-page path also passed #41985201458. Persisted membership after reload is being verified separately.
 - [ ] A second human joins through the private invitation board ID or public-board search.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
@@ -184,7 +184,8 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 ### Public route inspection — 2026-11-05
 
 - [x] Public site root inspection [#41990222465](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990222465) passed 1/1: `/housie/s/` mounts `c:housie-app` and renders the Housie shell. This confirms the root LWC is mounted. It does **not** yet prove invitation token resolution or `accountKey` propagation.
-- [x] Verify public `HousieApp` token resolution and BoardHub accountKey propagation: run #41992096929 resolved the synthetic account, rendered the welcome state and BoardHub, then created a private board with an initial WAITING game. Bearer key was redacted in failure artifacts. Signup grant ledger verification remains open.
+- [x] Verify public `HousieApp` token resolution and BoardHub accountKey propagation: run #41992096929 resolved the synthetic account, rendered the welcome state and BoardHub, then created a private board with an initial WAITING game.
+- [x] Verify signup activation balances and ledger row count: run #41994178363 passed the signup-grant scenario; one ACTIVE account had 100 points, 0 reserved, 1 auto token, 1 flip, 1 fix, and four distinct resource transaction index rows. The activation path verifies committed grants before ACTIVE.
 - [x] LWC/access source-org round-trip [#41990232409](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990232409) confirmed 14/14 LWC, 2/2 custom permissions, 3/3 permission sets and 3/3 tabs with no content differences. Apex remains open for two differences.
 
 
@@ -192,7 +193,7 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 
 - PR #38's source was copied from a read-only Developer Org Metadata API retrieve (PR #34), and its round-trip run #41944754055 confirmed all 249 files byte-for-byte. This is the authoritative schema parity evidence.
 - The later `sf sobject describe` diagnostic #41992465038 and `sf data query` attempts were invalid for Big Objects because they use REST API endpoints; Salesforce documents that Big Objects do not support the standard REST sObject API. Describe returned only index fields and SOQL queries reported those non-index fields as unavailable. This is not evidence of missing schema.
-- Big Object acceptance queries are now routed through Bulk API 2.0 (`sf data export bulk`), which Salesforce explicitly supports for Big Object queries. The REST describe diagnostic was removed. Signup-grant and two-human membership runs are pending with this corrected query path.
+- Big Object acceptance queries use Bulk API 2.0 (`sf data export bulk`) with index fields only. Signup-grant acceptance passed #41994178363. Two-human membership run is pending after a test-harness `memberPage` initialization bug was fixed.
 
 
 ### Big Object API correction — 2026-11-05
