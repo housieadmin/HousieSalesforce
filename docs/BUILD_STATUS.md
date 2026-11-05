@@ -101,3 +101,5 @@ Salesforce currently documents Developer Edition at **5 MB standard data storage
 
 
 - Detailed storage policy: [`docs/STORAGE_RETENTION.md`](STORAGE_RETENTION.md). It classifies financial/history/audit/idempotency/chat/outbox/lock data, defines safe cleanup gates and explicitly authorizes no purge job.
+
+- Latest PR #32 validation [run #41954479347](https://github.com/housieadmin/HousieSalesforce/actions/runs/41954479347) passed metadata validation without deployment and all 39 org-resident Apex tests (100% pass rate). This validates the current branch metadata, including the Board Hub account-context source change, but does not deploy it.
