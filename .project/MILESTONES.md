@@ -20,7 +20,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — object source format reconciled; Apex/LWC round-trip and remaining setup/runtime checks are open**
+**Status: IN PROGRESS — schema, LWC/access and signup grants verified; Apex parity, second-human membership and two-human paid-ticket acceptance remain open**
 
 **Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
