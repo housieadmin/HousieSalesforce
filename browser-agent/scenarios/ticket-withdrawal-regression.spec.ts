@@ -13,8 +13,8 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect(card, "Withdrawal is only valid while the current game is WAITING").toContainText("Game: WAITING");
 
   const before = await card.innerText();
-  const beforeIds = [...before.matchAll(/(?:MANUAL|AUTO)\\s*·\\s*[0-9.]+\\s*points\\s*·\\s*([a-f0-9]{32})/gi)].map(match => match[1]);
-  const beforeCount = Number(before.match(/Active tickets:\\s*(\\d+)/)?.[1] || 0);
+  const beforeIds = [...before.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)].map(match => match[1]);
+  const beforeCount = Number(before.match(/Active tickets:\s*(\\d+)/)?.[1] || 0);
   expect(beforeCount, "The regression fixture must have at least one active ticket to withdraw").toBeGreaterThan(0);
 
   const withdraw = card.getByRole("button", { name: "Withdraw from waiting game", exact: true });
@@ -23,7 +23,7 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
 
   await expect.poll(async () => await card.innerText(), { timeout: 60000 })
     .toMatch(/Withdrawal|withdrawn|No active tickets|Buy ticket/i);
-  await expect(card.getByText(/Active tickets:\\s*[1-9]/)).toHaveCount(0, { timeout: 60000 });
+  await expect(card.getByText(/Active tickets:\s*[1-9]/)).toHaveCount(0, { timeout: 60000 });
   await expect(card.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
   await expect(card.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 30000 });
 
@@ -33,10 +33,10 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
 
   await card.getByRole("button", { name: /Buy ticket/ }).click();
   await expect.poll(async () => await card.innerText(), { timeout: 60000 })
-    .toMatch(/Ticket:\\s*[a-f0-9]{32}/i);
+    .toMatch(/Ticket:\s*[a-f0-9]{32}/i);
   const afterRepurchase = await card.innerText();
-  const afterIds = [...afterRepurchase.matchAll(/(?:MANUAL|AUTO)\\s*·\\s*[0-9.]+\\s*points\\s*·\\s*([a-f0-9]{32})/gi)].map(match => match[1]);
-  const newTicketId = afterRepurchase.match(/Ticket:\\s*([a-f0-9]{32})/i)?.[1] || afterIds.find(id => !beforeIds.includes(id));
+  const afterIds = [...afterRepurchase.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)].map(match => match[1]);
+  const newTicketId = afterRepurchase.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1] || afterIds.find(id => !beforeIds.includes(id));
   expect(newTicketId, "A new active ticket should be created after withdrawal releases the original hold").toMatch(/^[a-f0-9]{32}$/i);
   expect(beforeIds, "The replacement ticket must not reuse a withdrawn ticket ID").not.toContain(newTicketId);
   await expect(card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ })).toHaveCount(0);
