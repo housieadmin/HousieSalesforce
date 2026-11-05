@@ -73,7 +73,7 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
     before = await card.innerText();
     beforeCount = Number(before.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
   }
-  const beforeTickets = [...before.matchAll(/(?:MANUAL|AUTO)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
+  const beforeTickets = [...before.matchAll(/(?:MANUAL|AUTOMATIC)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
   const beforeIds = beforeTickets.map(match => match[2]);
   const beforeReserved = beforeTickets.reduce((total, match) => total + Number(match[1]), 0);
   expect(beforeCount, "The regression fixture must have an active ticket before withdrawal").toBeGreaterThan(0);
@@ -108,7 +108,7 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect.poll(async () => await card.innerText(), { timeout: 60000 })
     .toMatch(/Ticket:\s*[a-f0-9]{32}/i);
   const afterRepurchase = await card.innerText();
-  const afterTickets = [...afterRepurchase.matchAll(/(?:MANUAL|AUTO)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
+  const afterTickets = [...afterRepurchase.matchAll(/(?:MANUAL|AUTOMATIC)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
   const afterIds = afterTickets.map(match => match[2]);
   const newTicketId = afterRepurchase.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1] || afterIds.find(id => !beforeIds.includes(id));
   const replacementTicket = afterTickets.find(match => match[2] === newTicketId);
