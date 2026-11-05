@@ -44,7 +44,7 @@
 
 ## 4. Cleanup and closeout
 
-- [ ] Suspend only accounts created by these Milestone 1 scenarios using suspend-milestone1-synthetic-accounts.spec.ts; the cleanup scenario now releases WAITING tickets/holds and leaves scenario boards before suspension.
+- [x] Suspended only the two prior M1 Purchase synthetic accounts after withdrawal, zero reserved points, two append-only hold rows and six resource-ledger rows were verified ([#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549)).
 - [ ] Update .project/MILESTONES.md and .project/SESSION_2026-11-05.md with exact run links and accepted/unaccepted outcomes.
 - [ ] Keep Milestone 1 IN PROGRESS until all required acceptance criteria pass.
 
