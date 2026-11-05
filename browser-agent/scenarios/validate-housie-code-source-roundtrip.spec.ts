@@ -65,11 +65,23 @@ test("reconcile only Housie-owned Apex and LWC source against the Developer Org"
   const lwc = retrieveAndCompare(projectRoot, "package-housie-lwc.xml",
     sourceRoot, runtimeRoot, "lwc", ["jsconfig.json"]);
 
-  housie.note(JSON.stringify({ apex, lwc }, null, 2));
+  const customPermissions = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+    sourceRoot, runtimeRoot, "customPermissions");
+  const permissionSets = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+    sourceRoot, runtimeRoot, "permissionsets");
+  const tabs = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+    sourceRoot, runtimeRoot, "tabs");
+
+  housie.note(JSON.stringify({ apex, lwc, customPermissions, permissionSets, tabs }, null, 2));
   expect(apex.missing, "Org should contain every curated Housie Apex source file").toEqual([]);
   expect(apex.unexpected, "Curated Apex retrieve should not include unrelated classes").toEqual([]);
   expect(apex.different, "Housie Apex source should match the Developer Org byte-for-byte").toEqual([]);
   expect(lwc.missing, "Org should contain every curated Housie LWC source file").toEqual([]);
   expect(lwc.unexpected, "Curated LWC retrieve should not include unrelated components").toEqual([]);
   expect(lwc.different, "Housie LWC source should match the Developer Org byte-for-byte").toEqual([]);
+  for (const [name, result] of Object.entries({ customPermissions, permissionSets, tabs })) {
+    expect(result.missing, name + " should contain every curated source file").toEqual([]);
+    expect(result.unexpected, name + " retrieve should not include unrelated metadata").toEqual([]);
+    expect(result.different, name + " source should match the Developer Org byte-for-byte").toEqual([]);
+  }
 });
