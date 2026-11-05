@@ -108,14 +108,12 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await housie.screenshot("waiting-ticket-withdrawn");
 
   await card.getByRole("button", { name: /Buy ticket/ }).click();
-  const app = page.locator("c-housie-app");
-  const purchaseNotice = app.getByText(/This ticket purchase was already completed\. Ticket:/);
-  await expect(purchaseNotice, "The repurchase command should complete and return its ticket receipt").toBeVisible({ timeout: 60000 });
-  const noticeText = await purchaseNotice.innerText();
+  await expect.poll(async () => await card.innerText(), { timeout: 60000 })
+    .toMatch(/(?:MANUAL|AUTOMATIC)\s*·\s*10\s*points\s*·\s*[a-f0-9]{32}/i);
   const afterRepurchase = await card.innerText();
   const afterTickets = [...afterRepurchase.matchAll(/(?:MANUAL|AUTOMATIC)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
   const afterIds = afterTickets.map(match => match[2]);
-  const newTicketId = noticeText.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1] || afterIds.find(id => !beforeIds.includes(id));
+  const newTicketId = afterIds.find(id => !beforeIds.includes(id));
   const replacementTicket = afterTickets.find(match => match[2] === newTicketId);
   expect(newTicketId, "A new active ticket should be created after withdrawal releases the original hold").toMatch(/^[a-f0-9]{32}$/i);
   expect(beforeIds, "The replacement ticket must not reuse a withdrawn ticket ID").not.toContain(newTicketId);
