@@ -20,7 +20,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — schema representation understood; Experience Cloud/page setup and positive-path runtime verification remain open**
+**Status: IN PROGRESS — schema representation proposal under validation; Experience Cloud/page setup and positive-path runtime verification remain open**
 
 **Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
@@ -30,7 +30,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
 - [ ] Complete a property-level field metadata comparison for types, lengths, precision/scale, requiredness, uniqueness, defaults, relationships and picklist values before declaring full schema parity.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
-- [ ] Decide and document one canonical metadata representation. Do not convert formats or merge retrieved field files until a full source-format conversion is proven by retrieve/deploy round-trip validation.
+- [ ] Adopt one canonical metadata representation. Draft [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) converts all 20 objects to Salesforce DX split source format using org-retrieved metadata. It is a representation-only proposal; require metadata dry-run and round-trip validation before merge.
 - [ ] Reconcile Housie Network, tabs and permission sets. [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) and [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) are audit proposals, not merge candidates as-is.
 - [ ] Retrieve the Aura site's ExperienceBundle now that **Enable ExperienceBundle Metadata API** has been enabled. Identify the actual public root and account routes.
 - [ ] Retrieve/track Lightning App Page definitions and identify the authoritative Housie Account Admin page. Setup showed two similarly named pages and a Housie Account Admin tab; verify component placement and activation before changing org setup.
