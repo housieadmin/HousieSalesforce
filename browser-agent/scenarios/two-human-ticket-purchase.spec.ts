@@ -47,10 +47,11 @@ async function createAccount(page: import("@playwright/test").Page, stamp: numbe
   await redactAccountKey(page);
   await expect(page.getByText(/^Status: /)).toHaveText("Status: ACTIVE", { timeout: 60000 });
   const accountRows = sfQuery<Record<string, unknown>>(
-    "SELECT Account_Key__c, Status__c FROM Housie_Account__c WHERE Display_Name__c = '" + displayName + "'"
+    "SELECT Account_Key__c, Status__c FROM Housie_Account__c WHERE Account_Key__c = '" + pageKey + "'"
   );
   expect(accountRows).toHaveLength(1);
   expect(String(accountRows[0].Account_Key__c) === pageKey).toBe(true);
+  expect(accountRows[0].Display_Name__c).toBe(displayName);
   expect(accountRows[0].Status__c).toBe("ACTIVE");
   return { displayName, key: String(accountRows[0].Account_Key__c) };
 }
