@@ -53,7 +53,7 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 
 - [x] Account Admin tab and form render in the Developer Org. Browser run #41945104195 showed account creation returning a key and `Status: ACTIVE`; its test assertion was corrected because the UI does not render a `Created:` line. Re-run corrected scenario before treating this as repeatable acceptance evidence.
 - [ ] The account invitation route resolves to the correct active account context.
-- [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership.
+- [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership. Trace #41937185918 found a public-route context bug: BoardHub did not accept the account-key passed by HousieApp. Source fix added to `project/rebaseline`; deployment and browser verification pending.
 - [ ] A second human joins through the private invitation board ID or public-board search.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
@@ -140,6 +140,8 @@ Acceptance criteria are taken from the corresponding SPEC sections and include:
 ---
 
 ## Session operating rule
+
+At session start, also read [`.project/SESSION_2026-11-05.md`](SESSION_2026-11-05.md) for current implementation context, decisions and browser-agent workflow conventions.
 
 At session start, read this tracker, inspect the relevant SPEC/DATA_MODEL sections and actual source/tests, then work on the first incomplete milestone. At session end, update status/evidence and identify the next action.
 
