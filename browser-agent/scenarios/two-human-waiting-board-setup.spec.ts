@@ -89,6 +89,7 @@ test("two distinct active humans create and join the same WAITING board", async 
     "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   expect(games).toHaveLength(1);
+  expect(games[0].Status__c).toBe("WAITING");
 
   housie.note("Two-human WAITING board setup passed: owner and member are distinct ACTIVE accounts; both Board_Member index rows and one Game row persist; BoardHub lists the WAITING board for both accounts after independent reloads. Board ID=" + boardId + "; fixture display names=" + owner.displayName + " / " + member.displayName + ". Bearer keys and synthetic emails omitted.");
   await housie.screenshot("two-human-waiting-board-member-redacted");
