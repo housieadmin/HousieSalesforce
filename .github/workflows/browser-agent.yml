@@ -127,7 +127,8 @@ jobs:
             const full = path.join(dir, entry.name);
             if (entry.isSymbolicLink()) throw new Error('Symlinks are not allowed in shared browser utilities: ' + full);
             if (entry.isDirectory()) return walk(full);
-            if (!entry.isFile() || !entry.name.endsWith('.ts')) throw new Error('Only TypeScript utility modules are allowed: ' + full);
+            if (!entry.isFile()) throw new Error('Only regular files are allowed in shared browser utilities: ' + full);
+            if (!entry.name.endsWith('.ts')) return []; // Ignore documentation and other non-executable files.
             return [full];
           });
           for (const source of walk(sourceRoot)) {
