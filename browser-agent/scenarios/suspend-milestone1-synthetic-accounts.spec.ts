@@ -3,6 +3,9 @@ import path from "node:path";
 import { test, expect } from "../core";
 import { redactAccountKey } from "../utilities/salesforce";
 
+// These scenarios handle bearer account keys; do not retain Playwright traces on failure.
+test.use({ trace: "off" });
+
 function sfJson(args: string[]) {
   try {
     const output = execFileSync("sf", args, {
