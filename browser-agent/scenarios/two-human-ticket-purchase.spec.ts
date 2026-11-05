@@ -56,9 +56,20 @@ async function createAccount(page: import("@playwright/test").Page, stamp: numbe
   return { displayName, key: String(accountRows[0].Account_Key__c) };
 }
 
-async function openAccount(page: import("@playwright/test").Page, key: string, displayName: string) {
+async function openAccount(page: import("@playwright/test").Page, key: string, displayName: string,
+  housie: { note(message: string): void }) {
+  await page.addInitScript(() => {
+    const query = new URLSearchParams(window.location.search);
+    const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    (window as any).__housieRouteTransport = {
+      queryTokenPresent: query.has("c__token") || query.has("token"),
+      fragmentTokenPresent: fragment.has("c__token") || fragment.has("token")
+    };
+  });
   const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
   await page.goto(root + "?c__token=" + encodeURIComponent(key) + "&token=" + encodeURIComponent(key) + "#c__token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
+  const routeTransport = await page.evaluate(() => (window as any).__housieRouteTransport || {});
+  housie.note("Public route transport flags: " + JSON.stringify(routeTransport));
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page);
@@ -138,7 +149,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   const owner = await createAccount(page, stamp, "owner");
   const member = await createAccount(page, stamp, "member");
 
-  const ownerHub = await openAccount(page, owner.key, owner.displayName);
+  const ownerHub = await openAccount(page, owner.key, owner.displayName, housie);
   await expect(ownerHub.getByText("No boards yet. Create your first board above.", { exact: true })).toBeVisible({ timeout: 60000 });
   const boardName = "M1 Ticket Purchase " + stamp;
   await ownerHub.getByRole("textbox", { name: "Board name", exact: true }).fill(boardName);
@@ -150,7 +161,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   expect(boardId).toMatch(/^[a-f0-9]{32}$/i);
 
   const memberPage = await page.context().newPage();
-  const memberHub = await openAccount(memberPage, member.key, member.displayName);
+  const memberHub = await openAccount(memberPage, member.key, member.displayName, housie);
   await expect(memberHub.getByText("No boards yet. Create your first board above.", { exact: true })).toBeVisible({ timeout: 60000 });
   await memberHub.getByRole("textbox", { name: "Invitation board ID", exact: true }).fill(boardId as string);
   await memberHub.getByRole("button", { name: "Join board", exact: true }).click();
