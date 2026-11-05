@@ -29,7 +29,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [x] Confirm the logical schema representation before comparing retrieve output. Main stores fields and Big Object indexes inline in each `*.object-meta.xml`; Salesforce CLI retrieve emits equivalent definitions as separate field/index files.
 - [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
 - [ ] Complete a property-level field metadata comparison for types, lengths, precision/scale, requiredness, uniqueness, defaults, relationships and picklist values before declaring full schema parity.
-- [ ] Run isolated byte-for-byte org round-trips for curated Housie Apex, LWC, custom permissions, permission sets and tabs using the scoped manifests. The browser scenario is authored; runtime utility staging was fixed in merged PR #39, but org execution is pending.
+- [ ] Run isolated org round-trips for curated Housie Apex, LWC, custom permissions, permission sets and tabs using scoped manifests. Latest run #41961826198 failed before test execution due to double-escaped regex syntax; corrected and rerun requested.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
 - [x] Adopt Salesforce DX split source format. [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) merged after metadata dry-run, 39 org-resident Apex tests and a 249-file byte-for-byte object round-trip passed. No deployment was performed.
 - [ ] Reconcile Housie Network, tabs and permission sets. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) remains review-only; [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) remains audit-only and must be curated to exclude Salesforce-managed entries.
@@ -54,7 +54,7 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 
 - [x] Account Admin tab and form render in the Developer Org. Browser run #41945104195 showed account creation returning a key and `Status: ACTIVE`; its test assertion was corrected because the UI does not render a `Created:` line. Re-run corrected scenario before treating this as repeatable acceptance evidence.
 - [ ] The account invitation route resolves to the correct active account context.
-- [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership. Trace #41937185918 found a public-route context bug: BoardHub did not accept the account-key passed by HousieApp. Source fix added to `project/rebaseline`; deployment and browser verification pending.
+- [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership. Preserve both supported Board Hub entry paths: record-page `recordId` resolved through `getRecord()`, and public `HousieApp` account-key injection. Trace #41937185918 identified a missing context in the public route, not a defect in the record-page architecture. Source fix is not deployed; verify both paths separately after explicit deployment authorization.
 - [ ] A second human joins through the private invitation board ID or public-board search.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
@@ -165,3 +165,11 @@ At session start, also read [`.project/SESSION_2026-11-05.md`](SESSION_2026-11-0
 At session start, read this tracker, inspect the relevant SPEC/DATA_MODEL sections and actual source/tests, then work on the first incomplete milestone. At session end, update status/evidence and identify the next action.
 
 A milestone is complete only when its acceptance criteria pass and the evidence is recorded. Source code existing, metadata validation passing, or a button being clickable does not by itself prove a business workflow works in the Developer Org.
+
+
+### Latest parallel acceptance evidence (2026-11-05)
+
+- Withdrawal run #41961697154 reached the browser but stopped at fixture setup: the named WAITING board had zero active tickets. Scenario updated to seed a ticket before testing withdrawal, then rerun requested.
+- Parity run #41961826198 did not execute the test because regex escaping caused a JavaScript parse error. Escaping corrected; rerun requested.
+- Board Hub context decision: preserve the record-ID path and the account-key path. The current source contains `@api recordId`, a `getRecord()` wire to `Housie_Account__c.Account_Key__c`, and the separate `@api accountKey` public input. The Experience Builder page's actual component configuration and record context still require verification.
+- No org deployment is authorized or performed.
