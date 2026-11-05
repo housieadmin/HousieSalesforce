@@ -80,6 +80,7 @@ test("two distinct active humans create and join the same WAITING board", async 
   await expect(memberApp.getByText("Welcome, " + member.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(memberApp.locator("c-housie-board-hub").locator("article.board-card").filter({ hasText: boardName }))
     .toContainText("Game: WAITING", { timeout: 60000 });
+  housie.note("Owner and second human independently reloaded their public token sessions; both still list the same WAITING board. Bearer keys redacted.");
 
   const ownerMembership = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Board_Id__c, Record_Id__c FROM Board_Member__b WHERE Account_Id__c = '" + owner.key + "' AND Board_Id__c = '" + boardId + "'"
