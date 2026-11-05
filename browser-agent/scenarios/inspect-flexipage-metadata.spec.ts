@@ -18,6 +18,7 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
     "--metadata", "ExperienceBundle",
     "--metadata", "Network",
     "--metadata", "FlexiPage",
+    "--metadata", "CustomTab",
     "--target-org", "housie-browser-agent",
     "--wait", "60",
     "--json"
@@ -45,14 +46,24 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
   const networkDir = path.join(projectRoot, "force-app", "main", "default", "networks");
   const networkFiles = filesUnder(networkDir).filter(file => file.endsWith(".network-meta.xml"));
 
+  const tabPath = path.join(projectRoot, "force-app", "main", "default", "tabs", "Housie_Account_Admin.tab-meta.xml");
+  const tabXml = fs.existsSync(tabPath) ? fs.readFileSync(tabPath, "utf8") : "";
+  const tabFlexiPage = tabXml.match(/<flexiPage>([\\s\\S]*?)<\\/flexiPage>/)?.[1] || "";
   housie.note("Housie FlexiPages: " + JSON.stringify(pageDetails, null, 2));
+  housie.note("Housie_Account_Admin custom tab targets FlexiPage: " + tabFlexiPage);
   housie.note("ExperienceBundle files retrieved: " + experienceFiles.map(file => path.relative(projectRoot, file)).join(", "));
   housie.note("Network metadata files retrieved: " + networkFiles.map(file => path.relative(projectRoot, file)).join(", "));
 
   expect(pageDetails.length, "Developer Org should contain Housie App Page metadata").toBeGreaterThan(0);
   expect(
-    pageDetails.some(page => page.components.includes("c:housieAccountAdmin")),
+    pageDetails.some(page => page.components.includes("housieAccountAdmin")),
     "At least one Housie Account Admin page should contain c:housieAccountAdmin"
   ).toBe(true);
   expect(experienceFiles.length, "ExperienceBundle should now be retrievable after enabling the setting").toBeGreaterThan(0);
+  expect(tabFlexiPage, "Housie Account Admin custom tab should resolve to its configured FlexiPage").toBe("Housie_Account_Admin");
+  expect(
+    pageDetails.some(page => page.file.endsWith("/Housie_Account_Admin.flexipage-meta.xml") &&
+      page.components.includes("housieAccountAdmin")),
+    "The custom-tab target FlexiPage should contain the account admin component"
+  ).toBe(true);
 });
