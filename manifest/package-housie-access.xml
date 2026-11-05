@@ -13,6 +13,8 @@
   </types>
   <types>
     <members>Housie_Account__c</members>
+    <members>Housie_Account_Admin</members>
+    <members>Housie_Developer_Simulation</members>
     <name>CustomTab</name>
   </types>
   <version>66.0</version>
