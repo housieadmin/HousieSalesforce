@@ -249,3 +249,10 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 
 - Cleanup [#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549) passed. Both prior `M1 Purchase` synthetic accounts were withdrawn from their WAITING tickets, reconciled to zero reserved points, checked against append-only wallet-hold and resource-ledger row counts, left their scenario-owned boards and were suspended.
 - Fresh two-human source parity and paid-ticket acceptance is running in [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320).
+
+
+### Source parity confirmed; route test helper corrected — 2026-11-05
+
+- Source/org round-trip [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320) passed after the two Apex deployments: Apex 30/30 present with only the documented OperationService comment drift; LWC/access metadata exact.
+- The same run's new two-human test timed out opening the newly created account; it showed the unauthenticated welcome state and did not create a board or purchase tickets. Updated the test to compare the displayed signup key with the persisted account key (without logging either) and pass namespaced `c__token` plus legacy `token` route state.
+- Signup-only fixture cleanup is in progress; no ticket/financial operation was made in the failed run.
