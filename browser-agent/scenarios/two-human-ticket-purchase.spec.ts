@@ -124,6 +124,25 @@ function assertValidNinetyBallLayout(layoutText: string) {
   }
 }
 
+async function reloadAccount(page: import("@playwright/test").Page, key: string, displayName: string) {
+  // A full reload creates a new LWC instance. Re-present the bearer credential
+  // for this request, then let HousieApp capture it and remove it from history.
+  await page.evaluate((token) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("c__token", token);
+    url.hash = "c__token=" + encodeURIComponent(token);
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+  }, key);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const app = page.locator("c-housie-app");
+  await expect(app).toHaveCount(1, { timeout: 60000 });
+  await redactAccountKey(page, false);
+  await expect(app.getByText("Welcome, " + displayName, { exact: true })).toBeVisible({ timeout: 60000 });
+  const hub = app.locator("c-housie-board-hub");
+  await expect(hub).toHaveCount(1, { timeout: 30000 });
+  return { app, hub };
+}
+
 async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardName: string) {
   const card = hub.locator("article.board-card").filter({ hasText: boardName });
   await expect(card).toBeVisible({ timeout: 60000 });
@@ -180,23 +199,18 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   assertValidNinetyBallLayout(ownerTicket.layoutText);
   assertValidNinetyBallLayout(memberTicket.layoutText);
 
-  // Reload both sessions so ticket visibility reflects committed storage.
-  await page.reload({ waitUntil: "domcontentloaded" });
-  const ownerApp = page.locator("c-housie-app");
-  await expect(ownerApp).toHaveCount(1, { timeout: 60000 });
-  await redactAccountKey(page, false);
-  await expect(ownerApp.getByText("Welcome, " + owner.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
-  const ownerReloadedHub = ownerApp.locator("c-housie-board-hub");
+  // Reload both sessions with the same account credential so this checks
+  // persisted board/ticket data, not an unimplemented cross-reload auth session.
+  const ownerSession = await reloadAccount(page, owner.key, owner.displayName);
+  const ownerApp = ownerSession.app;
+  const ownerReloadedHub = ownerSession.hub;
   const ownerReloadedCard = ownerReloadedHub.locator("article.board-card").filter({ hasText: boardName });
   await expect(ownerReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(ownerReloadedCard).toContainText("Game: WAITING");
 
-  await memberPage.reload({ waitUntil: "domcontentloaded" });
-  const memberApp = memberPage.locator("c-housie-app");
-  await expect(memberApp).toHaveCount(1, { timeout: 60000 });
-  await redactAccountKey(memberPage, false);
-  await expect(memberApp.getByText("Welcome, " + member.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
-  const memberReloadedHub = memberApp.locator("c-housie-board-hub");
+  const memberSession = await reloadAccount(memberPage, member.key, member.displayName);
+  const memberApp = memberSession.app;
+  const memberReloadedHub = memberSession.hub;
   const memberReloadedCard = memberReloadedHub.locator("article.board-card").filter({ hasText: boardName });
   await expect(memberReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(memberReloadedCard).toContainText("Game: WAITING");
