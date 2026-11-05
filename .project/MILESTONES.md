@@ -26,12 +26,27 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ### 1A. Source and org reconciliation
 
-- [ ] Bring all deployed Housie object fields and Big Object indexes into source control. The org retrieve found 213 field definitions and 16 indexes missing from main; curated draft [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) contains these 229 files.
-- [ ] Review the retrieved fields and index ordering against the logical data model and SOQL leading-key query patterns.
-- [ ] Reconcile the Housie Network, tabs and permission sets. Org retrieval proposals are [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) and [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36); neither is merged.
-- [ ] Enable **ExperienceBundle Metadata API** in Setup → Digital Experiences → Settings, then retrieve the Aura site's page definitions. The current org setting prevented ExperienceBundle retrieval.
-- [ ] Retrieve/track the Lightning App Page definitions and identify the authoritative Housie Account Admin page. Setup currently shows two similarly named App Pages and a Housie Account Admin tab; component placement and activation still need verification.
-- [ ] Keep Salesforce-generated community login/profile controllers out of Housie business source unless the application actually depends on them. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) is an audit artifact, not a merge candidate as-is.
+- [x] Confirm the logical schema representation before comparing retrieve output. Main stores fields and Big Object indexes inline in each `*.object-meta.xml`; Salesforce CLI retrieve emits equivalent definitions as separate field/index files.
+- [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's index field sequence. No schema gap was established.
+- [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
+- [ ] Decide and document one canonical metadata representation. Do not convert formats or merge retrieved field files until a full source-format conversion is proven by retrieve/deploy round-trip validation.
+- [ ] Reconcile Housie Network, tabs and permission sets. [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) and [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) are audit proposals, not merge candidates as-is.
+- [ ] Retrieve the Aura site's ExperienceBundle now that **Enable ExperienceBundle Metadata API** has been enabled. Identify the actual public root and account routes.
+- [ ] Retrieve/track Lightning App Page definitions and identify the authoritative Housie Account Admin page. Setup showed two similarly named pages and a Housie Account Admin tab; verify component placement and activation before changing org setup.
+- [ ] Keep Salesforce-generated community login/profile controllers out of Housie business source unless the application demonstrably depends on them. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) remains audit-only.
+
+### 1A.1. Object inventory outside the logical model
+
+The agreed logical model remains 16 entities. Main has 20 custom objects: those 16 plus four technical infrastructure objects. These four are not additional Housie business entities.
+
+| Technical object | Current dependency | Milestone 1 decision |
+|---|---|---|
+| `Operation_Journal__b` | Every Big Object operation's PENDING/COMMITTED visibility gate; readers reject uncommitted operations. | **Keep.** Removing it requires redesigning all Big Object write/read visibility semantics. |
+| `Housie_Ticket_Command__c` | Durable DML outbox for the two-request ticket purchase/withdrawal flow; stores payload and idempotency key across Big Object writes. | **Keep.** Ticket purchase is in the first playable setup path. |
+| `Housie_Game_Command_Lock__c` | Per-game gate serializes ticket purchase/withdrawal and prevents overlapping commands. | **Keep.** It protects current ticket financial operations against concurrent requests. |
+| `Housie_Operation_Lock__c` | Singleton DML lock used by account creation/activation and ticket command preparation/finalization. It does not serialize Big Object writes and is not held across `insertImmediate`. | **Keep provisionally; candidate for removal.** Existing per-account, per-command and per-game row locks cover most call sites, but account creation currently relies on the global lock to serialize its email check-then-insert. Remove only after a unique-email constraint is validated against org data and the narrower locking scheme passes concurrency tests. |
+
+No extra recovery Big Objects are accepted into this milestone. General recovery remains deferred to Milestone 5. Do not remove the four existing technical objects simply because they are outside the logical business model; first remove their code dependencies safely, if and when a replacement is proven.
 
 ### 1B. Positive account, board and ticket journey
 
