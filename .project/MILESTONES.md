@@ -242,7 +242,7 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - `HousieBoardService.hasActiveParticipation()` now checks committed active human tickets and committed withdrawal events, preventing board leave while a paid human ticket remains active even if the participant projection is missing or stale.
 - Narrow NoTestRun dry-run and actual deployment of only `ApexClass:HousieBoardService` succeeded ([#42014362545](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014362545)).
 - PR validation passed metadata dry-run and all 39 existing Apex tests ([#42014499689](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014499689)).
-- Existing M1 Purchase test fixtures are being recovered and cleaned before a fresh full acceptance run.
+- Existing M1 Purchase test fixtures have been recovered and cleaned before a fresh full acceptance run.
 
 
 ### Synthetic M1 Purchase fixtures cleaned — 2026-11-05
