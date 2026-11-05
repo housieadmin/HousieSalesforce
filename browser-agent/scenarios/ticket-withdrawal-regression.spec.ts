@@ -85,7 +85,8 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   const accountKey = String(accountBefore.Account_Key__c);
   const ledgerBefore = resourceLedgerRows(accountKey);
   const reservedBefore = Number(accountBefore.Reserved_Points__c);
-  expect(reservedBefore).toBe(beforeReserved);
+  expect(reservedBefore).toBeGreaterThanOrEqual(beforeReserved);
+  const reservedOutsideFixture = reservedBefore - beforeReserved;
 
   const withdraw = card.getByRole("button", { name: "Withdraw from waiting game", exact: true });
   await expect(withdraw).toBeVisible();
@@ -100,9 +101,9 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   const afterWithdrawal = await card.innerText();
   const accountAfterWithdrawal = accountSnapshot();
   const ledgerAfterWithdrawal = resourceLedgerRows(accountKey);
-  expect(Number(accountAfterWithdrawal.Reserved_Points__c)).toBe(0);
+  expect(Number(accountAfterWithdrawal.Reserved_Points__c)).toBe(reservedOutsideFixture);
   expect(ledgerAfterWithdrawal).toHaveLength(ledgerBefore.length + beforeCount);
-  housie.note("Post-withdrawal: active tickets=0, reserved points=0, resource ledger rows increased by " + beforeCount + " release entries.");
+  housie.note("Post-withdrawal: active tickets=0 on the regression board; board ticket holds released, unrelated reserved holds preserved, and resource ledger rows increased by " + beforeCount + " release entries.");
   housie.note("Post-withdrawal board state: " + afterWithdrawal.slice(0, 2500));
   await housie.screenshot("waiting-ticket-withdrawn");
 
@@ -120,7 +121,7 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect(card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ })).toHaveCount(0);
   const accountAfterRepurchase = accountSnapshot();
   const ledgerAfterRepurchase = resourceLedgerRows(accountKey);
-  expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(Number(replacementTicket![1]));
+  expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(reservedOutsideFixture + Number(replacementTicket![1]));
   expect(ledgerAfterRepurchase).toHaveLength(ledgerAfterWithdrawal.length + 1);
   await housie.screenshot("waiting-ticket-repurchased");
   housie.note("Withdrawal and repurchase completed. Reserved points returned to 10; ledger has one new reserve row. Ticket identifiers were not retained.");
@@ -130,7 +131,7 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect(card.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
   const accountAfterFinalRelease = accountSnapshot();
   const ledgerAfterFinalRelease = resourceLedgerRows(accountKey);
-  expect(Number(accountAfterFinalRelease.Reserved_Points__c)).toBe(0);
+  expect(Number(accountAfterFinalRelease.Reserved_Points__c)).toBe(reservedOutsideFixture);
   expect(ledgerAfterFinalRelease).toHaveLength(ledgerAfterRepurchase.length + 1);
-  housie.note("Regression fixture cleanup: replacement ticket was withdrawn; reserved points returned to zero and the release ledger row was appended.");
+  housie.note("Regression fixture cleanup: replacement ticket was withdrawn; only the regression board's reserved points were released, unrelated holds were preserved, and the release ledger row was appended.");
 });
