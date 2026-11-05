@@ -57,7 +57,7 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
   expect(pageDetails.length, "Developer Org should contain Housie App Page metadata").toBeGreaterThan(0);
   expect(
     pageDetails.some(page => page.components.includes("housieAccountAdmin")),
-    "At least one Housie Account Admin page should contain c:housieAccountAdmin"
+    "At least one Housie Account Admin page should contain housieAccountAdmin"
   ).toBe(true);
   expect(experienceFiles.length, "ExperienceBundle should now be retrievable after enabling the setting").toBeGreaterThan(0);
   expect(tabFlexiPage, "Housie Account Admin custom tab should resolve to its configured FlexiPage").toBe("Housie_Account_Admin");
