@@ -14,3 +14,15 @@ Each test receives the standard Playwright page and a housie helper:
 Use normal Playwright APIs for all other actions and observations. Scenarios may contain multiple test blocks. Adapt selectors and URLs to the actual application; no sample selectors are assumed to work.
 
 Never put credentials, access tokens or other secrets in scenario files.
+
+## Milestone 1 acceptance scenarios
+
+- `inspect-public-housie-app-route.spec.ts` — confirms the public site root mounts HousieApp.
+- `verify-signup-grants.spec.ts` — creates an isolated account, verifies ACTIVE status, exact resource balances and four signup resource-ledger index rows; redacts the bearer key before retained artifacts.
+- `two-human-waiting-board-setup.spec.ts` — creates two synthetic ACTIVE accounts, creates a private board, joins the second human, reloads both token sessions and verifies both memberships plus one WAITING game.
+- `two-human-ticket-purchase.spec.ts` — **do not run until the one-class HousieGameTicketService deployment is explicitly authorized and completed.** Verifies two distinct MANUAL tickets/layouts, reserved balances, wallet-hold/resource rows and participant records.
+- `ticket-withdrawal-regression.spec.ts` — **same Apex deployment gate.** Recovers the existing PREPARED withdrawal, verifies reserved-point release and ledger deltas, then repurchases a different ticket.
+- `suspend-milestone1-synthetic-accounts.spec.ts` — suspends only accounts created by these Milestone 1 scenarios; it never reads account keys or emails.
+- `validate-housie-code-source-roundtrip.spec.ts` — read-only curated retrieve. It allows only the explicitly documented comment-only difference in `HousieOperationService.cls`; every other Apex delta remains a failure.
+
+Big Object queries must use Bulk API 2.0 and index columns only. Do not use REST `sf data query` or `sf sobject describe` for Big Objects.
