@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
-import { openLightningTab, redactAccountKey } from "../utilities/salesforce";
+import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   let output: string;
@@ -83,12 +83,12 @@ test("two distinct active humans create and join the same WAITING board", async 
   const boardId = (await ownerCard.innerText()).match(/Board ID:\s*([a-f0-9]{32})/i)?.[1];
   expect(boardId).toMatch(/^[a-f0-9]{32}$/i);
 
-  const ownerMembership = sfQuery<Record<string, unknown>>(
-    "SELECT Board_Role__c, Status__c, Operation_Id__c FROM Board_Member__b WHERE Account_Id__c = '" + owner.key + "' AND Board_Id__c = '" + boardId + "' LIMIT 10"
+  const ownerMembership = queryBigObject<Record<string, unknown>>(
+    "SELECT Board_Role__c, Status__c, Operation_Id__c FROM Board_Member__b WHERE Account_Id__c = '" + owner.key + "' AND Board_Id__c = '" + boardId + "'"
   );
   expect(ownerMembership.filter(x => x.Status__c === "ACTIVE" && x.Board_Role__c === "BOARD_ADMIN")).toHaveLength(1);
-  const ownerJournal = sfQuery<Record<string, unknown>>(
-    "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + ownerMembership[0].Operation_Id__c + "' LIMIT 2"
+  const ownerJournal = queryBigObject<Record<string, unknown>>(
+    "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + ownerMembership[0].Operation_Id__c + "'"
   );
   expect(ownerJournal.some(x => x.Status__c === "COMMITTED")).toBe(true);
 
@@ -101,21 +101,21 @@ test("two distinct active humans create and join the same WAITING board", async 
   await expect(memberCard, "Second distinct human should join the same board").toBeVisible({ timeout: 60000 });
   await expect(memberCard).toContainText("Game: WAITING");
 
-  const memberMembership = sfQuery<Record<string, unknown>>(
+  const memberMembership = queryBigObject<Record<string, unknown>>(
     "SELECT Board_Role__c, Status__c, Operation_Id__c FROM Board_Member__b WHERE Account_Id__c = '" + member.key + "' AND Board_Id__c = '" + boardId + "' LIMIT 10"
   );
   expect(memberMembership.filter(x => x.Status__c === "ACTIVE" && x.Board_Role__c === "MEMBER")).toHaveLength(1);
-  const memberJournal = sfQuery<Record<string, unknown>>(
+  const memberJournal = queryBigObject<Record<string, unknown>>(
     "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + memberMembership[0].Operation_Id__c + "' LIMIT 2"
   );
   expect(memberJournal.some(x => x.Status__c === "COMMITTED")).toBe(true);
 
-  const games = sfQuery<Record<string, unknown>>(
+  const games = queryBigObject<Record<string, unknown>>(
     "SELECT Record_Id__c, Status__c, Operation_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "' LIMIT 10"
   );
   const waitingGames = games.filter(x => x.Status__c === "WAITING");
   expect(waitingGames).toHaveLength(1);
-  const gameJournal = sfQuery<Record<string, unknown>>(
+  const gameJournal = queryBigObject<Record<string, unknown>>(
     "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + waitingGames[0].Operation_Id__c + "' LIMIT 2"
   );
   expect(gameJournal.some(x => x.Status__c === "COMMITTED")).toBe(true);
