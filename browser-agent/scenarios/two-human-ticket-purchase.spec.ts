@@ -177,5 +177,58 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
 
   housie.note("Two distinct ACTIVE humans each own one unique MANUAL ticket in the same WAITING game. Each account has a persisted wallet-hold row, 10 reserved points, five resource transaction rows (four signup grants plus one ticket hold), and one Game_Participant row. Both tickets and memberships remain visible after reload. Board ID=" + boardId + "; ticket IDs=" + ownerTicket.ticketId + "," + memberTicket.ticketId + ". Bearer keys and emails omitted.");
   await housie.screenshot("two-human-ticket-holds-verified-redacted");
+
+  // Exercise the full WAITING withdrawal lifecycle for both humans, then
+  // repurchase one ticket to prove the released hold is reusable.
+  const ownerLedgerBeforeWithdrawal = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
+  );
+  const memberLedgerBeforeWithdrawal = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + member.key + "'"
+  );
+
+  await ownerReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
+  await expect(ownerReloadedCard.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(ownerReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible();
+  await memberReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
+  await expect(memberReloadedCard.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(memberReloadedCard.getByRole("button", { name: /Buy ticket/ })).toBeVisible();
+
+  for (const account of [owner, member]) {
+    const rows = sfQuery<Record<string, unknown>>(
+      "SELECT Points_Balance__c, Reserved_Points__c FROM Housie_Account__c WHERE Account_Key__c = '" + account.key + "'"
+    );
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0].Points_Balance__c)).toBe(100);
+    expect(Number(rows[0].Reserved_Points__c)).toBe(0);
+  }
+  const ownerLedgerAfterWithdrawal = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
+  );
+  const memberLedgerAfterWithdrawal = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + member.key + "'"
+  );
+  expect(ownerLedgerAfterWithdrawal).toHaveLength(ownerLedgerBeforeWithdrawal.length + 1);
+  expect(memberLedgerAfterWithdrawal).toHaveLength(memberLedgerBeforeWithdrawal.length + 1);
+
+  await ownerReloadedCard.getByRole("button", { name: /Buy ticket/ }).click();
+  await expect(ownerReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
+  const replacementTicketText = await ownerReloadedCard.locator("article.ticket").innerText();
+  const replacementTicketId = replacementTicketText.match(/(?:MANUAL|AUTOMATIC) · [0-9.]+ points · ([a-f0-9]{32})/i)?.[1];
+  expect(replacementTicketId, "Repurchase after withdrawal should create a fresh ticket ID").toMatch(/^[a-f0-9]{32}$/i);
+  expect(replacementTicketId).not.toBe(ownerTicket.ticketId);
+  const ownerAfterRepurchase = sfQuery<Record<string, unknown>>(
+    "SELECT Points_Balance__c, Reserved_Points__c FROM Housie_Account__c WHERE Account_Key__c = '" + owner.key + "'"
+  );
+  expect(ownerAfterRepurchase).toHaveLength(1);
+  expect(Number(ownerAfterRepurchase[0].Points_Balance__c)).toBe(100);
+  expect(Number(ownerAfterRepurchase[0].Reserved_Points__c)).toBe(10);
+  const ownerLedgerAfterRepurchase = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
+  );
+  expect(ownerLedgerAfterRepurchase).toHaveLength(ownerLedgerAfterWithdrawal.length + 1);
+
+  housie.note("WAITING withdrawal released both humans' 10-point holds with one ledger release row each. Owner then repurchased a fresh ticket; reserved points returned to 10 and one new hold-reserve ledger row was recorded. Ticket ID and account keys are not included in retained notes.");
+  await housie.screenshot("two-human-withdrawal-and-repurchase-redacted");
   await memberPage.close();
 });
