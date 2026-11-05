@@ -66,6 +66,24 @@ Scope discipline:
 - This is the human-only path. Bot offers, bot funding, flips, fixes, chat and progression are not prerequisites for the first playable game.
 - Keep the existing Big Object / DML transaction boundaries and ticket command idempotency already required for correct purchases. Do not expand into a general recovery dispatcher here.
 
+
+### Milestone 1 execution checklist (parallel work lanes)
+
+Run independent lanes concurrently where they do not mutate the same test data or require an undeployed source change. Every browser run must identify its source ref and the org deployment state; selecting a source ref does not deploy it.
+
+| Lane | Work item | Status / dependency |
+|---|---|---|
+| A — Source parity | Curated Apex, LWC, custom permission, permission set and tab round-trip; diagnose byte-level diffs without weakening assertions. | In progress; diagnostic rerun #41960912330. |
+| B — Account setup | Account Admin tab, create a unique ACTIVE account, verify signup grants and safe key handling. | UI/create passed once; repeatability run pending. |
+| C — Board lifecycle | Create private/public WAITING board; verify initial game and BOARD_ADMIN membership; join by invitation and public directory; leave rules. | Board creation source fix exists; org test blocked until explicit deployment. Join scenario still to author after a second dedicated account fixture is identified. |
+| D — Ticket lifecycle | Purchase manual/automatic tickets, enforce per-account cap and token rules, validate unique 90-ball layout, withdraw all WAITING tickets, verify hold/point release, repurchase. | Purchase regression exists; new withdrawal/repurchase scenario authored on milestone1/acceptance-parallel; execution pending. |
+| E — Data invariants | Apex tests for board creation/join, membership authorization, ticket limits, layout validity, holds/ledger, idempotency and concurrency. | Inspect current test coverage and add only uncovered invariants. |
+| F — Evidence/docs | Keep this checklist and BUILD_STATUS aligned with actual runs, commits, deployment state and unresolved failures. | Ongoing. |
+
+**Acceptance gate for Milestone 1:** source/org parity established; two distinct human accounts are active; one account creates a WAITING board; a second account joins; both purchase valid tickets; one can withdraw before start and repurchase; all active ticket/hold/resource-ledger totals reconcile. A browser click or source-only test is not sufficient evidence.
+
+**Explicit deployment gate:** the BoardHub @api accountKey source fix is not in the org yet. Do not schedule a board-create/join acceptance run as if it can pass until the user authorizes deployment. Other independent work (source parity diagnostics, Apex test review, fixture design and existing ticket-path coverage) continues in parallel.
+
 ## Milestone 2 — Start a human-only game
 
 **Goal:** move a fully funded WAITING game to RUNNING exactly once, without bot funding in the first vertical slice.
