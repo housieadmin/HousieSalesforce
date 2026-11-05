@@ -216,3 +216,10 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - The 249-file Git blob comparison was against an archived retrieve branch, not a fresh current-org describe. Current live SOQL rejects `Board_Role__c` on `Board_Member__b` and `Resource_Type__c` on `Account_Resource_Transaction__b`, even though those fields exist in main. Live schema parity is therefore **OPEN**, not passed.
 - Added `inspect-live-bigobject-schema.spec.ts` to capture current field API names through Salesforce CLI describe. Fresh retrieve and complete field/index comparison are required before closing schema parity.
 - Browser run #41992096929 reached public token resolution, created a WAITING board and activated a new account, but stopped at live Big Object field errors before membership/grant ledger acceptance. Both failure snapshots show bearer keys redacted.
+
+
+## Big Object API correction — 2026-11-05
+
+- Schema parity is **COMPLETE** based on PR #38's live Developer Org Metadata API retrieve/round-trip [#41944754055](https://github.com/housieadmin/HousieSalesforce/actions/runs/41944754055): 249/249 object metadata files (20 objects, 213 fields, 16 indexes), zero missing/unexpected/content differences.
+- Later REST-based `sf sobject describe` and `sf data query` calls were not valid for Big Objects; Salesforce explicitly documents REST sObject API as unsupported for Big Objects. The returned index-only fields and `INVALID_FIELD` errors were API limitations, not missing schema.
+- Big Object acceptance queries now use Bulk API 2.0 (`sf data export bulk`) through `queryBigObject()`. Signup-grant and two-human membership rerun is pending; no acceptance claim until those records are verified.
