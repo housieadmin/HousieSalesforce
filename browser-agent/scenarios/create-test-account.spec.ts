@@ -17,15 +17,15 @@ test("create an active Housie test account through the admin UI", async ({ page,
   await page.getByRole("textbox", { name: "Display name", exact: true }).fill(displayName);
   await page.getByRole("button", { name: "Create account", exact: true }).click();
 
+  // Account_Key__c is a bearer route credential. Mask it immediately after
+  // submission, before assertions or failure screenshots can expose it.
+  const keyLine = page.getByText(/Account key:/);
+  await expect(keyLine).toBeVisible({ timeout: 60000 });
+  await keyLine.evaluate(element => { element.textContent = "Account key: [REDACTED]"; });
+
   const createdLine = page.getByText("Created: " + displayName);
   await expect(createdLine, "Admin UI should create the Housie account record")
-    .toBeVisible({ timeout: 60000 });
-
-  // Account_Key__c is a bearer route credential. Mask it before any assertion
-  // can fail and before the browser agent captures a failure screenshot.
-  const keyLine = page.locator("p").filter({ hasText: "Account key:" });
-  await expect(keyLine).toBeVisible({ timeout: 15000 });
-  await keyLine.evaluate(element => { element.textContent = "Account key: [REDACTED]"; });
+    .toBeVisible({ timeout: 30000 });
 
   const retrySetup = page.getByRole("button", { name: "Retry initial account setup", exact: true });
   if (await retrySetup.isVisible().catch(() => false)) {
