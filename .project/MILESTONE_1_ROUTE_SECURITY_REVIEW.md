@@ -14,7 +14,7 @@ The root and account-context flows have separate browser evidence in the Milesto
 
 ## Retrieved Network settings
 
-The last retrieved `Housie.network-meta.xml` snapshot reports:
+The initial retrieved `Housie.network-meta.xml` snapshot appeared to report (but the inspection parser was later found to be over-escaped, so these values are **unverified and must not be relied on**):
 
 | Setting | Retrieved value | Assessment |
 |---|---|---|
@@ -25,9 +25,11 @@ The last retrieved `Housie.network-meta.xml` snapshot reports:
 | Self-registration | `false` | Keep restrictive; Housie signup is handled by the app. |
 | Email sender | `sumit.gupta@salesforce.com` | Not a Housie-owned sender; must be replaced with a verified Housie address before Network activation. |
 
+**Current verified status:** ExperienceBundle route components and `isAvailableToGuests=true` were confirmed. Network metadata was retrieved, but the corrected parser has not yet produced verified setting values. Do not treat the values in the table below as authoritative until the corrected read-only inspection passes.
+
 ## Deployment decision
 
-- Do not deploy the retrieved Network metadata as-is.
+- Do not deploy Network metadata until a corrected read-only inspection establishes the exact current settings and a SPEC-reviewed remediation plan is approved.
 - Do not change `UnderConstruction` to `Live` or otherwise expose/activate the site without explicit user approval.
 - Do not use the Salesforce sender address above for Housie notifications.
 - Before any Network deployment, confirm a verified Housie-owned sender address and validate whether any feature genuinely requires guest file access. Default to guest file access disabled.
