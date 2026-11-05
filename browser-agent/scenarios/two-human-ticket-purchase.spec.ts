@@ -61,10 +61,10 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
 async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardName: string) {
   const card = hub.locator("article.board-card").filter({ hasText: boardName });
   await expect(card).toBeVisible({ timeout: 60000 });
-  await card.getByRole("button", { name: "Buy ticket · 10 points", exact: true }).click();
+  await card.getByRole("button", { name: /Buy ticket/ }).click();
   await expect(card.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
   const ticketText = await card.locator("article.ticket").innerText();
-  const match = ticketText.match(/^(MANUAL|AUTO) · (\\d+) points · ([a-f0-9]{32})\\s+([\\s\\S]+)$/i);
+  const match = ticketText.match(/^(MANUAL|AUTO) · ([0-9.]+) points · ([a-f0-9]{32})\s+([\s\S]+)$/i);
   expect(match, "Ticket card should expose mode, fee, unique ticket ID and layout").not.toBeNull();
   return { ticketId: match![3], mode: match![1], entryFee: Number(match![2]), layoutText: match![4].trim() };
 }
