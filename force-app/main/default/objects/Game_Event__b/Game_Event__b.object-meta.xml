@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-<deploymentStatus>Deployed</deploymentStatus>
-<description>Housie append-oriented Big Object for Game Event. All reads and writes are mediated by Apex.</description>
-<label>Housie Game Event</label><pluralLabel>Housie Game Event Records</pluralLabel>
-<fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Sequence__c</fullName><label>Sequence</label><precision>18</precision><scale>2</scale><type>Number</type><required>true</required></fields>
-<fields><fullName>Event_Type__c</fullName><label>Event Type</label><length>40</length><type>Text</type></fields>
-<fields><fullName>Actor_Account_Id__c</fullName><label>Actor Account Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Payload__c</fullName><label>Payload</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
-<fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
-<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Sequence__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Housie append-oriented Big Object for Game Event. All reads and writes are mediated by Apex.</description>
+    <label>Housie Game Event</label>
+    <pluralLabel>Housie Game Event Records</pluralLabel>
 </CustomObject>

@@ -1,25 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-<deploymentStatus>Deployed</deploymentStatus>
-<description>Housie append-oriented Big Object for Bot Contribution. All reads and writes are mediated by Apex.</description>
-<label>Housie Bot Contribution</label><pluralLabel>Housie Bot Contribution Records</pluralLabel>
-<fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Ticket_Id__c</fullName><label>Ticket Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Contributor_Account_Id__c</fullName><label>Contributor Account Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Accepted_Sequence__c</fullName><label>Accepted Sequence</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
-<fields><fullName>Accepted_At__c</fullName><label>Accepted At</label><type>DateTime</type></fields>
-<fields><fullName>Accepted_Amount__c</fullName><label>Accepted Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Accepted_Revision__c</fullName><label>Accepted Revision</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Proposed_Amount__c</fullName><label>Proposed Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Proposed_Revision__c</fullName><label>Proposed Revision</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Current_Hold_Amount__c</fullName><label>Current Hold Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Wallet_Hold_Id__c</fullName><label>Wallet Hold Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Final_Share__c</fullName><label>Final Share</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Captured_Amount__c</fullName><label>Captured Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Refund_Amount__c</fullName><label>Refund Amount</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Status__c</fullName><label>Status</label><length>25</length><type>Text</type></fields>
-<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Ticket_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Contributor_Account_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Housie append-oriented Big Object for Bot Contribution. All reads and writes are mediated by Apex.</description>
+    <label>Housie Bot Contribution</label>
+    <pluralLabel>Housie Bot Contribution Records</pluralLabel>
 </CustomObject>

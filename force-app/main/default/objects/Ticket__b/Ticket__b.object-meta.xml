@@ -1,22 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-<deploymentStatus>Deployed</deploymentStatus>
-<description>Housie append-oriented Big Object for Ticket. All reads and writes are mediated by Apex.</description>
-<label>Housie Ticket</label><pluralLabel>Housie Ticket Records</pluralLabel>
-<fields><fullName>Record_Id__c</fullName><label>Record Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Operation_Id__c</fullName><label>Operation Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Game_Id__c</fullName><label>Game Id</label><length>32</length><type>Text</type><required>true</required></fields>
-<fields><fullName>Ticket_Kind__c</fullName><label>Ticket Kind</label><length>10</length><required>true</required><type>Text</type></fields>
-<fields><fullName>Owner_Account_Id__c</fullName><label>Owner Account Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Mode__c</fullName><label>Mode</label><length>15</length><type>Text</type></fields>
-<fields><fullName>Layout__c</fullName><label>Layout</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
-<fields><fullName>Marked_Numbers__c</fullName><label>Marked Numbers</label><length>32768</length><type>LongTextArea</type><visibleLines>5</visibleLines></fields>
-<fields><fullName>Status__c</fullName><label>Status</label><length>20</length><type>Text</type></fields>
-<fields><fullName>Entry_Fee__c</fullName><label>Entry Fee</label><precision>18</precision><scale>2</scale><type>Number</type></fields>
-<fields><fullName>Wallet_Hold_Id__c</fullName><label>Wallet Hold Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Bot_Proposer_Account_Id__c</fullName><label>Bot Proposer Account Id</label><length>32</length><type>Text</type></fields>
-<fields><fullName>Created_At__c</fullName><label>Created At</label><type>DateTime</type></fields>
-<fields><fullName>Purchased_At__c</fullName><label>Purchased At</label><type>DateTime</type></fields>
-<fields><fullName>Withdrawn_At__c</fullName><label>Withdrawn At</label><type>DateTime</type></fields>
-<indexes><fullName>Primary_Query_Index</fullName><label>Primary Query Index</label><fields><name>Game_Id__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Ticket_Kind__c</name><sortDirection>ASC</sortDirection></fields><fields><name>Record_Id__c</name><sortDirection>ASC</sortDirection></fields></indexes>
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Housie append-oriented Big Object for Ticket. All reads and writes are mediated by Apex.</description>
+    <label>Housie Ticket</label>
+    <pluralLabel>Housie Ticket Records</pluralLabel>
 </CustomObject>
