@@ -1,21 +1,8 @@
 import { test, expect } from "../core";
-import { execFileSync } from "node:child_process";
-import path from "node:path";
+import { openLightningTab } from "../utilities/salesforce";
 
 test("open the configured Housie Account Admin tab", async ({ page, housie }) => {
-  const projectRoot = path.resolve(process.cwd(), "..");
-  const openOutput = execFileSync("sf", [
-    "org", "open", "--url-only", "--path", "/lightning/n/Housie_Account_Admin",
-    "--target-org", "housie-browser-agent", "--json"
-  ], { cwd: projectRoot, encoding: "utf8" });
-  const cleanOutput = openOutput.replace(/\u001b\[[0-9;]*m/g, "").trim();
-  const openResult = JSON.parse(cleanOutput.slice(cleanOutput.indexOf("{")));
-  const frontdoorUrl = openResult?.result?.url;
-  expect(frontdoorUrl, "Salesforce should provide a frontdoor URL for the admin tab").toMatch(/^https:\/\//);
-  await page.goto(frontdoorUrl, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(error => {
-    if (!String(error).includes("ERR_ABORTED")) throw error;
-  });
-  await page.waitForTimeout(2000);
+  await openLightningTab(page, "/lightning/n/Housie_Account_Admin");
 
   const component = page.locator("c-housie-account-admin");
   await expect(component, "The Housie Account Admin tab should mount the LWC")
