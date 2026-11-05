@@ -2,7 +2,10 @@ import { test, expect } from "../core";
 
 test("open the configured Housie Account Admin tab", async ({ page, housie }) => {
   await housie.login();
-  await housie.navigate("/lightning/n/Housie_Account_Admin");
+  await housie.navigate("/lightning/n/Housie_Account_Admin").catch(error => {
+    if (!String(error).includes("ERR_ABORTED")) throw error;
+  });
+  await page.waitForTimeout(1500);
 
   const component = page.locator("c-housie-account-admin");
   await expect(component, "The Housie Account Admin tab should mount the LWC")
