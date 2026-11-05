@@ -56,3 +56,9 @@ This tracker is the operational closeout checklist for PR #42. Keep the mileston
 - Focused history-state regression requested through issue #9 comment [6661570718](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661570718). Do not count it as passing until its result is available.
 - **Deployment gate:** the new LWC source has not yet been deployed to the Developer Org. A narrow NoTestRun dry-run/deployment of only `LightningComponentBundle:housieApp` is required before the focused browser acceptance can validate the fix. Obtain explicit user authorization before deploying.
 - Latest PR validation for the current implementation HEAD is [#42052917833](https://github.com/housieadmin/HousieSalesforce/actions/runs/42052917833); confirm its manifest dry-run and 39 Apex tests pass. The latest checklist commit is docs-only and does not change the validated LWC/test source.
+
+
+## Current approval gate — 2026-11-05
+
+- Source/test changes are committed and PR validation #42053135679 passed. The browser run #42052718437 confirmed the Developer Org has not received the history-state LWC fix (`historyTokenPresent=false`).
+- Waiting for explicit user approval to run a narrow NoTestRun dry-run and deployment of only `LightningComponentBundle:housieApp`. After deployment, rerun the focused browser acceptance and only then consider PR #42 merge-ready.
