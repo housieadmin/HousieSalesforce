@@ -11,6 +11,15 @@ test("create and clean up an isolated WAITING board", async ({ page, housie }) =
   await expect(hub, "The test account route should render Board Hub").toHaveCount(1, { timeout: 60000 });
   await expect(hub.getByText("Your boards", { exact: true })).toBeVisible({ timeout: 60000 });
 
+  // The section heading is rendered before the recordId/getRecord account-key wire resolves.
+  // Wait for existing membership data before allowing a create action; otherwise the click
+  // can race the record-page context bootstrap and send a null accountId to Apex.
+  const fixtureCard = hub.locator("article.board-card").filter({ hasText: "Transaction Regression - test-user-3" });
+  await expect(fixtureCard, "The account record context should load an existing board membership before actions are enabled")
+    .toBeVisible({ timeout: 60000 });
+  await expect(page.getByRole("button", { name: "Create board", exact: true }))
+    .toBeEnabled({ timeout: 30000 });
+
   const boardName = "Browser Setup " + Date.now();
   const card = page.locator("c-housie-board-hub article.board-card").filter({ hasText: boardName });
   const nameInput = page.getByRole("textbox", { name: "Board name" });
