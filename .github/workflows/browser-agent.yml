@@ -115,6 +115,30 @@ jobs:
             fs.copyFileSync(real, target);
           }
           NODE
+          # Stage only reusable browser utility modules; never import arbitrary source-branch code
+          # into the trusted runtime. Keep the path and extension allowlist deliberately narrow.
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const sourceRoot = path.resolve('.browser-agent-source/browser-agent/utilities');
+          const runtimeRoot = path.resolve('.browser-agent-runtime/browser-agent/utilities');
+          if (!fs.existsSync(sourceRoot)) process.exit(0);
+          const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+            const full = path.join(dir, entry.name);
+            if (entry.isSymbolicLink()) throw new Error('Symlinks are not allowed in shared browser utilities: ' + full);
+            if (entry.isDirectory()) return walk(full);
+            if (!entry.isFile() || !entry.name.endsWith('.ts')) throw new Error('Only TypeScript utility modules are allowed: ' + full);
+            return [full];
+          });
+          for (const source of walk(sourceRoot)) {
+            const real = fs.realpathSync(source);
+            const rel = path.relative(sourceRoot, real);
+            if (!rel || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) throw new Error('Utility escaped source root: ' + source);
+            const target = path.join(runtimeRoot, rel);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(real, target);
+          }
+          NODE
 
       - name: Set up Node.js
         if: ${{ github.event_name == 'issue_comment' || inputs.source_ref != '' }}
@@ -163,14 +187,14 @@ jobs:
           set -euo pipefail
           echo "APEX_DEBUG_ENABLED=false" >> "$GITHUB_ENV"
           user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org housie-browser-agent --json)"
-          user_id="$(jq -r '.result.records[0].Id // empty' <<< "$user_json")"
+          user_id="$(jq -r '(.result | if type == "array" then .[0].Id else .records[0].Id end) // empty' <<< "$user_json")"
           if [[ -z "$user_id" ]]; then
             echo "Could not resolve the authenticated Salesforce user ID for Apex tracing." >&2
             exit 1
           fi
 
           trace_json="$(sf apex trace list --target-org housie-browser-agent --json)"
-          trace_id="$(jq -r --arg user "$user_id" '(.result.records // .result // [])[]? | select((.tracedEntityId // .TracedEntityId) == $user) | (.id // .Id)' <<< "$trace_json" | head -n 1)"
+          trace_id="$(jq -r --arg user "$user_id" '(.result | if type == "array" then . else (.records // []) end)[]? | select((.tracedEntityId // .TracedEntityId) == $user) | (.id // .Id)' <<< "$trace_json" | head -n 1)"
           if [[ -n "$trace_id" ]]; then
             sf apex trace delete --trace-flag-id "$trace_id" --target-org housie-browser-agent --json >/dev/null
           fi
