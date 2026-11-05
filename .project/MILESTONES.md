@@ -210,3 +210,12 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - [x] Latest PR #41 validation: [#41997545531](https://github.com/housieadmin/HousieSalesforce/actions/runs/41997545531) passed metadata dry-run and all 39 org-resident Apex tests for head `cc0c667913ec5b5fff29c536bfdaa1c1ed456dd7`. Validation only; no deployment.
 - [ ] Two-human paid-ticket purchase, ticket-layout uniqueness, holds/ledger reconciliation and WAITING withdrawal/repurchase remain unaccepted until the narrowly scoped Apex correction is separately authorized and deployed. Do not deploy `HousieGameTicketService.cls` without explicit user approval.
 - Artifact #13398760836 remains retained. No deletion was attempted; deletion requires explicit user approval.
+
+
+### PR #41 merge and current deployment status — 2026-11-05
+
+- PR #41 was squash-merged as [8300f6e4f951bb34063e989883a306d18d62c586](https://github.com/housieadmin/HousieSalesforce/commit/8300f6e4f951bb34063e989883a306d18d62c586). Its latest PR validation [#42004763089](https://github.com/housieadmin/HousieSalesforce/actions/runs/42004763089) passed.
+- The user-authorized single-class Apex deployment attempt [#42004584546](https://github.com/housieadmin/HousieSalesforce/actions/runs/42004584546) failed during dry-run/check-only. The class appears in componentSuccesses, but CLI exit status was 1; the scenario truncated the JSON before exposing the test/coverage failure details. It did not run the real deployment command. **No Apex deployment occurred.**
+- Do not mark Apex parity or paid-ticket/withdrawal acceptance complete. Continue from .project/MILESTONE_1_CONTINUATION_CHECKLIST.md on branch milestone1/paid-ticket-acceptance.
+- GitHub Actions run inspection is available and has been used to inspect the issue-comment-triggered workflow, jobs, logs and artifact.
+- ExperienceBundle/Network route and guest-security review remains separate and SPEC-reviewed. Artifact #13398760836 remains retained; deletion is not authorized.
