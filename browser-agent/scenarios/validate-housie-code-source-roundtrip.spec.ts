@@ -1,6 +1,7 @@
 import { test, expect } from "../core";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 function filesUnder(dir: string): string[] {
@@ -34,16 +35,35 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
   return { expected: expected.length, actual: actual.length, missing, unexpected, different };
 }
 
+/** Isolate a retrieve from pre-existing runtime files so missing org metadata cannot false-pass. */
+function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: string,
+  runtimeRoot: string, component: string, ignore: string[] = []) {
+  const target = path.join(runtimeRoot, component);
+  const backupRoot = fs.mkdtempSync(path.join(os.tmpdir(), "housie-org-roundtrip-"));
+  const backup = path.join(backupRoot, component);
+  const hadOriginal = fs.existsSync(target);
+  if (hadOriginal) fs.renameSync(target, backup);
+  try {
+    retrieve(projectRoot, manifest);
+    if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
+    return compare(path.join(sourceRoot, component), target, ignore);
+  } finally {
+    fs.rmSync(target, { recursive: true, force: true });
+    if (hadOriginal) fs.renameSync(backup, target);
+    fs.rmSync(backupRoot, { recursive: true, force: true });
+  }
+}
+
 test("reconcile only Housie-owned Apex and LWC source against the Developer Org", async ({ housie }) => {
   const projectRoot = path.resolve(process.cwd(), "..");
   const sourceRoot = path.resolve(projectRoot, "..", ".browser-agent-source", "force-app", "main", "default");
-  const orgRoot = path.join(projectRoot, "force-app", "main", "default");
+  const runtimeRoot = path.join(projectRoot, "force-app", "main", "default");
 
-  retrieve(projectRoot, "package-housie-apex.xml");
-  const apex = compare(path.join(sourceRoot, "classes"), path.join(orgRoot, "classes"));
+  const apex = retrieveAndCompare(projectRoot, "package-housie-apex.xml",
+    sourceRoot, runtimeRoot, "classes");
 
-  retrieve(projectRoot, "package-housie-lwc.xml");
-  const lwc = compare(path.join(sourceRoot, "lwc"), path.join(orgRoot, "lwc"), ["jsconfig.json"]);
+  const lwc = retrieveAndCompare(projectRoot, "package-housie-lwc.xml",
+    sourceRoot, runtimeRoot, "lwc", ["jsconfig.json"]);
 
   housie.note(JSON.stringify({ apex, lwc }, null, 2));
   expect(apex.missing, "Org should contain every curated Housie Apex source file").toEqual([]);
