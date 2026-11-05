@@ -36,10 +36,10 @@
 
 ## 3. Prove WAITING withdrawal, release and repurchase
 
-- [ ] Run the two-human withdrawal/repurchase flow after deployment.
-- [ ] Verify both humans' active tickets are removed and reserved points return to zero.
+- [ ] Run the two-human withdrawal/repurchase flow after both ticket and board-service deployments.
+- [ ] Verify both humans' active tickets are removed, reserved points return to zero, and Leave Board is rejected while an active human ticket remains.
 - [ ] Verify one HOLD_RELEASE resource-ledger row per withdrawn ticket and no stale active hold/command lock.
-- [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row.
+- [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row; release that final fixture ticket before leaving the board.
 - [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence.
 
 ## 4. Cleanup and closeout
