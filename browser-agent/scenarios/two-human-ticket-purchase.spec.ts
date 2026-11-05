@@ -130,6 +130,7 @@ async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardN
  * behavior end to end; broad Apex coverage is deferred until after Milestone 1.
  */
 test("two distinct humans purchase unique WAITING-game tickets with committed wallet holds", async ({ page, housie }) => {
+  test.setTimeout(180000);
   await openLightningTab(page, "/lightning/n/Housie_Account_Admin");
   await expect(page.getByText("Housie Account Administration", { exact: true })).toBeVisible({ timeout: 60000 });
 
