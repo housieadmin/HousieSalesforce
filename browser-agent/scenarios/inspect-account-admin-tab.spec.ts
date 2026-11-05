@@ -7,10 +7,10 @@ test("open the configured Housie Account Admin tab", async ({ page, housie }) =>
     "org", "open", "--url-only", "--path", "/lightning/n/Housie_Account_Admin",
     "--target-org", "housie-browser-agent", "--json"
   ], { cwd: projectRoot, encoding: "utf8" });
-  const cleanOutput = openOutput.replace(/\\u001b\\[[0-9;]*m/g, "").trim();
+  const cleanOutput = openOutput.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const openResult = JSON.parse(cleanOutput.slice(cleanOutput.indexOf("{")));
   const frontdoorUrl = openResult?.result?.url;
-  expect(frontdoorUrl, "Salesforce should provide a frontdoor URL for the admin tab").toMatch(/^https:\\/\\//);
+  expect(frontdoorUrl, "Salesforce should provide a frontdoor URL for the admin tab").toMatch(/^https:\/\//);
   await page.goto(frontdoorUrl, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(error => {
     if (!String(error).includes("ERR_ABORTED")) throw error;
   });
