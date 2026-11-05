@@ -252,3 +252,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - Browser run [#41994781213](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994781213) passed 1/1. Two distinct ACTIVE accounts joined the same private board; both Board_Member index rows and one WAITING Game row persisted; both public token sessions listed the board after independent reloads. Account keys were redacted before artifacts.
 - Milestone 1 now has schema parity, LWC/access parity, signup grants, both BoardHub routes, owner board creation and second-human WAITING membership accepted. Remaining: paid ticket purchase/holds/ledger and withdrawal/repurchase, gated by explicit approval to deploy the one-class Apex query fix.
+
+
+## Withdrawal ledger regression prepared — 2026-11-05
+
+- `ticket-withdrawal-regression.spec.ts` now captures reserved points and resource-transaction index-row counts around withdrawal/repurchase. Acceptance requires reserved points to reach zero after withdrawal, return to 10 after replacement purchase, and ledger row deltas to match one release per withdrawn ticket plus one new reserve row.
+- Test is gated on the one-class Apex deployment authorization; running it against the old org query can leave the existing PREPARED command/lock.
