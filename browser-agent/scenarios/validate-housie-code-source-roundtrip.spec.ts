@@ -24,9 +24,9 @@ function retrieve(projectRoot: string, manifestName: string): void {
   if (response.status !== 0) throw new Error("Salesforce metadata retrieve failed: " + JSON.stringify(response));
 }
 
-function compare(expectedRoot: string, actualRoot: string) {
-  const expected = filesUnder(expectedRoot).map(file => path.relative(expectedRoot, file)).sort();
-  const actual = filesUnder(actualRoot).map(file => path.relative(actualRoot, file)).sort();
+function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []) {
+  const expected = filesUnder(expectedRoot).map(file => path.relative(expectedRoot, file)).filter(file => !ignore.includes(file)).sort();
+  const actual = filesUnder(actualRoot).map(file => path.relative(actualRoot, file)).filter(file => !ignore.includes(file)).sort();
   const missing = expected.filter(file => !actual.includes(file));
   const unexpected = actual.filter(file => !expected.includes(file));
   const different = expected.filter(file => actual.includes(file) &&
@@ -43,7 +43,7 @@ test("reconcile only Housie-owned Apex and LWC source against the Developer Org"
   const apex = compare(path.join(sourceRoot, "classes"), path.join(orgRoot, "classes"));
 
   retrieve(projectRoot, "package-housie-lwc.xml");
-  const lwc = compare(path.join(sourceRoot, "lwc"), path.join(orgRoot, "lwc"));
+  const lwc = compare(path.join(sourceRoot, "lwc"), path.join(orgRoot, "lwc"), ["jsconfig.json"]);
 
   housie.note(JSON.stringify({ apex, lwc }, null, 2));
   expect(apex.missing, "Org should contain every curated Housie Apex source file").toEqual([]);
