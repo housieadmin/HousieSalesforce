@@ -235,3 +235,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - Run #41993512065 rejected non-index Big Object fields in its Bulk API query (`Board_Role__c`/`Resource_Type__c`). The 249-file Metadata API retrieve parity remains authoritative; this is a query-selection constraint, not missing metadata.
 - Updated all Big Object acceptance queries to select only index columns. Account balances and BoardHub/ticket UI after reload verify the non-index business state. Rerun #6653296229 is pending.
+
+
+## Signup grant acceptance — 2026-11-05
+
+- Browser run [#41994178363](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994178363) passed signup provisioning/grant verification: ACTIVE account, 100 points, 0 reserved, 1 auto token, 1 flip, 1 fix, four distinct resource transaction index rows. Public invitation token resolved and BoardHub loaded. Account key was redacted before artifacts.
+- The two-human scenario in the same run failed on a test-harness bug (`memberPage` not initialized) after owner board creation; the owner board creation itself showed WAITING. The scenario has been corrected and will be rerun; second-human join is not yet accepted.
