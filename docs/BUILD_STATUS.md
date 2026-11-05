@@ -258,3 +258,8 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - `ticket-withdrawal-regression.spec.ts` now captures reserved points and resource-transaction index-row counts around withdrawal/repurchase. Acceptance requires reserved points to reach zero after withdrawal, return to 10 after replacement purchase, and ledger row deltas to match one release per withdrawn ticket plus one new reserve row.
 - Test is gated on the one-class Apex deployment authorization; running it against the old org query can leave the existing PREPARED command/lock.
+
+
+## Two-human acceptance supersedes earlier harness failures — 2026-11-05
+
+- The earlier `memberPage is not defined` failures in #41994178363 and #41994239381 are superseded by [run #41994781213](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994781213), which passed 1/1. The corrected scenario created two ACTIVE accounts, joined the member, verified both Board_Member index rows and one WAITING Game row, and confirmed both sessions still list the board after independent reloads. Second-human WAITING membership is now **PASS**.
