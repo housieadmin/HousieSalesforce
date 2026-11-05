@@ -243,3 +243,9 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Narrow NoTestRun dry-run and actual deployment of only `ApexClass:HousieBoardService` succeeded ([#42014362545](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014362545)).
 - PR validation passed metadata dry-run and all 39 existing Apex tests ([#42014499689](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014499689)).
 - Existing M1 Purchase test fixtures are being recovered and cleaned before a fresh full acceptance run.
+
+
+### Synthetic M1 Purchase fixtures cleaned — 2026-11-05
+
+- Cleanup [#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549) passed. Both prior `M1 Purchase` synthetic accounts were withdrawn from their WAITING tickets, reconciled to zero reserved points, checked against append-only wallet-hold and resource-ledger row counts, left their scenario-owned boards and were suspended.
+- Fresh two-human source parity and paid-ticket acceptance is running in [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320).
