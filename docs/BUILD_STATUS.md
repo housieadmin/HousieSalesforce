@@ -229,3 +229,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - First Bulk API 2.0 run #41993125219 failed during query-job creation with generic CLI `Error (1)` for Board_Member and Account_Resource_Transaction; no rows were returned. This is a test/API harness failure, not evidence of missing metadata.
 - `queryBigObject()` now requests structured CLI JSON and pins API v66.0. A rerun is queued (#6653196676) to capture the server-side query-job error. Signup grants and two-human membership remain unverified.
+
+
+## Bulk API field-selection correction — 2026-11-05
+
+- Run #41993512065 rejected non-index Big Object fields in its Bulk API query (`Board_Role__c`/`Resource_Type__c`). The 249-file Metadata API retrieve parity remains authoritative; this is a query-selection constraint, not missing metadata.
+- Updated all Big Object acceptance queries to select only index columns. Account balances and BoardHub/ticket UI after reload verify the non-index business state. Rerun #6653296229 is pending.
