@@ -115,3 +115,17 @@ Salesforce currently documents Developer Edition at **5 MB standard data storage
 ## Previous Milestone 1 session closure — 2026-11-05
 
 The previous implementation session is closed as a work period, not as a milestone. Milestone 1 remains **IN PROGRESS**. Its source and acceptance follow-ups are consolidated in [PR #32](https://github.com/housieadmin/HousieSalesforce/pull/32) and tracked in [the active session tracker](../.project/SESSION_2026-11-05.md). The corrected round-trip test and withdrawal/repurchase scenario have been added to the PR branch. No Salesforce deployment was performed by this session closure. See the tracker for exact verification status and pending runtime acceptance.
+
+
+## Verified current-session progress — 2026-11-05
+
+- Previous Milestone 1 implementation session is closed as a session only. Milestone 1 remains **IN PROGRESS**.
+- PR #32 source validation [#41982995316](https://github.com/housieadmin/HousieSalesforce/actions/runs/41982995316) passed metadata validation and all 39 org-resident Apex tests. It did not deploy.
+- Account Admin creation regression [#41974591829](https://github.com/housieadmin/HousieSalesforce/actions/runs/41974591829) passed 1/1; the created account showed ACTIVE and its bearer key was redacted before artifacts. Invitation route and independent signup-grant ledger verification are still open.
+- The corrected source/org round-trip now executes and identifies two Apex org/source deltas: `HousieGameTicketService.cls` adds the required `Mode__c`, `Entry_Fee__c`, `Layout__c` completion-query fields; `HousieOperationService.cls` remains a raw org/source difference to inspect. Runs #41974533238, #41983163566, #41983292207 and #41983349990 did not pass parity. LWC/access checks remain unverified because Apex comparison fails first.
+- PR #36's Housie-owned custom permissions, permission sets and tabs have been curated into PR #32. Both Salesforce-managed permission sets are excluded. `manifest/package-housie-access.xml` now lists the three Housie tabs. This is source-only sync; no live access assignments have changed.
+- PR #37 remains excluded from source and deployment pending review of guest availability, guest file access, Network sender address, site routes and public visibility. PR #31 remains deferred.
+- The only authorized deployment currently in scope is the `housieBoardHub` LWC bundle. No Apex, ExperienceBundle, Network or permission metadata is included.
+- Live Milestone 1 acceptance still requires the public and record-page Board Hub routes, account invitation, second human join, two-human ticket purchase, withdrawal/repurchase, and persisted hold/resource ledger reconciliation.
+
+The active execution checklist and session handoff are in [`.project/SESSION_2026-11-05.md`](../.project/SESSION_2026-11-05.md).
