@@ -227,3 +227,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Targeted dry-run and actual deployment of only `ApexClass:HousieGameTicketService` succeeded in [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389). Both reported Salesforce status Succeeded, CLI exit 0, zero component failures, and zero tests run. No unrelated metadata was deployed.
 - Source/org round-trip and two-human purchase/withdrawal/repurchase acceptance are now in progress. Apex coverage remains 22.43% and is explicitly deferred to post-Milestone 1 hardening; do not mark coverage complete.
 - ExperienceBundle/Network configuration remains unapproved for deployment: retrieved Network has guest file access enabled, a non-Housie sender address, and UnderConstruction status. Any curated route/security change must be SPEC-reviewed and must not expose the site publicly without separate user approval.
+
+
+### Human-ticket board-leave guard correction — 2026-11-05
+
+- A cleanup helper defect parsed active-ticket counts as zero and attempted to leave a board while a committed human ticket still existed. The server allowed that leave because `HousieBoardService.hasActiveParticipation()` relied on the Game_Participant projection and bot contributions, but did not independently inspect human Ticket__b rows.
+- Updated the guard to block leave while a committed ACTIVE human ticket has no committed TICKET_WITHDRAWN event. This aligns with Milestone 1's rule that a user cannot leave while holding a paid ticket.
+- Added browser acceptance for leave rejection while a ticket is active and successful leave only after withdrawal; the fixture releases the repurchased ticket before leaving.
+- Targeted NoTestRun dry-run/deployment for `HousieBoardService` is pending; this class is not yet deployed.
