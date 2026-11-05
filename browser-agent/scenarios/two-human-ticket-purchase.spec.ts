@@ -72,7 +72,7 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
   housie.note("Public route transport flags: " + JSON.stringify(routeTransport));
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
-  await redactAccountKey(page);
+  await redactAccountKey(page, false);
   await page.evaluate(() => history.replaceState(null, "", location.pathname));
   await expect(app.getByText("Welcome, " + displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const hub = app.locator("c-housie-board-hub");
@@ -184,7 +184,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   await page.reload({ waitUntil: "domcontentloaded" });
   const ownerApp = page.locator("c-housie-app");
   await expect(ownerApp).toHaveCount(1, { timeout: 60000 });
-  await redactAccountKey(page);
+  await redactAccountKey(page, false);
   await expect(ownerApp.getByText("Welcome, " + owner.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const ownerReloadedHub = ownerApp.locator("c-housie-board-hub");
   const ownerReloadedCard = ownerReloadedHub.locator("article.board-card").filter({ hasText: boardName });
@@ -194,7 +194,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   await memberPage.reload({ waitUntil: "domcontentloaded" });
   const memberApp = memberPage.locator("c-housie-app");
   await expect(memberApp).toHaveCount(1, { timeout: 60000 });
-  await redactAccountKey(memberPage);
+  await redactAccountKey(memberPage, false);
   await expect(memberApp.getByText("Welcome, " + member.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const memberReloadedHub = memberApp.locator("c-housie-board-hub");
   const memberReloadedCard = memberReloadedHub.locator("article.board-card").filter({ hasText: boardName });
