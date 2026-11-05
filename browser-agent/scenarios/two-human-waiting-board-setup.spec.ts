@@ -90,6 +90,6 @@ test("two distinct active humans create and join the same WAITING board", async 
   );
   expect(games).toHaveLength(1);
 
-  housie.note("Two-human WAITING board setup passed: owner and member are distinct ACTIVE accounts; Board_Member records and operation journals are COMMITTED; one WAITING game persists. Board ID=" + boardId + "; fixture display names=" + owner.displayName + " / " + member.displayName + ". Bearer keys and synthetic emails omitted.");
+  housie.note("Two-human WAITING board setup passed: owner and member are distinct ACTIVE accounts; both Board_Member index rows and one Game row persist; BoardHub lists the WAITING board for both accounts after independent reloads. Board ID=" + boardId + "; fixture display names=" + owner.displayName + " / " + member.displayName + ". Bearer keys and synthetic emails omitted.");
   await housie.screenshot("two-human-waiting-board-member-redacted");
 });
