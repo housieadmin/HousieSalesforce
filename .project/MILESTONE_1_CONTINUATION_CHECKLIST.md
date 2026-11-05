@@ -16,7 +16,8 @@
 - [ ] Fix deployment-scenario diagnostics so a non-zero Salesforce CLI exit still yields parsed component failures, Apex test failures, coverage warnings and test counts. Do not truncate JSON before extracting these fields.
 - [ ] Re-run the targeted metadata dry-run for ApexClass:HousieGameTicketService only, with RunLocalTests.
 - [x] Identify the dry-run gate: 38 local tests ran with zero failures, but org-wide Apex class/trigger coverage is 22%, below Salesforce's required 75%.
-- [ ] Run the read-only Tooling API coverage inventory and identify the largest uncovered classes/triggers.
+- [ ] Refresh coverage with RunLocalTests --code-coverage, then reconcile the Tooling API aggregate inventory. The first read-only query returned 0.37% (6/1,627 lines), which conflicts with the deployment check-only report of 22%; treat the first aggregate as stale/unrefreshed until a post-test query confirms it.
+- [ ] Identify the largest uncovered Housie classes/triggers and add meaningful behavior tests.
 - [ ] Add meaningful Apex tests for real business behavior until org-wide coverage reaches at least 75%. Do not add tests that only execute lines without asserting invariants.
 - [ ] Re-run the targeted dry-run. Do not bypass failing tests, lower coverage, or broaden the deployment manifest to make the command pass.
 - [ ] Once dry-run and tests pass, perform the user-authorized deployment of that one Apex class only.
