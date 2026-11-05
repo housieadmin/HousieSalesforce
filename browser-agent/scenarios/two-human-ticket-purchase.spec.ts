@@ -133,7 +133,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   await expect(memberReloadedCard).toContainText("Game: WAITING");
 
   const games = queryBigObject<Record<string, unknown>>(
-    "SELECT Board_Id__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
+    "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   expect(games).toHaveLength(1);
   const gameId = String(games[0].Record_Id__c);
