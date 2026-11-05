@@ -124,9 +124,9 @@ async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardN
 }
 
 /**
- * Run only after the narrowly scoped HousieGameTicketService.cls fix is deployed.
- * The current Developer Org query is missing Mode__c/Entry_Fee__c/Layout__c in
- * completeTicketCommand(), which can leave a prepared command and active lock.
+ * Run after the narrow HousieGameTicketService and HousieBoardService deployments
+ * and source/org parity check. This validates purchase, withdrawal and leave-guard
+ * behavior end to end; broad Apex coverage is deferred until after Milestone 1.
  */
 test("two distinct humans purchase unique WAITING-game tickets with committed wallet holds", async ({ page, housie }) => {
   await openLightningTab(page, "/lightning/n/Housie_Account_Admin");
