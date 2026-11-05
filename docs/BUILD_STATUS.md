@@ -263,3 +263,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 ## Two-human acceptance supersedes earlier harness failures — 2026-11-05
 
 - The earlier `memberPage is not defined` failures in #41994178363 and #41994239381 are superseded by [run #41994781213](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994781213), which passed 1/1. The corrected scenario created two ACTIVE accounts, joined the member, verified both Board_Member index rows and one WAITING Game row, and confirmed both sessions still list the board after independent reloads. Second-human WAITING membership is now **PASS**.
+
+
+## Final curated round-trip — 2026-11-05
+
+- [Read-only run #41995794186](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995794186) retrieved all curated metadata. LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 all had zero missing, unexpected or content differences. PR #36 Housie-owned metadata now matches the Developer Org exactly.
+- Apex 30/30 files were present with zero missing/unexpected; only `HousieGameTicketService.cls` (functional missing completion-query fields) and `HousieOperationService.cls` (comment-only transaction semantics) differ.
