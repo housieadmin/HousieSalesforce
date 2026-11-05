@@ -35,3 +35,48 @@ export async function redactAccountKey(page: Page): Promise<void> {
   await keyLine.waitFor({ state: "visible", timeout: 60000 });
   await keyLine.evaluate(element => { element.textContent = "Account key: [REDACTED]"; });
 }
+
+export interface AuraResponseSummary {
+  status: number;
+  errors: string[];
+}
+
+/** Capture concise Aura action errors for browser diagnostics without retaining request credentials. */
+export function captureAuraErrors(page: Page): {
+  snapshot(): Promise<AuraResponseSummary[]>;
+  stop(): void;
+} {
+  const pending: Promise<AuraResponseSummary>[] = [];
+  const onResponse = (response: import("@playwright/test").Response) => {
+    if (!/\/sfsites\/aura(?:\?|$)/.test(response.url()) || response.request().method() !== "POST") return;
+    pending.push((async () => {
+      const entry: AuraResponseSummary = { status: response.status(), errors: [] };
+      try {
+        const payload = JSON.parse(await response.text());
+        const visit = (value: unknown): void => {
+          if (!value || typeof value !== "object") return;
+          if (Array.isArray(value)) { value.forEach(visit); return; }
+          const record = value as Record<string, unknown>;
+          for (const key of ["message", "exceptionMessage", "errorCode", "state"]) {
+            const candidate = record[key];
+            if (typeof candidate === "string" &&
+              /error|exception|fail|invalid|denied|not enough|limit|required/i.test(candidate)) {
+              entry.errors.push(key + ": " + candidate.slice(0, 1200));
+            }
+          }
+          Object.values(record).forEach(visit);
+        };
+        visit(payload);
+      } catch (error) {
+        entry.errors.push("Unable to parse Aura response: " + String(error).slice(0, 250));
+      }
+      return entry;
+    })());
+    if (pending.length > 100) pending.splice(0, pending.length - 100);
+  };
+  page.on("response", onResponse);
+  return {
+    async snapshot() { return Promise.all(pending); },
+    stop() { page.off("response", onResponse); }
+  };
+}
