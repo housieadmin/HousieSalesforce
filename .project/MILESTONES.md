@@ -256,3 +256,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Source/org round-trip [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320) passed after the two Apex deployments: Apex 30/30 present with only the documented OperationService comment drift; LWC/access metadata exact.
 - The same run's new two-human test timed out opening the newly created account; it showed the unauthenticated welcome state and did not create a board or purchase tickets. Updated the test to compare the displayed signup key with the persisted account key (without logging either) and pass namespaced `c__token` plus legacy `token` route state.
 - Signup-only fixture cleanup is in progress; no ticket/financial operation was made in the failed run.
+
+
+### Signup-only fixture cleanup and route retry — 2026-11-05
+
+- Cleanup [#42015973440](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015973440) passed. Four `M1 Purchase` synthetic accounts, including signup-only accounts created by the route-resolution timeout, are SUSPENDED with zero reserved points and no outstanding tickets; append-only hold and resource-ledger counts reconcile.
+- Source/org round-trip [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320) passed.
+- PR validation [#42016252653](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016252653) passed with 39/39 local Apex tests.
+- Two-human acceptance retry using persisted-key verification and namespaced route state is queued in [#42016487393](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016487393).
