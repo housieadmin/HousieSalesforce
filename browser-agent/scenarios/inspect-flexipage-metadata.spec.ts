@@ -23,7 +23,9 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
     "--json"
   ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
-  const response = JSON.parse(result);
+  const cleanOutput = result.replace(/\u001b\[[0-9;]*m/g, "").trim();
+  const jsonStart = cleanOutput.indexOf("{");
+  const response = JSON.parse(cleanOutput.slice(jsonStart));
   expect(response.status, "Salesforce metadata retrieve should succeed").toBe(0);
 
   const flexiDir = path.join(projectRoot, "force-app", "main", "default", "flexipages");
