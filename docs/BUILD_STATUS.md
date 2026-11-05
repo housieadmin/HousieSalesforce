@@ -175,3 +175,10 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Housie-owned access metadata is semantically identical to the org retrieve: 2 custom permissions, 3 permission sets, 3 tabs. The five XML byte differences (3 permission sets, 2 tabs) are formatting-only. The two Salesforce-managed `sfdcInternalInt__*` permission sets are excluded.
 - The remaining source/org functional delta is `HousieGameTicketService.completeTicketCommand()` query fields; `HousieOperationService.cls` delta is comment-only transaction-boundary documentation. Full curated Apex/LWC round-trip rerun is requested and pending.
 - Current single continuation PR: [#41](https://github.com/housieadmin/HousieSalesforce/pull/41). Public root route and curated round-trip browser requests were dispatched from `milestone1/continuation`; no result is claimed until the workflow bot reports completion and artifacts are reviewed.
+
+
+## Latest route and curated round-trip evidence — 2026-11-05
+
+- Public site root [browser run #41990222465](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990222465) passed 1/1: `/housie/s/` renders `c:housie-app` and the Housie shell. This confirms the app is mounted, not yet that a valid invitation token resolves or that `accountKey` reaches BoardHub.
+- Curated source/org round-trip [browser run #41990232409](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990232409) confirms all files present and no missing/unexpected paths: Apex 30, LWC 14, custom permissions 2, permission sets 3, tabs 3. LWC/access metadata all match byte-for-byte after retrieval normalization. Apex has exactly two byte differences: functional ticket command SELECT mismatch in `HousieGameTicketService.cls` (org lacks `Mode__c`, `Entry_Fee__c`, `Layout__c`) and comment-only transaction-boundary documentation in `HousieOperationService.cls`.
+- A new browser test now verifies signup account balances and four `SIGNUP GRANT` Big Object ledger rows, then tests the generated invitation token against the public `HousieApp` route. It redacts the bearer key before screenshot/artifact. Run is queued; no result claimed yet.
