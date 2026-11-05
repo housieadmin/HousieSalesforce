@@ -12,6 +12,14 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect(card, "The dedicated transaction regression board must already exist").toBeVisible({ timeout: 60000 });
   await expect(card, "Withdrawal is only valid while the current game is WAITING").toContainText("Game: WAITING");
 
+  const pendingWithdrawal = card.getByRole("button", { name: "Finish withdrawal", exact: true });
+  if (await pendingWithdrawal.count()) {
+    await pendingWithdrawal.click();
+    await expect(card.getByRole("button", { name: "Finish withdrawal", exact: true }))
+      .toHaveCount(0, { timeout: 60000 });
+    await housie.note("Recovered the previously prepared withdrawal before starting a fresh regression cycle.");
+  }
+
   let before = await card.innerText();
   let beforeCount = Number(before.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
   if (beforeCount === 0) {
