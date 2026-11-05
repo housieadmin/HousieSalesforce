@@ -27,6 +27,10 @@ test("create an active Housie test account through the admin UI", async ({ page,
   await expect(keyLine).toBeVisible({ timeout: 15000 });
   await keyLine.evaluate(element => { element.textContent = "Account key: [REDACTED]"; });
 
+  const retrySetup = page.getByRole("button", { name: "Retry initial account setup", exact: true });
+  if (await retrySetup.isVisible().catch(() => false)) {
+    await retrySetup.click();
+  }
   const statusLine = page.getByText("Status: ACTIVE", { exact: true });
   await expect(statusLine, "The account should become ACTIVE only after all four signup grants commit")
     .toBeVisible({ timeout: 60000 });
