@@ -3,10 +3,10 @@ import { test, expect } from "../core";
 const playerUrl = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/housie-account/a00g500001DFWqoAAH/housie-test-user-3";
 
 test("create and clean up an isolated WAITING board", async ({ page, housie }) => {
-  const auraResults = [];
+  const auraTasks: Promise<{ status: number; errors: string[] }>[] = [];
   page.on("response", response => {
     if (!/\/sfsites\/aura(?:\?|$)/.test(response.url()) || response.request().method() !== "POST") return;
-    auraResults.push((async () => {
+    auraTasks.push((async () => {
       const entry = { status: response.status(), errors: [] as string[] };
       try {
         const payload = JSON.parse(await response.text());
@@ -15,16 +15,16 @@ test("create and clean up an isolated WAITING board", async ({ page, housie }) =
           if (Array.isArray(value)) return value.forEach(visit);
           for (const key of ["message", "exceptionMessage", "errorCode", "state"]) {
             if (typeof value[key] === "string" && /error|exception|fail|invalid|denied|not enough|limit/i.test(value[key])) {
-              entry.errors.push(key + ": " + value[key].slice(0, 1500));
+              entry.errors.push(key + ": " + value[key].slice(0, 1200));
             }
           }
           Object.values(value).forEach(visit);
         };
         visit(payload);
       } catch (error) {
-        entry.errors.push("Unable to parse Aura response: " + String(error).slice(0, 300));
+        entry.errors.push("Unable to parse Aura response: " + String(error).slice(0, 250));
       }
-      auraResults[auraResults.length] = entry;
+      return entry;
     })());
   });
 
@@ -35,26 +35,24 @@ test("create and clean up an isolated WAITING board", async ({ page, housie }) =
 
   const boardName = "Browser Setup " + Date.now();
   const card = page.locator("c-housie-board-hub article.board-card").filter({ hasText: boardName });
-  await page.getByRole("textbox", { name: "Board name" }).fill(boardName);
-  await page.getByRole("textbox", { name: "Board name" }).press("Tab");
+  const nameInput = page.getByRole("textbox", { name: "Board name" });
+  await nameInput.fill(boardName);
+  await nameInput.press("Tab");
   await page.getByRole("button", { name: "Create board", exact: true }).click();
 
-  await expect.poll(async () => {
-    const text = await hub.innerText();
-    return /Board created|Unable to create board|not enough|error|failed/i.test(text) || await card.isVisible();
-  }, { timeout: 60000 }).toBe(true);
-
-  const afterClick = await hub.innerText();
-  await Promise.all(auraResults);
-  housie.note("Board Hub after create click:\n" + afterClick.slice(0, 6000));
-  housie.note("Aura responses observed during board create: " + JSON.stringify(auraResults).slice(0, 6000));
-
+  await page.waitForTimeout(6000);
+  let afterClick = await hub.innerText();
+  let auraResponses = await Promise.all(auraTasks);
   if (!await card.isVisible().catch(() => false)) {
     await page.getByRole("button", { name: "Refresh boards" }).click();
-    await expect(card, "Board creation should create a visible board membership")
-      .toBeVisible({ timeout: 30000 });
+    await page.waitForTimeout(3000);
+    afterClick = await hub.innerText();
+    auraResponses = await Promise.all(auraTasks);
   }
+  housie.note("Board Hub after create click:\n" + afterClick.slice(0, 6000));
+  housie.note("Aura responses observed during board create: " + JSON.stringify(auraResponses).slice(0, 4000));
 
+  await expect(card, "Board creation should create a visible board membership").toBeVisible({ timeout: 15000 });
   await expect(card, "New boards must start with a WAITING game").toContainText("Game: WAITING");
   const cardText = await card.innerText();
   const boardId = cardText.match(/Board ID:\s*([a-f0-9]{32})/i)?.[1];
