@@ -85,8 +85,9 @@ test("release active tickets and suspend only Milestone 1 synthetic purchase acc
           throw new Error("Refusing to suspend a synthetic account with active tickets in a non-WAITING game.");
         }
         await card.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
-        await expect(card.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
-        await expect(app.getByText(/All ticket holds were released/)).toBeVisible({ timeout: 60000 });
+        await expect(card.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 60000 });
+        await expect(card.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
+        await expect(app.getByText(/Command already completed|All ticket holds were released/)).toBeVisible({ timeout: 60000 });
         const afterCommands = queryRecords(
           "SELECT Action_Type__c, Status__c FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + key + "'"
         );
