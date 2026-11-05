@@ -3,6 +3,9 @@ import path from "node:path";
 import { test, expect } from "../core";
 import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
+// These scenarios handle bearer account keys; do not retain Playwright traces on failure.
+test.use({ trace: "off" });
+
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   let output: string;
   try {
