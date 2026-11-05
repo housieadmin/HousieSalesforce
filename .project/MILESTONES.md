@@ -20,7 +20,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — schema, LWC/access and signup grants verified; Apex parity, second-human membership and two-human paid-ticket acceptance remain open**
+**Status: IN PROGRESS — schema, LWC/access, signup grants, public/record-page routes, owner board creation and second-human WAITING membership verified; functional Apex parity and two-human paid-ticket acceptance remain open**
 
 **Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
@@ -30,7 +30,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
 - [x] Git tree parity against the archived org-retrieve snapshot: all 249 object metadata files (20 object definitions, 213 field definitions, 16 Big Object indexes) have identical Git blob SHAs between main and `automation/org-retrieve-41937124487`.
 - [x] Confirm live Developer Org schema parity via Metadata API retrieve/round-trip: [PR #38 run #41944754055](https://github.com/housieadmin/HousieSalesforce/actions/runs/41944754055) retrieved 249 object metadata files from the Developer Org and found 249 expected, zero missing, zero unexpected and zero content differences. This covers 20 objects, 213 fields and 16 Big Object indexes.
-- [ ] Complete curated Apex reconciliation. Round-trip #41990232409 confirmed exact parity: LWC 14/14, custom permissions 2/2, permission sets 3/3, tabs 3/3; all file sets match. Apex 30/30 files present with no missing/unexpected paths, but two content differences remain: `HousieGameTicketService.cls` has a functional missing-field query delta; `HousieOperationService.cls` is comment-only transaction-boundary documentation. Do not suppress the functional difference.
+- [ ] Complete curated Apex reconciliation. [#41995794186](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995794186) verified LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 with zero differences; Apex 30/30 files were present with exactly two content differences. Follow-up [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) accepted only the `HousieOperationService.cls` comment-only transaction-boundary drift and isolated `HousieGameTicketService.cls` as the sole unaccepted functional difference (`Mode__c`, `Entry_Fee__c`, `Layout__c` absent from the org completion query). The follow-up stopped before its LWC/access checks. Do not suppress the functional difference.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
 - [x] Adopt Salesforce DX split source format. [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) merged after metadata dry-run, 39 org-resident Apex tests and a 249-file byte-for-byte object round-trip passed. No deployment was performed.
 - [x] Curate Housie-owned custom permissions, permission sets and tabs from [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) into merged PR #32; exclude Salesforce-managed `sfdcInternalInt__*` permission sets. This is source sync only, not permission assignment or deployment.
@@ -54,9 +54,9 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 
 ### 1B. Positive account, board and ticket journey
 
-- [x] Account Admin tab and form render in the Developer Org. Browser run #41945104195 showed account creation returning a key and `Status: ACTIVE`; its test assertion was corrected because the UI does not render a `Created:` line. Re-run corrected scenario before treating this as repeatable acceptance evidence.
-- [ ] The account invitation route resolves to the correct active account context.
-- [x] The owner creates a private board through the public `HousieApp` token route and receives an initial WAITING game in BoardHub (run #41992096929). The record-page path also passed #41985201458. Persisted membership after reload is being verified separately.
+- [x] Account Admin tab and form render in the Developer Org. Corrected account-creation regression [#41974591829](https://github.com/housieadmin/HousieSalesforce/actions/runs/41974591829) passed 1/1, created a uniquely named ACTIVE account and redacted the bearer key before artifacts.
+- [x] The public invitation `?token=` route resolves the intended ACTIVE account context and passes its account key to BoardHub: [#41992096929](https://github.com/housieadmin/HousieSalesforce/actions/runs/41992096929). Signup activation/grant balances and four distinct resource-ledger index rows were separately verified in [#41994178363](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994178363).
+- [x] The owner creates a private board through the public `HousieApp` token route and receives an initial WAITING game in BoardHub (run [#41992096929](https://github.com/housieadmin/HousieSalesforce/actions/runs/41992096929)). The record-page `recordId` path also passed [#41985201458](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985201458); persisted owner/member membership and WAITING Game state after independent reloads passed [#41994781213](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994781213).
 - [x] A second human joins through the private invitation board ID. Run #41994781213 passed: two distinct ACTIVE accounts joined the same board; both Board_Member index rows and one WAITING Game row persisted; both BoardHub sessions still listed the board after independent reloads.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
@@ -178,22 +178,22 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 
 - [x] Archived retrieve snapshot parity only: main matches `automation/org-retrieve-41937124487` for 249 object/field/index files. This is historical source-to-snapshot equality, **not live Developer Org schema acceptance**; see the correction below.
 - [x] Housie-owned access metadata source parity is semantically established against org retrieve: two custom permissions, three permission sets and three tabs. XML byte differences in the three permission sets and two tabs are whitespace/formatting only; the normalized metadata elements match. Both Salesforce-managed `sfdcInternalInt__*` permission sets remain excluded.
-- [ ] Functional Apex parity remains open for `HousieGameTicketService.completeTicketCommand()`; org missing selected `Mode__c`, `Entry_Fee__c`, `Layout__c`. `HousieOperationService` differs only in comments describing transaction boundaries.
+- [ ] Functional Apex parity remains open for `HousieGameTicketService.completeTicketCommand()`; the org lacks selected `Mode__c`, `Entry_Fee__c`, `Layout__c`. Follow-up [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) accepted `HousieOperationService`'s comment-only transaction-boundary drift and isolated the ticket service as the sole unaccepted functional difference.
 
 
 ### Public route inspection — 2026-11-05
 
-- [x] Public site root inspection [#41990222465](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990222465) passed 1/1: `/housie/s/` mounts `c:housie-app` and renders the Housie shell. This confirms the root LWC is mounted. It does **not** yet prove invitation token resolution or `accountKey` propagation.
+- [x] Public site root inspection [#41990222465](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990222465) passed 1/1: `/housie/s/` mounts `c:housie-app` and renders the Housie shell. Token resolution and `accountKey` propagation were separately proven in [#41992096929](https://github.com/housieadmin/HousieSalesforce/actions/runs/41992096929).
 - [x] Verify public `HousieApp` token resolution and BoardHub accountKey propagation: run #41992096929 resolved the synthetic account, rendered the welcome state and BoardHub, then created a private board with an initial WAITING game.
 - [x] Verify signup activation balances and ledger row count: run #41994178363 passed the signup-grant scenario; one ACTIVE account had 100 points, 0 reserved, 1 auto token, 1 flip, 1 fix, and four distinct resource transaction index rows. The activation path verifies committed grants before ACTIVE.
-- [x] LWC/access source-org round-trip [#41990232409](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990232409) confirmed 14/14 LWC, 2/2 custom permissions, 3/3 permission sets and 3/3 tabs with no content differences. Apex remains open for two differences.
+- [x] LWC/access source-org round-trip [#41995794186](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995794186) confirmed 14/14 LWC, 2/2 custom permissions, 3/3 permission sets and 3/3 tabs with no missing, unexpected or content differences. Apex remains open for the functional ticket completion query; the comment-only `HousieOperationService` drift is explicitly accepted.
 
 
 ### Live schema parity correction — 2026-11-05
 
 - PR #38's source was copied from a read-only Developer Org Metadata API retrieve (PR #34), and its round-trip run #41944754055 confirmed all 249 files byte-for-byte. This is the authoritative schema parity evidence.
 - The later `sf sobject describe` diagnostic #41992465038 and `sf data query` attempts were invalid for Big Objects because they use REST API endpoints; Salesforce documents that Big Objects do not support the standard REST sObject API. Describe returned only index fields and SOQL queries reported those non-index fields as unavailable. This is not evidence of missing schema.
-- Big Object acceptance queries use Bulk API 2.0 (`sf data export bulk`) with index fields only. Signup-grant acceptance passed #41994178363. Two-human membership run is pending after a test-harness `memberPage` initialization bug was fixed.
+- Big Object acceptance queries use Bulk API 2.0 (`sf data export bulk`) with index fields only. Signup-grant acceptance passed #41994178363; two-human membership passed #41994781213 after the `memberPage` harness fix.
 
 
 ### Big Object API correction — 2026-11-05
@@ -201,3 +201,12 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Object schema parity is **COMPLETE** for the org retrieve baseline: PR #38's round-trip [#41944754055](https://github.com/housieadmin/HousieSalesforce/actions/runs/41944754055) retrieved 249/249 object metadata files from the Developer Org with zero missing, unexpected or byte-different files (20 object definitions, 213 fields, 16 indexes).
 - The apparent missing fields reported by #41991703460/#41992096929 were a test API misuse: `sf data query` and `sf sobject describe` use REST, which Salesforce does not support for Big Objects. The describe result only listed index fields; this did not indicate missing metadata. The incorrect REST describe scenario has been removed.
 - Big Object data verification uses Bulk API 2.0 with index columns only. Signup grant scenario passed #41994178363; two-human membership scenario passed #41994781213. Ticket purchase ledger scenario is prepared but gated on Apex deployment.
+
+
+### Latest acceptance and validation update — 2026-11-05
+
+- [x] Synthetic Milestone 1 test-account cleanup: [#41996679593](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996679593) passed 1/1 and verified 25 accounts matching only the three named synthetic display-name prefixes are `SUSPENDED`. The scenario re-queried every matched account after any update; no account keys or email addresses were queried or retained.
+- [ ] Functional Apex parity remains open: [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) found 30/30 Apex files present, no missing/unexpected paths, accepted only the `HousieOperationService.cls` comment-only drift and failed because the org's `HousieGameTicketService.cls` completion query lacks `Mode__c`, `Entry_Fee__c`, `Layout__c`. Its failure occurred before LWC/access assertions; those categories were separately verified exact by #41995794186.
+- [x] Latest PR #41 validation: [#41997545531](https://github.com/housieadmin/HousieSalesforce/actions/runs/41997545531) passed metadata dry-run and all 39 org-resident Apex tests for head `cc0c667913ec5b5fff29c536bfdaa1c1ed456dd7`. Validation only; no deployment.
+- [ ] Two-human paid-ticket purchase, ticket-layout uniqueness, holds/ledger reconciliation and WAITING withdrawal/repurchase remain unaccepted until the narrowly scoped Apex correction is separately authorized and deployed. Do not deploy `HousieGameTicketService.cls` without explicit user approval.
+- Artifact #13398760836 remains retained. No deletion was attempted; deletion requires explicit user approval.
