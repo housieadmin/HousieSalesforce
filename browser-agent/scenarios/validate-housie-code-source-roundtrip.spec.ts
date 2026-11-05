@@ -51,7 +51,7 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
     // Metadata API retrieval canonicalizes XML indentation and omits the default Active status.
     if (file.endsWith(".xml")) {
       text = text.replace(/<status>Active<\\/status>/g, "");
-      text = text.replace(/>\\s+</g, "><").replace(/\\s+/g, " ").trim();
+      text = text.replace(/>\\s+</g, "><").trim();
     }
     return text;
   };
