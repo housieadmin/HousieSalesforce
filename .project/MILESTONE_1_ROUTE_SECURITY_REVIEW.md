@@ -1,43 +1,39 @@
 # Milestone 1 — Experience route and Network security review
 
-**Status: VERIFIED — NO NETWORK DEPLOYMENT OR SITE ACTIVATION IN MILESTONE 1.** Read-only Developer Org inspection passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673). The current settings below are authoritative for that run. Keep the site under construction; do not activate it or broaden guest access as part of this PR.
+**Status: ROUTES AND CURRENT SETTINGS VERIFIED; NO NETWORK DEPLOYMENT OR SITE ACTIVATION APPROVED.**
 
-## Retrieved ExperienceBundle route configuration
+Read-only inspection [run #42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673) retrieved the current Developer Org ExperienceBundle, Network, FlexiPage and CustomTab metadata. The corrected XML parser produced non-empty, verified Network settings.
 
-The retrieved `Housie1` ExperienceBundle snapshot contains:
+## Verified ExperienceBundle routes
 
-- Public root/home view: `c:housieApp`.
+- Public root view: `c:housieApp` (plus Salesforce's SEO assistant component).
 - Account detail view: `c:housieBoardHub`, with `recordId: {!recordId}`.
-- `config/housie.json`: `isAvailableToGuests: true`.
+- `config/housie.json`: `isAvailableToGuests=true`.
+- `Housie_Account_Admin` custom tab targets the `Housie_Account_Admin` FlexiPage, which contains `housieAccountAdmin`.
+- Retrieved Housie FlexiPages include Account Admin, Developer Simulation and Local UtilityBar.
 
-The root and account-context flows have separate browser evidence in the Milestone 1 tracker. A fresh read-only inspection scenario is included in this continuation to re-confirm the current org bundle and Network settings.
+## Verified Network settings
 
-## Retrieved Network settings — verified 2026-11-05
-
-The corrected read-only inspection returned these exact values:
-
-| Setting | Current value | Milestone 1 decision |
+| Setting | Current Developer Org value | Decision |
 |---|---|---|
-| Status | `UnderConstruction` | Keep unchanged. Do not activate the site in this PR. |
-| Guest file access | `true` | Security exposure to review; do not broaden or deploy this setting. Disable before any approved public launch unless a documented feature requires it. |
+| Status | `UnderConstruction` | Keep; do not activate without explicit approval. |
+| Guest file access | `true` | Do not broaden; review and disable before any public launch unless a documented feature requires it. |
 | Guest member visibility | `false` | Keep restrictive. |
 | Guest Chatter | `false` | Keep restrictive. |
 | Self-registration | `false` | Keep restrictive; Housie signup is app-managed. |
-| Email sender | `sumit.gupta@salesforce.com` | Not a Housie-owned sender. Replace with a verified Housie-owned address before enabling notifications or activating the Network. |
-| ExperienceBundle `isAvailableToGuests` | `true` | Public root is guest-available in metadata. Do not treat this flag as approval to launch or expose the site. |
+| Email sender | `sumit.gupta@salesforce.com` | Not Housie-owned; replace with a verified Housie sender before any Network activation. |
+| ExperienceBundle guest availability | `true` | Public root route is guest-available; this does not mean the site is Live. |
 
-The public root view contains `c:housieApp`; the Account Detail view contains `c:housieBoardHub` and passes `recordId: {!recordId}`. The `Housie_Account_Admin` custom tab resolves to the `Housie_Account_Admin` FlexiPage, which contains `housieAccountAdmin`.
+Evidence: the route/security scenario's structured diagnostics in artifact [#13423708327](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673/artifacts/13423708327).
 
-Evidence: [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673), read-only route/Network inspection passed. No Network or ExperienceBundle deployment was performed.
+## Deployment and launch decision
 
-## Deployment decision
+- No ExperienceBundle or Network metadata was deployed by this review.
+- Do not change `UnderConstruction` to `Live`, activate the site, or broaden guest access in PR #42.
+- Do not use the Salesforce default sender address for Housie notifications.
+- Before public launch, require a separate SPEC-reviewed security plan, verified Housie-owned sender, explicit guest-file-access decision, and explicit user approval.
+- Route identification and current-setting inspection are complete for Milestone 1. Network remediation/activation remains separate launch/security work and is not a reason to mix risky metadata changes into the paid-ticket acceptance PR.
 
-- **No Network or ExperienceBundle deployment in Milestone 1.** This PR makes no change to the current org settings.
-- Keep Network status `UnderConstruction`; do not activate or expose the site as part of this PR.
-- Do not use the Salesforce sender address for Housie notifications.
-- Before any future Network activation, obtain an explicit site-availability decision, supply a verified Housie-owned sender address, and approve a SPEC-reviewed guest-access remediation. Default guest file access to disabled unless a documented feature requires it.
-- Preserve the current restrictive guest member visibility, guest Chatter and self-registration settings.
+## Remaining user decision
 
-## Deferred follow-up
-
-Route identification and the read-only security decision are complete for Milestone 1. Actual Network remediation, sender replacement and any activation are separate, explicitly approved work; they are not prerequisites for this PR because the chosen decision is to keep the site under construction and make no Network deployment.
+No site-availability or Network-setting change is requested or authorized by this review. Keep the site under construction and the current guest restrictions unchanged until the user explicitly approves a separate remediation/activation plan.
