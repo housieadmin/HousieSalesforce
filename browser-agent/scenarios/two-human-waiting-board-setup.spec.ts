@@ -1,35 +1,5 @@
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 import { test, expect } from "../core";
 import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
-
-function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
-  let output: string;
-  try {
-    output = execFileSync("sf", [
-      "data", "query", "--query", soql, "--target-org", "housie-browser-agent", "--json"
-    ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  } catch (error) {
-    const failure = error as NodeJS.ErrnoException & { stderr?: string | Buffer; stdout?: string | Buffer };
-    const detail = [failure.stderr, failure.stdout, failure.message]
-      .map(value => String(value ?? ""))
-      .filter(Boolean)
-      .join("\n")
-      .replace(/\u001b\[[0-9;]*m/g, "")
-      .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
-      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
-      .slice(0, 1600);
-    throw new Error("Salesforce CLI query failed (exit " + String(failure.code ?? "unknown") + "). " + detail);
-  }
-  const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
-  const start = clean.indexOf("{");
-  if (start < 0) throw new Error("Salesforce CLI did not return JSON.");
-  const parsed = JSON.parse(clean.slice(start));
-  if (parsed.status !== 0) throw new Error("Salesforce CLI returned a non-zero query status.");
-  if (Array.isArray(parsed.result?.records)) return parsed.result.records as T[];
-  if (Array.isArray(parsed.result)) return parsed.result as T[];
-  throw new Error("Salesforce CLI query response did not contain records.");
-}
 
 async function createActiveAccount(page: import("@playwright/test").Page, stamp: number, suffix: string) {
   const email = "housie.m1.twohuman." + stamp + "." + suffix + "@housie.test";
