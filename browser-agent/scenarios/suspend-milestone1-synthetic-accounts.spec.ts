@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
-import { redactAccountKey } from "../utilities/salesforce";
+import { redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
 // These scenarios handle bearer account keys; do not retain Playwright traces on failure.
 test.use({ trace: "off" });
@@ -24,16 +24,31 @@ function sfJson(args: string[]) {
   }
 }
 
-test("release active tickets and suspend only Milestone 1 synthetic purchase accounts", async ({ page, housie }) => {
-  const soql = "SELECT Id, Account_Key__c, Display_Name__c, Status__c FROM Housie_Account__c WHERE " +
-    "Display_Name__c LIKE 'M1 Purchase %'";
+function queryRecords(soql: string) {
   const result = sfJson(["data", "query", "--query", soql, "--target-org", "housie-browser-agent", "--json"]);
-  const rows = Array.isArray(result?.records) ? result.records : [];
+  return Array.isArray(result?.records) ? result.records : [];
+}
+
+test("release active tickets and suspend only Milestone 1 synthetic purchase accounts", async ({ page, housie }) => {
+  const rows = queryRecords(
+    "SELECT Id, Account_Key__c, Display_Name__c, Status__c FROM Housie_Account__c " +
+    "WHERE Display_Name__c LIKE 'M1 Purchase %'"
+  ).sort((a, b) => String(a.Display_Name__c).localeCompare(String(b.Display_Name__c)));
   let cleaned = 0;
   for (const row of rows) {
     if (row.Status__c !== "SUSPENDED") {
       const key = String(row.Account_Key__c || "");
       expect(key).toMatch(/^[a-f0-9]{32}$/i);
+      const commands = queryRecords(
+        "SELECT Action_Type__c, Status__c, Board_Id__c, Game_Id__c FROM Housie_Ticket_Command__c " +
+        "WHERE Account_Key__c = '" + key + "'"
+      );
+      const purchase = commands.find(command =>
+        command.Action_Type__c === "PURCHASE" && command.Status__c === "COMMITTED"
+      );
+      expect(purchase, "Each M1 Purchase account must have a committed purchase command").toBeTruthy();
+      const boardId = String(purchase.Board_Id__c);
+      const gameId = String(purchase.Game_Id__c);
       const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
       await page.goto(root + "?token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
       const app = page.locator("c-housie-app");
@@ -43,43 +58,60 @@ test("release active tickets and suspend only Milestone 1 synthetic purchase acc
       await expect(app.getByText("Welcome, " + String(row.Display_Name__c), { exact: true })).toBeVisible({ timeout: 60000 });
       const hub = app.locator("c-housie-board-hub");
       await expect(hub).toHaveCount(1, { timeout: 30000 });
-      const cards = hub.locator("article.board-card");
-      for (let index = await cards.count() - 1; index >= 0; index--) {
-        const card = cards.nth(index);
-        const pending = card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ });
-        if (await pending.count()) {
-          await pending.first().click();
-          await expect(card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ })).toHaveCount(0, { timeout: 60000 });
-        }
-        const cardText = await card.innerText();
-        const activeCount = Number(cardText.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
-        if (activeCount > 0) {
-          if (!cardText.includes("Game: WAITING")) {
-            throw new Error("Refusing to suspend a synthetic account with active tickets in a non-WAITING game.");
-          }
-          await card.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
-          await expect(card.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
-        }
-        await card.getByRole("button", { name: "Leave board", exact: true }).click();
-        await expect(card).toHaveCount(0, { timeout: 60000 });
+      let card = hub.locator("article.board-card").filter({ hasText: boardId });
+      if (await card.count() === 0) {
+        await hub.getByRole("textbox", { name: "Invitation board ID", exact: true }).fill(boardId);
+        await hub.getByRole("button", { name: "Join board", exact: true }).click();
+        await expect(card).toHaveCount(1, { timeout: 60000 });
       }
-      const accountAfterRelease = sfJson(["data", "query", "--query",
-        "SELECT Reserved_Points__c FROM Housie_Account__c WHERE Id = '" + String(row.Id) + "'",
-        "--target-org", "housie-browser-agent", "--json"]);
-      const balanceRows = Array.isArray(accountAfterRelease?.records) ? accountAfterRelease.records : [];
-      expect(balanceRows).toHaveLength(1);
-      expect(Number(balanceRows[0].Reserved_Points__c)).toBe(0);
+      const pending = card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ });
+      if (await pending.count()) {
+        await pending.first().click();
+        await expect(card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ })).toHaveCount(0, { timeout: 60000 });
+      }
+      const cardText = await card.innerText();
+      const activeCount = Number(cardText.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
+      if (activeCount > 0) {
+        if (!cardText.includes("Game: WAITING")) {
+          throw new Error("Refusing to suspend a synthetic account with active tickets in a non-WAITING game.");
+        }
+        await card.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
+        await expect(card.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
+        await expect(app.getByText(/All ticket holds were released/)).toBeVisible({ timeout: 60000 });
+      }
+      const reserved = queryRecords(
+        "SELECT Reserved_Points__c FROM Housie_Account__c WHERE Id = '" + String(row.Id) + "'"
+      );
+      expect(reserved).toHaveLength(1);
+      expect(Number(reserved[0].Reserved_Points__c)).toBe(0);
+      const holds = queryBigObject<Record<string, unknown>>(
+        "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b " +
+        "WHERE Account_Id__c = '" + key + "' AND Game_Id__c = '" + gameId + "'"
+      );
+      expect(holds).toHaveLength(2);
+      const ledger = queryBigObject<Record<string, unknown>>(
+        "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b " +
+        "WHERE Account_Id__c = '" + key + "'"
+      );
+      expect(ledger).toHaveLength(6);
+      const afterCommands = queryRecords(
+        "SELECT Action_Type__c, Status__c FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + key + "'"
+      );
+      expect(afterCommands.some(command =>
+        command.Action_Type__c === "WITHDRAW" && command.Status__c === "COMMITTED"
+      ), "Withdrawal command must be committed before account suspension").toBe(true);
+      await card.getByRole("button", { name: "Leave board", exact: true }).click();
+      await expect(card).toHaveCount(0, { timeout: 60000 });
       sfJson(["data", "update", "record", "--sobject", "Housie_Account__c",
         "--record-id", String(row.Id), "--values", "Status__c=SUSPENDED",
         "--target-org", "housie-browser-agent", "--json"]);
     }
-    const verify = sfJson(["data", "query", "--query",
-      "SELECT Status__c FROM Housie_Account__c WHERE Id = '" + String(row.Id) + "'",
-      "--target-org", "housie-browser-agent", "--json"]);
-    const verified = Array.isArray(verify?.records) ? verify.records : [];
-    expect(verified).toHaveLength(1);
-    expect(verified[0].Status__c).toBe("SUSPENDED");
+    const verify = queryRecords(
+      "SELECT Status__c FROM Housie_Account__c WHERE Id = '" + String(row.Id) + "'"
+    );
+    expect(verify).toHaveLength(1);
+    expect(verify[0].Status__c).toBe("SUSPENDED");
     cleaned++;
   }
-  housie.note("Verified " + cleaned + " M1 Purchase synthetic accounts are SUSPENDED after any WAITING tickets were withdrawn, reserved balances returned to zero, and board memberships were left. No keys or emails were retained.");
+  housie.note("Verified " + cleaned + " M1 Purchase synthetic accounts were withdrawn, had zero reserved points, two append-only wallet-hold rows and six resource-ledger rows, left their scenario-owned boards, and were suspended. No keys or emails were retained.");
 });
