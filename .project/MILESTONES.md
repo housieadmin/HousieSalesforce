@@ -329,3 +329,12 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - [x] Prior synthetic purchase fixture recovery: [#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549), 2/2 scenarios passed.
 - [ ] Two-human paid-ticket acceptance remains open. Integrated run #42043222673 stopped before purchase at a test-helper redaction timeout. Helper fix committed; retry queued from issue #9 comment [6661443528](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661443528).
 - PR validation [#42043742084](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043742084) passed 39/39 Apex tests and metadata validation on the prior HEAD; current HEAD requires fresh validation.
+
+
+### PR #42 latest integrated evidence — 2026-11-05
+
+- Source/org parity passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673): 30/30 Apex classes present; exact ticket-service source; only accepted comment-only OperationService drift; LWC/access exact.
+- The same run passed the fixed-fixture withdrawal regression (withdrawal, hold release, repurchase with a new ticket ID, final release) and read-only ExperienceBundle/Network/FlexiPage inspection.
+- The same run's two-human scenario completed both MANUAL purchases and 90-ball layout/uniqueness assertions, then failed at a post-reload account-key redaction helper that incorrectly required a label not rendered on the authenticated route. Persisted reload/ledger assertions and the full two-human withdrawal/leave lifecycle remain unaccepted until the focused rerun passes.
+- Verified Network settings are recorded in `.project/MILESTONE_1_ROUTE_SECURITY_REVIEW.md`. No Network or ExperienceBundle metadata was deployed; site remains UnderConstruction.
+- Keep broad Apex coverage uplift, historical artifact deletion and cleanup of failed/retried synthetic acceptance fixtures deferred until after Milestone 1, per user direction.
