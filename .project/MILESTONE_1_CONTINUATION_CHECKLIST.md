@@ -71,3 +71,16 @@
 - Corrected `redactAccountKey` to redact when a label is present without requiring that label on token routes; query/fragment bearer tokens are still removed from browser history after app resolution. Retry requested in issue #9 comment [6661443528](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661443528).
 - Verified current Network settings: `UnderConstruction`, guest file access `true`, guest member visibility `false`, guest Chatter `false`, self-registration `false`, sender `sumit.gupta@salesforce.com`; ExperienceBundle `isAvailableToGuests=true`. Root is `c:housieApp`; account detail is `c:housieBoardHub` with `recordId`. No Network/ExperienceBundle deployment or activation is approved or included.
 - Milestone 1 remains **IN PROGRESS**. Do not merge until two-human purchase/withdrawal/repurchase/leave-guard acceptance passes and the final PR checks are green.
+
+
+## Latest integrated evidence — 2026-11-05
+
+- [x] Targeted `HousieGameTicketService` and `HousieBoardService` Apex NoTestRun deployments passed: [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389) and [#42014362545](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014362545).
+- [x] Latest `housieApp` fragment-token NoTestRun dry-run/deployment passed: [#42042968124](https://github.com/housieadmin/HousieSalesforce/actions/runs/42042968124).
+- [x] Integrated source/org parity passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673): Apex 30/30 present, only the accepted comment-only `HousieOperationService.cls` drift remains, and LWC/access metadata match.
+- [x] Fixed-fixture withdrawal regression passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673): release of original ticket, repurchase with a new ticket ID, and final release all passed while unrelated reservations were preserved.
+- [x] ExperienceBundle/FlexiPage/Network inspection passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673). Corrected parser verified the current Network settings; see `.project/MILESTONE_1_ROUTE_SECURITY_REVIEW.md`. No Network or ExperienceBundle deployment occurred.
+- [ ] Two-human acceptance remains open. Run #42043222673 completed both purchases, unique MANUAL ticket checks and 90-ball layout validation, then failed at a stale post-reload redaction call that incorrectly required an Account key label on the authenticated app route. The current branch uses optional redaction after reload. The rerun must verify reload persistence, both wallet holds, participant and resource-ledger rows, Leave Board rejection while tickets are active, both withdrawals, owner repurchase with a new ticket ID, final release and successful leave.
+- [ ] Run PR validation against the latest branch after the final acceptance fix; require metadata dry-run and all 39 existing Apex tests.
+
+**Do not clean up the synthetic accounts/boards/tickets from failed or retried two-human acceptance attempts during this milestone.** Per user direction, defer this cleanup until after Milestone 1. Historical artifact deletion and broad Apex coverage uplift are also deferred.
