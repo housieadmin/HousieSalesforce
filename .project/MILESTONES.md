@@ -279,3 +279,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Fixed withdrawal regression's incorrect assumption that all account reservations belonged to its target board. The fixture account has 30 reserved points while the target board ticket holds 10; 20 points belong to unrelated boards and must remain reserved. Updated test now checks board-specific reservation deltas and releases its final replacement ticket.
 - Latest public account-route retry predates the LWC query-string fix. Narrow NoTestRun deployment of only `LightningComponentBundle:housieApp` is running in [#42039834760](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039834760).
 - User-directed deferred items: historical synthetic-key artifact deletion (3 artifacts, accounts suspended) and broad Apex coverage uplift after Milestone 1.
+
+
+### Public app route fix deployed — 2026-11-05
+
+- Narrow NoTestRun dry-run and deployment of only `LightningComponentBundle:housieApp` passed ([#42039834760](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039834760)).
+- Public token route now reads query parameters directly when Experience Cloud omits them from CurrentPageReference state, and removes bearer parameters from the visible URL.
+- PR validation [#42039758560](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039758560) passed manifest validation and all 39 local Apex tests.
+- Fresh source parity, two-human acceptance and corrected withdrawal regression queued in [#42040112914](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040112914).
