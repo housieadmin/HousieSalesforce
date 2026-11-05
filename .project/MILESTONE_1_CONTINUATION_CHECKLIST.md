@@ -45,7 +45,7 @@
 ## 4. Cleanup and closeout
 
 - [x] Suspended only the two prior M1 Purchase synthetic accounts after withdrawal, zero reserved points, two append-only hold rows and six resource-ledger rows were verified ([#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549)).
-- [ ] Update .project/MILESTONES.md and .project/SESSION_2026-11-05.md with exact run links and accepted/unaccepted outcomes.
+- [ ] Update .project/MILESTONES.md and .project/SESSION_2026-11-05.md with exact run links and accepted/unaccepted outcomes. Combined run #42040038322 is stalled in source retrieve; added a 180-second CLI process timeout for retry.
 - [ ] Keep Milestone 1 IN PROGRESS until all required acceptance criteria pass.
 
 ## Deferred, separate review
