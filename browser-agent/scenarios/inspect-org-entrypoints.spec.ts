@@ -3,10 +3,10 @@ import { test, expect } from "../core";
 test("inspect Salesforce admin pages and Housie Experience Cloud shell", async ({ page, housie }) => {
   await housie.login();
 
-  const quickFind = page.getByRole("searchbox", { name: "Quick Find" });
-  await quickFind.waitFor({ state: "visible", timeout: 30000 });
-  await quickFind.fill("Lightning App Builder");
-  const appBuilderLink = page.getByRole("link", { name: "Lightning App Builder", exact: true });
+  const userInterface = page.getByRole("treeitem", { name: "User Interface" });
+  const expand = userInterface.getByRole("button", { name: "Expand" });
+  if (await expand.count()) await expand.click();
+  const appBuilderLink = userInterface.getByRole("link", { name: "Lightning App Builder", exact: true });
   await appBuilderLink.waitFor({ state: "visible", timeout: 30000 });
   await appBuilderLink.click();
   await page.getByText("Lightning Pages", { exact: true }).waitFor({ state: "visible", timeout: 60000 });
