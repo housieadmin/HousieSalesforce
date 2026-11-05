@@ -53,6 +53,16 @@ test("two distinct active humans create and join the same WAITING board", async 
   const boardId = (await ownerCard.innerText()).match(/Board ID:\s*([a-f0-9]{32})/i)?.[1];
   expect(boardId).toMatch(/^[a-f0-9]{32}$/i);
 
+  const memberPage = await page.context().newPage();
+  const memberHub = await openPublicAccount(memberPage, member.key, member.displayName);
+  await expect(memberHub.getByText("No boards yet. Create your first board above.", { exact: true }))
+    .toBeVisible({ timeout: 60000 });
+  await memberHub.getByRole("textbox", { name: "Invitation board ID", exact: true }).fill(boardId as string);
+  await memberHub.getByRole("button", { name: "Join board", exact: true }).click();
+  const memberCard = memberHub.locator("article.board-card").filter({ hasText: boardName });
+  await expect(memberCard, "Second distinct human should join the same board").toBeVisible({ timeout: 60000 });
+  await expect(memberCard).toContainText("Game: WAITING");
+
   // Reload both token sessions so membership is proven from persisted
   // Board_Member/Game rows, not only the optimistic create/join response.
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -93,4 +103,5 @@ test("two distinct active humans create and join the same WAITING board", async 
 
   housie.note("Two-human WAITING board setup passed: owner and member are distinct ACTIVE accounts; both Board_Member index rows and one Game row persist; BoardHub lists the WAITING board for both accounts after independent reloads. Board ID=" + boardId + "; fixture display names=" + owner.displayName + " / " + member.displayName + ". Bearer keys and synthetic emails omitted.");
   await housie.screenshot("two-human-waiting-board-member-redacted");
+  await memberPage.close();
 });
