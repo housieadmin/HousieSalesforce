@@ -241,3 +241,8 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - Browser run [#41994178363](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994178363) passed signup provisioning/grant verification: ACTIVE account, 100 points, 0 reserved, 1 auto token, 1 flip, 1 fix, four distinct resource transaction index rows. Public invitation token resolved and BoardHub loaded. Account key was redacted before artifacts.
 - The two-human scenario in the same run failed on a test-harness bug (`memberPage` not initialized) after owner board creation; the owner board creation itself showed WAITING. The scenario has been corrected and will be rerun; second-human join is not yet accepted.
+
+
+## Two-human scenario harness correction — 2026-11-05
+
+- Signup grant acceptance passed in #41994178363 and #41994239381. The two-human scenario in both runs failed only because the member page variable was not initialized, after the owner board was created. The member-page setup and join flow are now corrected; rerun requested (#6653370553).
