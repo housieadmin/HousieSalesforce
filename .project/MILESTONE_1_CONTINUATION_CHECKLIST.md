@@ -58,3 +58,6 @@
 
 - [ ] Delete historical Browser Agent artifacts containing synthetic bearer-key traces/CLI diagnostics: runs #42011719670 (artifact 13407053087), #42012325312 (artifact 13406743940), and #42012797427 (artifact 13407248997). Associated synthetic accounts are suspended. Do not prioritize this before Milestone 1 closeout.
 - [ ] Broad Apex test coverage uplift; current 39 local Apex tests remain the baseline. Add comprehensive coverage after Milestone 1 classes and flows stabilize.
+
+
+- [ ] Post-Milestone 1: suspend/delete only synthetic accounts created by failed/retried two-human acceptance attempts after verifying their ticket/hold/ledger state. User requested that remaining cleanup work be deferred until after Milestone 1; do not interrupt acceptance to clean them now.
