@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
-import { openLightningTab, redactAccountKey } from "../utilities/salesforce";
+import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   let output: string;
@@ -106,15 +106,15 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   const memberTicketId = await purchaseOneTicket(memberHub, boardName);
   expect(ownerTicketId).not.toBe(memberTicketId);
 
-  const games = sfQuery<Record<string, unknown>>(
-    "SELECT Record_Id__c, Status__c, Operation_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "' LIMIT 10"
+  const games = queryBigObject<Record<string, unknown>>(
+    "SELECT Record_Id__c, Status__c, Operation_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   const waitingGames = games.filter(row => row.Status__c === "WAITING");
   expect(waitingGames).toHaveLength(1);
   const gameId = String(waitingGames[0].Record_Id__c);
 
-  const tickets = sfQuery<Record<string, unknown>>(
-    "SELECT Record_Id__c, Owner_Account_Id__c, Status__c, Mode__c, Entry_Fee__c, Layout__c, Wallet_Hold_Id__c, Operation_Id__c FROM Ticket__b WHERE Game_Id__c = '" + gameId + "' AND Ticket_Kind__c = 'HUMAN' LIMIT 20"
+  const tickets = queryBigObject<Record<string, unknown>>(
+    "SELECT Record_Id__c, Owner_Account_Id__c, Status__c, Mode__c, Entry_Fee__c, Layout__c, Wallet_Hold_Id__c, Operation_Id__c FROM Ticket__b WHERE Game_Id__c = '" + gameId + "' AND Ticket_Kind__c = 'HUMAN'"
   );
   const activeTickets = tickets.filter(row => row.Status__c === "ACTIVE");
   expect(activeTickets).toHaveLength(2);
@@ -128,7 +128,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   ];
   for (const account of accounts) {
     const accountRows = sfQuery<Record<string, unknown>>(
-      "SELECT Points_Balance__c, Reserved_Points__c FROM Housie_Account__c WHERE Account_Key__c = '" + account.key + "' LIMIT 2"
+      "SELECT Points_Balance__c, Reserved_Points__c FROM Housie_Account__c WHERE Account_Key__c = '" + account.key + "'"
     );
     expect(accountRows).toHaveLength(1);
     expect(Number(accountRows[0].Points_Balance__c)).toBe(100);
@@ -139,7 +139,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(Number(owned[0].Entry_Fee__c)).toBe(10);
     expect(owned[0].Mode__c).toBe("MANUAL");
 
-    const holds = sfQuery<Record<string, unknown>>(
+    const holds = queryBigObject<Record<string, unknown>>(
       "SELECT Hold_Id__c, Source_Id__c, Amount__c, Status__c, Operation_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "' LIMIT 10"
     );
     const accountHolds = holds.filter(row => row.Status__c === "ACTIVE" && row.Source_Id__c === account.ticketId);
@@ -148,8 +148,8 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(accountHolds[0].Hold_Id__c).toBe(owned[0].Wallet_Hold_Id__c);
     expect(accountHolds[0].Operation_Id__c).toBe(owned[0].Operation_Id__c);
 
-    const transactions = sfQuery<Record<string, unknown>>(
-      "SELECT Resource_Type__c, Transaction_Type__c, Quantity__c, Source_Type__c, Source_Id__c, Operation_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + account.key + "' LIMIT 50"
+    const transactions = queryBigObject<Record<string, unknown>>(
+      "SELECT Resource_Type__c, Transaction_Type__c, Quantity__c, Source_Type__c, Source_Id__c, Operation_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + account.key + "'"
     );
     const holdTransactions = transactions.filter(row =>
       row.Resource_Type__c === "POINTS" &&
@@ -161,12 +161,12 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(Number(holdTransactions[0].Quantity__c)).toBe(10);
     expect(holdTransactions[0].Operation_Id__c).toBe(owned[0].Operation_Id__c);
 
-    const journal = sfQuery<Record<string, unknown>>(
+    const journal = queryBigObject<Record<string, unknown>>(
       "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + owned[0].Operation_Id__c + "' LIMIT 2"
     );
     expect(journal.some(row => row.Status__c === "COMMITTED")).toBe(true);
 
-    const participants = sfQuery<Record<string, unknown>>(
+    const participants = queryBigObject<Record<string, unknown>>(
       "SELECT Status__c FROM Game_Participant__b WHERE Game_Id__c = '" + gameId + "' AND Account_Id__c = '" + account.key + "' LIMIT 10"
     );
     expect(participants.some(row => row.Status__c === "ACTIVE")).toBe(true);
