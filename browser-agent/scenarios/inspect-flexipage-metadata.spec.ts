@@ -12,6 +12,7 @@ function filesUnder(dir: string): string[] {
 }
 
 test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", async ({ housie }) => {
+  test.setTimeout(180000);
   const projectRoot = path.resolve(process.cwd(), "..");
   const result = execFileSync("sf", [
     "project", "retrieve", "start",
@@ -22,7 +23,7 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
     "--target-org", "housie-browser-agent",
     "--wait", "60",
     "--json"
-  ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 120000 });
 
   const cleanOutput = result.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const jsonStart = cleanOutput.indexOf("{");
