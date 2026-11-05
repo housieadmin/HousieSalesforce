@@ -1,5 +1,6 @@
 import { test, expect } from "../core";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -47,7 +48,32 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
   const unexpected = actual.filter(file => !expected.includes(file));
   const different = expected.filter(file => actual.includes(file) &&
     !fs.readFileSync(path.join(expectedRoot, file)).equals(fs.readFileSync(path.join(actualRoot, file))));
-  return { expected: expected.length, actual: actual.length, missing, unexpected, different };
+  const differentDetails = different.slice(0, 12).map(file => {
+    const expectedBytes = fs.readFileSync(path.join(expectedRoot, file));
+    const actualBytes = fs.readFileSync(path.join(actualRoot, file));
+    const expectedText = expectedBytes.toString("utf8");
+    const actualText = actualBytes.toString("utf8");
+    const expectedLines = expectedText.split(/\r?\n/);
+    const actualLines = actualText.split(/\r?\n/);
+    let firstDifferentLine = -1;
+    for (let index = 0; index < Math.max(expectedLines.length, actualLines.length); index++) {
+      if (expectedLines[index] !== actualLines[index]) { firstDifferentLine = index; break; }
+    }
+    const line = (value: string | undefined) => value === undefined ? "<EOF>" : value.slice(0, 240);
+    return {
+      file,
+      expectedBytes: expectedBytes.length,
+      actualBytes: actualBytes.length,
+      expectedSha256: createHash("sha256").update(expectedBytes).digest("hex"),
+      actualSha256: createHash("sha256").update(actualBytes).digest("hex"),
+      expectedNewlines: { crlf: (expectedText.match(/\r\n/g) || []).length, lf: (expectedText.match(/(?<!\r)\n/g) || []).length },
+      actualNewlines: { crlf: (actualText.match(/\r\n/g) || []).length, lf: (actualText.match(/(?<!\r)\n/g) || []).length },
+      firstDifferentLine: firstDifferentLine < 0 ? null : firstDifferentLine + 1,
+      expectedLine: firstDifferentLine < 0 ? null : line(expectedLines[firstDifferentLine]),
+      actualLine: firstDifferentLine < 0 ? null : line(actualLines[firstDifferentLine])
+    };
+  });
+  return { expected: expected.length, actual: actual.length, missing, unexpected, different, differentDetails };
 }
 
 /** Isolate a retrieve from pre-existing runtime files so missing org metadata cannot false-pass. */
