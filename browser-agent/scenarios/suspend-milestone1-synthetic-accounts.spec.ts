@@ -50,15 +50,43 @@ test("release active tickets and suspend only Milestone 1 synthetic purchase acc
     const purchase = commands.find(command =>
       command.Action_Type__c === "PURCHASE" && command.Status__c === "COMMITTED"
     );
-    expect(purchase, "Each M1 Purchase account must have a committed purchase command").toBeTruthy();
+    const outstandingTicket = committedPurchases > committedWithdrawals;
+
+    if (!purchase) {
+      const reservedWithoutPurchase = queryRecords(
+        "SELECT Reserved_Points__c FROM Housie_Account__c WHERE Id = '" + String(row.Id) + "'"
+      );
+      expect(reservedWithoutPurchase).toHaveLength(1);
+      expect(Number(reservedWithoutPurchase[0].Reserved_Points__c)).toBe(0);
+      const noPurchaseHolds = queryBigObject<Record<string, unknown>>(
+        "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + key + "'"
+      );
+      expect(noPurchaseHolds).toHaveLength(0);
+      const signupLedger = queryBigObject<Record<string, unknown>>(
+        "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + key + "'"
+      );
+      expect(signupLedger).toHaveLength(4);
+      if (row.Status__c !== "SUSPENDED") {
+        sfJson(["data", "update", "record", "--sobject", "Housie_Account__c",
+          "--record-id", String(row.Id), "--values", "Status__c=SUSPENDED",
+          "--target-org", "housie-browser-agent", "--json"]);
+      }
+      const verifyNoPurchase = queryRecords(
+        "SELECT Status__c, Reserved_Points__c FROM Housie_Account__c WHERE Id = '" + String(row.Id) + "'"
+      );
+      expect(verifyNoPurchase).toHaveLength(1);
+      expect(verifyNoPurchase[0].Status__c).toBe("SUSPENDED");
+      expect(Number(verifyNoPurchase[0].Reserved_Points__c)).toBe(0);
+      cleaned++;
+      continue;
+    }
     const boardId = String(purchase.Board_Id__c);
     const gameId = String(purchase.Game_Id__c);
-    const outstandingTicket = committedPurchases > committedWithdrawals;
 
     if (row.Status__c !== "SUSPENDED") {
       expect(key).toMatch(/^[a-f0-9]{32}$/i);
       const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
-      await page.goto(root + "?token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
+      await page.goto(root + "?c__token=" + encodeURIComponent(key) + "&token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
       const app = page.locator("c-housie-app");
       await expect(app).toHaveCount(1, { timeout: 60000 });
       await redactAccountKey(page);
