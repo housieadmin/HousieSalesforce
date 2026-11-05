@@ -209,3 +209,10 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - Added `browser-agent/scenarios/two-human-ticket-purchase.spec.ts` for the first positive two-human paid-ticket path. It checks two distinct active tickets/layouts, matching active wallet holds and HOLD_RESERVE ledger rows, committed operation journals and active participant rows while the game remains WAITING.
 - The test is intentionally gated and must not run until the user authorizes the narrow `HousieGameTicketService.cls` + companion metadata deployment. The org's old `completeTicketCommand()` query can leave PREPARED commands/locks. No Apex deployment has been authorized or performed.
+
+
+## Live schema parity correction — 2026-11-05
+
+- The 249-file Git blob comparison was against an archived retrieve branch, not a fresh current-org describe. Current live SOQL rejects `Board_Role__c` on `Board_Member__b` and `Resource_Type__c` on `Account_Resource_Transaction__b`, even though those fields exist in main. Live schema parity is therefore **OPEN**, not passed.
+- Added `inspect-live-bigobject-schema.spec.ts` to capture current field API names through Salesforce CLI describe. Fresh retrieve and complete field/index comparison are required before closing schema parity.
+- Browser run #41992096929 reached public token resolution, created a WAITING board and activated a new account, but stopped at live Big Object field errors before membership/grant ledger acceptance. Both failure snapshots show bearer keys redacted.
