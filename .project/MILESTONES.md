@@ -73,7 +73,7 @@ Run independent lanes concurrently where they do not mutate the same test data o
 
 | Lane | Work item | Status / dependency |
 |---|---|---|
-| A — Source parity | Curated Apex, LWC, custom permission, permission set and tab round-trip; diagnose byte-level diffs without weakening assertions. | In progress; diagnostic rerun #41960912330. |
+| A — Source parity | Curated Apex, LWC, custom permission, permission set and tab round-trip; diagnose byte-level diffs without weakening assertions. | Retrieved all curated files with no missing/unexpected members. #41960912330 identified newline/XML serialization noise plus the expected undeployed BoardHub accountKey source delta. Normalize serialization and retain strict semantic/code checks. |
 | B — Account setup | Account Admin tab, create a unique ACTIVE account, verify signup grants and safe key handling. | UI/create passed once; repeatability run pending. |
 | C — Board lifecycle | Create private/public WAITING board; verify initial game and BOARD_ADMIN membership; join by invitation and public directory; leave rules. | Board creation source fix exists; org test blocked until explicit deployment. Join scenario still to author after a second dedicated account fixture is identified. |
 | D — Ticket lifecycle | Purchase manual/automatic tickets, enforce per-account cap and token rules, validate unique 90-ball layout, withdraw all WAITING tickets, verify hold/point release, repurchase. | Purchase regression exists; new withdrawal/repurchase scenario authored on milestone1/acceptance-parallel; execution pending. |
