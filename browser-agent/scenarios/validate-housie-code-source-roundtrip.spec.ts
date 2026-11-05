@@ -20,7 +20,7 @@ function retrieve(projectRoot: string, manifestRoot: string, manifestName: strin
     output = execFileSync("sf", [
       "project", "retrieve", "start", "--manifest", manifestPath,
       "--target-org", "housie-browser-agent", "--wait", "60", "--json"
-    ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
   } catch (error) {
     const failure = error as NodeJS.ErrnoException & { stdout?: string | Buffer; stderr?: string | Buffer };
     const stdout = String(failure.stdout ?? "").replace(/\u001b\[[0-9;]*m/g, "").trim();
@@ -30,8 +30,8 @@ function retrieve(projectRoot: string, manifestRoot: string, manifestName: strin
       "Manifest: " + manifestName,
       "Manifest path: " + manifestPath,
       "Exit code: " + String(failure.code ?? "unknown"),
-      "stdout: " + (stdout || "<empty>"),
-      "stderr: " + (stderr || "<empty>")
+      "stdout: " + (stdout || "<empty>").replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]").slice(-1200),
+      "stderr: " + (stderr || "<empty>").replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]").slice(-1200)
     ].join("\n"));
   }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
