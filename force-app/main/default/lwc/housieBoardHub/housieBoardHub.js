@@ -16,7 +16,16 @@ import listMyPendingActions from '@salesforce/apex/HousieGameTicketService.listM
 
 export default class HousieBoardHub extends LightningElement {
   @api recordId;
-  @api accountKey;
+  _accountKey;
+  @api get accountKey() { return this._accountKey; }
+  set accountKey(value) {
+    const changed = value && value !== this._accountKey;
+    this._accountKey = value;
+    if (changed && this.isConnected) {
+      this.boards = [];
+      this.refresh();
+    }
+  }
   boards = [];
   publicBoards = [];
   publicSearch = '';
@@ -33,8 +42,6 @@ export default class HousieBoardHub extends LightningElement {
       const accountKey = getFieldValue(data, ACCOUNT_KEY_FIELD);
       if (accountKey && accountKey !== this.accountKey) {
         this.accountKey = accountKey;
-        this.boards = [];
-        this.refresh();
       }
     } else if (error) {
       this.error = error?.body?.message || error?.message || 'Unable to resolve this Housie account.';
