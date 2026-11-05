@@ -99,6 +99,9 @@ test("new account activation is backed by all four committed signup grants", asy
   const app = page.locator("c-housie-app");
   await expect(app, "The public site must mount HousieApp for an invitation token")
     .toHaveCount(1, { timeout: 60000 });
+  // Redact as soon as the resolved app exposes its account context, before
+  // later assertions can create retained failure screenshots or traces.
+  await redactAccountKey(page);
   await expect(app.getByText("Welcome, " + displayName, { exact: true }))
     .toBeVisible({ timeout: 60000 });
   const boardHub = app.locator("c-housie-board-hub");
