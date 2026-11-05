@@ -9,8 +9,14 @@ function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
     output = execFileSync("sf", [
       "data", "query", "--query", soql, "--target-org", "housie-browser-agent", "--json"
     ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  } catch {
-    throw new Error("Salesforce CLI query failed; query text and credentials were not copied into diagnostics.");
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & { stderr?: string | Buffer; stdout?: string | Buffer };
+    const detail = String(failure.stderr ?? failure.stdout ?? "")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+      .slice(0, 1200);
+    throw new Error("Salesforce CLI query failed (exit " + String(failure.code ?? "unknown") + "). " + detail);
   }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const start = clean.indexOf("{");
@@ -46,6 +52,9 @@ async function openPublicAccount(page: import("@playwright/test").Page, key: str
   await expect(app.getByText("Welcome, " + displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const hub = app.locator("c-housie-board-hub");
   await expect(hub).toHaveCount(1, { timeout: 30000 });
+  // Account_Key__c is a bearer credential rendered by HousieApp; redact it
+  // before any subsequent failure screenshot, trace or video can be retained.
+  await redactAccountKey(page);
   return hub;
 }
 
