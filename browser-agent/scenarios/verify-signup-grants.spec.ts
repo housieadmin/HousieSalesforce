@@ -16,7 +16,7 @@ function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   } catch {
     throw new Error("Salesforce CLI query failed; query text and credentials were intentionally not copied into diagnostics.");
   }
-  const clean = output.replace(/\\u001b\\[[0-9;]*m/g, "").trim();
+  const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const jsonStart = clean.indexOf("{");
   if (jsonStart < 0) throw new Error("Salesforce CLI did not return JSON.");
   const parsed = JSON.parse(clean.slice(jsonStart));
