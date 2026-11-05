@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+  <types>
+        <members>Account_Resource_Transaction__b</members>
+    <members>Audit_Record__b</members>
+    <members>Board_Member__b</members>
+    <members>Board__b</members>
+    <members>Bot_Contribution__b</members>
+    <members>Chat_Message__b</members>
+    <members>Claim__b</members>
+    <members>Game_Action_Request__b</members>
+    <members>Game_Action_Response__b</members>
+    <members>Game_Event__b</members>
+    <members>Game_Ledger__b</members>
+    <members>Game_Participant__b</members>
+    <members>Game__b</members>
+    <members>Housie_Account__c</members>
+    <members>Housie_Game_Command_Lock__c</members>
+    <members>Housie_Operation_Lock__c</members>
+    <members>Housie_Ticket_Command__c</members>
+    <members>Operation_Journal__b</members>
+    <members>Ticket__b</members>
+    <members>Wallet_Hold__b</members>
+    <name>CustomObject</name>
+  </types>
+  <version>66.0</version>
+</Package>

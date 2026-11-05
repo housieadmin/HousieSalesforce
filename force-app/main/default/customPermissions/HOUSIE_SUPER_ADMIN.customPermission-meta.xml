@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomPermission xmlns="http://soap.sforce.com/2006/04/metadata">
-  <label>Housie Super Admin</label>
-  <description>Controls privileged Housie housie super admin capabilities.</description>
+    <description>Controls privileged Housie housie super admin capabilities.</description>
+    <isLicensed>false</isLicensed>
+    <label>Housie Super Admin</label>
 </CustomPermission>
