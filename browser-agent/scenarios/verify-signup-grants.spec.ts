@@ -72,6 +72,13 @@ test("new account activation is backed by all four committed signup grants", asy
     expect(rows[0].Source_Id__c).toBe(accountKey);
     expect(String(rows[0].Operation_Id__c || "")).toMatch(/^[a-f0-9]{32}$/i);
   }
+  const grantOperationIds = [...new Set(signupGrants.map(row => String(row.Operation_Id__c)))];
+  expect(grantOperationIds).toHaveLength(1);
+  const grantJournal = sfQuery<Record<string, unknown>>(
+    "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + grantOperationIds[0] + "' LIMIT 2"
+  );
+  expect(grantJournal.some(row => row.Status__c === "COMMITTED"),
+    "Signup grant operation must have a COMMITTED journal marker").toBe(true);
 
   housie.note("Signup grant audit passed: one ACTIVE account, balances match SPEC, and four distinct committed-grant records exist. Bearer account key redacted; synthetic email and key omitted from artifacts.");
 
