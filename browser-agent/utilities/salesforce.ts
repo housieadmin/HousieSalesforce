@@ -99,7 +99,9 @@ export function queryBigObject<T extends Record<string, unknown>>(
         "--target-org", targetOrg,
         "--output-file", outputFile,
         "--result-format", "json",
-        "--wait", "5"
+        "--wait", "5",
+        "--api-version", "66.0",
+        "--json"
       ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 8 * 1024 * 1024 });
     } catch (error) {
       const failure = error as NodeJS.ErrnoException & { stderr?: string | Buffer; stdout?: string | Buffer };
