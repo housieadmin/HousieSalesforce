@@ -40,7 +40,7 @@
 - [ ] Verify both humans' active tickets are removed, reserved points return to zero, and Leave Board is rejected while an active human ticket remains.
 - [ ] Verify one HOLD_RELEASE resource-ledger row per withdrawn ticket and no stale active hold/command lock.
 - [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row; release that final fixture ticket before leaving the board.
-- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence.
+- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. Its baseline now accounts for 20 unrelated reserved points on other boards; only this regression board's 10-point hold/release delta is asserted.
 
 ## 4. Cleanup and closeout
 
@@ -52,3 +52,9 @@
 
 - [ ] ExperienceBundle/Network route, guest access, sharing and security reconciliation requires a SPEC-reviewed design and a separate narrowly scoped PR/deployment. Do not mix it into the paid-ticket Apex deployment.
 - [ ] Artifact #13398760836 remains retained; deletion is not authorized.
+
+
+## Deferred after Milestone 1 (user-directed)
+
+- [ ] Delete historical Browser Agent artifacts containing synthetic bearer-key traces/CLI diagnostics: runs #42011719670 (artifact 13407053087), #42012325312 (artifact 13406743940), and #42012797427 (artifact 13407248997). Associated synthetic accounts are suspended. Do not prioritize this before Milestone 1 closeout.
+- [ ] Broad Apex test coverage uplift; current 39 local Apex tests remain the baseline. Add comprehensive coverage after Milestone 1 classes and flows stabilize.
