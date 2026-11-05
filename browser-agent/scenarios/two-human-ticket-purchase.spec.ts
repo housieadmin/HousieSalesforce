@@ -136,6 +136,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   expect(games).toHaveLength(1);
+  expect(games[0].Status__c).toBe("WAITING");
   const gameId = String(games[0].Record_Id__c);
 
   const tickets = queryBigObject<Record<string, unknown>>(
