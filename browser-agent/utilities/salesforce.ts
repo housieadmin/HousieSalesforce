@@ -115,11 +115,15 @@ export function queryBigObject<T extends Record<string, unknown>>(
         .slice(0, 1200);
       throw new Error("Salesforce Bulk API 2.0 Big Object query failed. " + detail);
     }
-    const raw = fs.readFileSync(outputFile, "utf8").trim();
+    const raw = fs.readFileSync(outputFile, "utf8").replace(/^\\uFEFF/, "").trim();
     if (!raw) return [];
     let parsed: unknown;
-    try { parsed = JSON.parse(raw); }
-    catch { throw new Error("Salesforce Bulk API 2.0 returned an invalid JSON result file."); }
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      try { parsed = raw.split(/\\r?\\n/).filter(Boolean).map(line => JSON.parse(line)); }
+      catch { throw new Error("Salesforce Bulk API 2.0 returned an invalid JSON result file."); }
+    }
     if (Array.isArray(parsed)) return parsed as T[];
     if (parsed && typeof parsed === "object" && Array.isArray((parsed as { records?: unknown[] }).records)) {
       return (parsed as { records: T[] }).records;
