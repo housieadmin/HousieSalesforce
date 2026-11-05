@@ -295,3 +295,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - The source parity scenario used synchronous Salesforce CLI metadata retrieve with `--wait 60` but no process timeout; this can block the Playwright timeout. Added a 180-second execFileSync timeout and output redaction for the next run.
 - Network parser corrected; read-only metadata reinspection is queued in [#42040342202](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040342202).
 - No duplicate mutating acceptance run is being started while the prior run remains active.
+
+
+### Source parity and acceptance corrections — 2026-11-05
+
+- Source/org round-trip passed in [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322): Apex 30/30 present; only accepted OperationService comment drift; LWC/access exact.
+- Withdrawal regression released the original hold and appended its ledger release row. Repurchase test failed only because it searched the board card for a receipt rendered at app level; locator corrected to read the app-level completed-purchase notice.
+- Two-human account route remained unauthenticated after the first LWC fix. Updated app to preserve captured token across repeated CurrentPageReference wire setter calls and ignore the Experience Cloud root path segment as a token.
+- Follow-up narrow LWC deployment is queued; read-only Experience/Network reinspection is running.
