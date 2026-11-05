@@ -99,4 +99,6 @@
 
 - [ ] Obtain explicit approval, then perform NoTestRun dry-run/deployment of only `LightningComponentBundle:housieApp` containing the history-state persistence fix. Do not validate the updated source against the old org bundle.
 - [ ] After deployment, run the focused history-state browser scenario and require persisted ticket/hold/participant/resource-ledger checks, Leave Board guard, both withdrawals, repurchase, final release and leave.
-- [ ] Current PR validation for the latest HEAD is [#42052917833](https://github.com/housieadmin/HousieSalesforce/actions/runs/42052917833); confirm manifest dry-run and 39 Apex tests pass, then rerun after any subsequent code changes.
+- [x] Current PR validation [#42053135679](https://github.com/housieadmin/HousieSalesforce/actions/runs/42053135679) passed manifest dry-run and all 39 local Apex tests on the current HEAD.
+
+- [ ] Browser run [#42052718437](https://github.com/housieadmin/HousieSalesforce/actions/runs/42052718437) was executed against the old Developer Org bundle and failed at `historyTokenPresent=false`; the new LWC was not deployed, so this does not validate the source fix. Obtain explicit approval for narrow NoTestRun deployment of only `LightningComponentBundle:housieApp`, then rerun the browser scenario.
