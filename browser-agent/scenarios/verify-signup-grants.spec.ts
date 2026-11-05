@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
-import { openLightningTab, redactAccountKey } from "../utilities/salesforce";
+import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   let output: string;
@@ -58,7 +58,7 @@ test("new account activation is backed by all four committed signup grants", asy
   const statusLine = page.getByText(/^Status: /);
   await expect(statusLine).toHaveText("Status: ACTIVE", { timeout: 60000 });
 
-  const accountSoql = "SELECT Id, Status__c, Points_Balance__c, Reserved_Points__c, Auto_Mode_Tokens__c, Flips__c, Fixes__c, Created_At__c FROM Housie_Account__c WHERE Email__c = '" + email + "' LIMIT 2";
+  const accountSoql = "SELECT Id, Status__c, Points_Balance__c, Reserved_Points__c, Auto_Mode_Tokens__c, Flips__c, Fixes__c, Created_At__c FROM Housie_Account__c WHERE Email__c = '" + email + "'";
   const accounts = sfQuery<Record<string, unknown>>(accountSoql);
   expect(accounts, "Exactly one account should exist for the unique test email").toHaveLength(1);
   const account = accounts[0];
@@ -69,8 +69,8 @@ test("new account activation is backed by all four committed signup grants", asy
   expect(Number(account.Flips__c)).toBe(1);
   expect(Number(account.Fixes__c)).toBe(1);
 
-  const grantsSoql = "SELECT Record_Id__c, Resource_Type__c, Transaction_Type__c, Quantity__c, Source_Type__c, Source_Id__c, Operation_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + accountKey + "' LIMIT 10";
-  const grants = sfQuery<Record<string, unknown>>(grantsSoql);
+  const grantsSoql = "SELECT Record_Id__c, Resource_Type__c, Transaction_Type__c, Quantity__c, Source_Type__c, Source_Id__c, Operation_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + accountKey + "'";
+  const grants = queryBigObject<Record<string, unknown>>(grantsSoql);
   const expected = new Map([["POINTS", 100], ["AUTO_MODE_TOKEN", 1], ["FLIP", 1], ["FIX", 1]]);
   const signupGrants = grants.filter(row => row.Transaction_Type__c === "GRANT" && row.Source_Type__c === "SIGNUP");
   expect(signupGrants, "All four signup grant ledger records must exist").toHaveLength(4);
@@ -83,7 +83,7 @@ test("new account activation is backed by all four committed signup grants", asy
   }
   const grantOperationIds = [...new Set(signupGrants.map(row => String(row.Operation_Id__c)))];
   expect(grantOperationIds).toHaveLength(1);
-  const grantJournal = sfQuery<Record<string, unknown>>(
+  const grantJournal = queryBigObject<Record<string, unknown>>(
     "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + grantOperationIds[0] + "' LIMIT 2"
   );
   expect(grantJournal.some(row => row.Status__c === "COMMITTED"),
