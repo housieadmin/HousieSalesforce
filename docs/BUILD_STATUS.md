@@ -182,3 +182,10 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Public site root [browser run #41990222465](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990222465) passed 1/1: `/housie/s/` renders `c:housie-app` and the Housie shell. This confirms the app is mounted, not yet that a valid invitation token resolves or that `accountKey` reaches BoardHub.
 - Curated source/org round-trip [browser run #41990232409](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990232409) confirms all files present and no missing/unexpected paths: Apex 30, LWC 14, custom permissions 2, permission sets 3, tabs 3. LWC/access metadata all match byte-for-byte after retrieval normalization. Apex has exactly two byte differences: functional ticket command SELECT mismatch in `HousieGameTicketService.cls` (org lacks `Mode__c`, `Entry_Fee__c`, `Layout__c`) and comment-only transaction-boundary documentation in `HousieOperationService.cls`.
 - A new browser test now verifies signup account balances and four `SIGNUP GRANT` Big Object ledger rows, then tests the generated invitation token against the public `HousieApp` route. It redacts the bearer key before screenshot/artifact. Run is queued; no result claimed yet.
+
+
+## Signup-grant and two-human test status — 2026-11-05
+
+- Signup grant audit run #41990531319 created an ACTIVE account but failed in the browser test harness when parsing Salesforce CLI output containing ANSI escape sequences. This is not evidence of a product defect. The parser was fixed; rerun #6652827205 now checks the four grant rows and the public `HousieApp` token/accountKey path, with bearer key redaction.
+- Two-human WAITING setup scenario is added and requested (#6652842537): two isolated accounts, owner creates private board, second human joins, and SOQL verifies committed membership records and a committed WAITING game. No ticket purchases are attempted before the separately authorized Apex query deployment.
+- Results are pending; do not infer success from workflow dispatch.
