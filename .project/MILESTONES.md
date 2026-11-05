@@ -176,7 +176,7 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 
 ### Verified schema and access parity update — 2026-11-05
 
-- [x] Property-level schema parity is established for the current retrieved object model: main and org retrieve branch `automation/org-retrieve-41937124487` contain exactly 249 matching object metadata files, zero missing/extra/changed Git blob SHAs (20 object, 213 field, 16 index files). This includes field properties because the complete field XML files are identical.
+- [x] Archived retrieve snapshot parity only: main matches `automation/org-retrieve-41937124487` for 249 object/field/index files. This is historical source-to-snapshot equality, **not live Developer Org schema acceptance**; see the correction below.
 - [x] Housie-owned access metadata source parity is semantically established against org retrieve: two custom permissions, three permission sets and three tabs. XML byte differences in the three permission sets and two tabs are whitespace/formatting only; the normalized metadata elements match. Both Salesforce-managed `sfdcInternalInt__*` permission sets remain excluded.
 - [ ] Functional Apex parity remains open for `HousieGameTicketService.completeTicketCommand()`; org missing selected `Mode__c`, `Entry_Fee__c`, `Layout__c`. `HousieOperationService` differs only in comments describing transaction boundaries.
 
