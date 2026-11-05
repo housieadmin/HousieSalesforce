@@ -22,7 +22,7 @@
 - [x] Run targeted dry-run with NoTestRun; it passed.
 - [x] Deploy only the user-authorized Apex class after the NoTestRun dry-run passed ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
 - [x] Confirm the real deployment reports Succeeded, with zero component failures and zero tests run. Only ApexClass:HousieGameTicketService was selected; no object, permission, ExperienceBundle, Network or unrelated Apex deployment was included ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
-- [ ] Run the curated source/org round-trip and confirm HousieGameTicketService.cls matches the Developer Org. This is running in [#420118...](https://github.com/housieadmin/HousieSalesforce/actions) (record final run link after completion).
+- [ ] Run the curated source/org round-trip and confirm HousieGameTicketService.cls matches the Developer Org. Combined acceptance run is pending; record the actual run link after completion.
 
 **Deployment result:** [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389) passed both the NoTestRun dry-run and actual single-class deployment. CLI status 0, Salesforce status Succeeded, zero component failures, zero tests run. This is a deployment success, not an Apex test pass.
 
