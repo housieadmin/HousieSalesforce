@@ -170,7 +170,7 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) closed without merge; Housie-owned access metadata was curated into #32. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) closed without merge and remains deferred pending route/security review. [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) closed without merge; recovery remains deferred to Milestone 5.
 - BoardHub LWC-only deployment [#41984322994](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984322994) succeeded. Record-page board-create [#41985201458](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985201458) passed 1/1, creating a WAITING board. This proves the `recordId` path only.
 - Withdrawal/repurchase remains unaccepted: [#41984570416](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984570416) failed because org Apex omitted `Mode__c` from the completion query; the prepared withdrawal is unresolved. A separate Apex deployment approval is required.
-- Remaining Milestone 1 work: property-level schema parity; curated Apex/LWC/access round-trip; actual public `HousieApp` route proof; second-human join and two-human ticket purchases; wallet hold/resource-ledger reconciliation; withdrawal/repurchase after authorized Apex sync.
+- Remaining Milestone 1 work: finish the Apex source/org round-trip (one functional query delta; one comment-only delta); second-human board join; two-human ticket purchases; wallet hold/resource-ledger reconciliation; withdrawal/repurchase after authorized Apex sync.
 - Active continuation branch: `milestone1/continuation`. Keep this as the single implementation PR for all remaining work.
 
 
@@ -184,7 +184,7 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 ### Public route inspection — 2026-11-05
 
 - [x] Public site root inspection [#41990222465](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990222465) passed 1/1: `/housie/s/` mounts `c:housie-app` and renders the Housie shell. This confirms the root LWC is mounted. It does **not** yet prove invitation token resolution or `accountKey` propagation.
-- [ ] Verify an active account's opaque invitation token through `HousieApp`, then confirm BoardHub loads for that account. A test now creates a synthetic account, redacts the bearer key, checks all four signup grant ledger records, and navigates with `?token=`; result pending.
+- [x] Verify public `HousieApp` token resolution and BoardHub accountKey propagation: run #41992096929 resolved the synthetic account, rendered the welcome state and BoardHub, then created a private board with an initial WAITING game. Bearer key was redacted in failure artifacts. Signup grant ledger verification remains open.
 - [x] LWC/access source-org round-trip [#41990232409](https://github.com/housieadmin/HousieSalesforce/actions/runs/41990232409) confirmed 14/14 LWC, 2/2 custom permissions, 3/3 permission sets and 3/3 tabs with no content differences. Apex remains open for two differences.
 
 
