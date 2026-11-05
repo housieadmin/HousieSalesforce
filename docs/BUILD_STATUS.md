@@ -108,3 +108,12 @@ Salesforce currently documents Developer Edition at **5 MB standard data storage
 - Detailed storage policy: [`docs/STORAGE_RETENTION.md`](STORAGE_RETENTION.md). It classifies financial/history/audit/idempotency/chat/outbox/lock data, defines safe cleanup gates and explicitly authorizes no purge job.
 
 - Latest PR #32 validation [run #41954479347](https://github.com/housieadmin/HousieSalesforce/actions/runs/41954479347) passed metadata validation without deployment and all 39 org-resident Apex tests (100% pass rate). This validates the current branch metadata, including the Board Hub account-context source change, but does not deploy it.
+
+
+## Latest parallel acceptance attempts (2026-11-05)
+
+- Board Hub supports two distinct entry contexts in source: the Experience Cloud record-page path supplies `recordId`, and `wiredAccount` resolves `Housie_Account__c.Account_Key__c`; the public `HousieApp` path resolves an opaque account-key token and passes it through the `account-key` public property. Preserve both. The earlier board-create trace demonstrated a missing account context in the public route, not that record-ID support should be removed.
+- The Board Hub bundle currently exposes `lightningCommunity__Page`, `lightningCommunity__Default`, and `lightning__AppPage`, and declares a `recordId` property for the community default target. Its template and JS retain recordId-based lookup. The exact deployed Experience Builder page/route and whether it injects the expected Housie Account record ID still need direct verification.
+- Withdrawal browser run [#41961697154](https://github.com/housieadmin/HousieSalesforce/actions/runs/41961697154) failed before exercising withdrawal: the dedicated WAITING fixture had zero active tickets. The scenario now seeds a ticket when necessary before withdrawing and repurchasing; rerun requested. This is a test-fixture failure, not a withdrawal-feature failure.
+- Parity run [#41961826198](https://github.com/housieadmin/HousieSalesforce/actions/runs/41961826198) failed at scenario parse time because regex backslashes were double-escaped. The regexes are corrected and rerun requested. No source/org parity conclusion can be drawn from that run.
+- No Salesforce metadata was deployed. The Board Hub change remains source-only pending explicit deployment authorization.
