@@ -17,7 +17,7 @@ test("create an active Housie test account through the admin UI", async ({ page,
   await page.getByRole("textbox", { name: "Display name", exact: true }).fill(displayName);
   await page.getByRole("button", { name: "Create account", exact: true }).click();
 
-  const createdLine = page.getByText(new RegExp("Created:\\s*" + displayName.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")));
+  const createdLine = page.getByText("Created: " + displayName);
   await expect(createdLine, "Admin UI should create the Housie account record")
     .toBeVisible({ timeout: 60000 });
 
