@@ -196,3 +196,10 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Browser run #41990993847 artifact `13398760836` contains a generated synthetic account bearer key in its failure page snapshot. The account was created only for this test, but its key is still a credential and is treated as exposed.
 - A cleanup browser scenario is in progress to suspend both synthetic accounts from the failed run without retrieving or logging their keys. The two-human test was corrected to redact keys before any retained screenshot/trace and sanitize CLI diagnostics.
 - Artifact deletion is not available through the currently connected GitHub actions. Artifact `13398760836` must be deleted; do not claim security cleanup complete until this is done. A separate one-off workflow/process PR would be required; user approval is needed before creating it.
+
+
+## Credential revocation result — 2026-11-05
+
+- Security cleanup run [#41991490195](https://github.com/housieadmin/HousieSalesforce/actions/runs/41991490195) passed 1/1. Both synthetic accounts from failed run #41990993847 were changed to `SUSPENDED` and verified; their bearer keys are no longer accepted by Housie account resolution.
+- Original artifact `13398760836` still exists and contains the old failure snapshot. The current GitHub connector cannot delete workflow artifacts. A separate one-off workflow/process change with Actions write permission is needed to remove it; user approval is required before building that tooling.
+- Signup-grant/public token and two-human WAITING board tests were re-requested after correcting the CLI parser/diagnostics and ensuring bearer keys are redacted before retained artifacts. Result pending.
