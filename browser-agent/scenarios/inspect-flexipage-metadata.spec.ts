@@ -3,35 +3,54 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-test("inspect deployed Lightning App Page metadata for Housie components", async ({ housie }) => {
+function filesUnder(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = path.join(dir, entry.name);
+    return entry.isDirectory() ? filesUnder(full) : [full];
+  });
+}
+
+test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", async ({ housie }) => {
   const projectRoot = path.resolve(process.cwd(), "..");
   const result = execFileSync("sf", [
     "project", "retrieve", "start",
+    "--metadata", "ExperienceBundle",
+    "--metadata", "Network",
     "--metadata", "FlexiPage",
     "--target-org", "housie-browser-agent",
-    "--wait", "30",
+    "--wait", "60",
     "--json"
   ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
   const response = JSON.parse(result);
   expect(response.status, "Salesforce metadata retrieve should succeed").toBe(0);
 
-  const pageDir = path.join(projectRoot, "force-app", "main", "default", "flexipages");
-  const files = fs.existsSync(pageDir)
-    ? fs.readdirSync(pageDir).filter(file => file.endsWith(".flexipage-meta.xml"))
-    : [];
-  const pages = files.map(file => {
-    const xml = fs.readFileSync(path.join(pageDir, file), "utf8");
-    const label = xml.match(/<masterLabel>([\s\S]*?)<\/masterLabel>/)?.[1] || file;
-    const type = xml.match(/<type>([\s\S]*?)<\/type>/)?.[1] || "unknown";
-    const components = [...xml.matchAll(/<componentName>([\s\S]*?)<\/componentName>/g)].map(match => match[1]);
-    return { file, label, type, components };
+  const flexiDir = path.join(projectRoot, "force-app", "main", "default", "flexipages");
+  const flexipages = filesUnder(flexiDir).filter(file => file.endsWith(".flexipage-meta.xml"));
+  const pageDetails = flexipages.map(file => {
+    const xml = fs.readFileSync(file, "utf8");
+    return {
+      file: path.relative(projectRoot, file),
+      label: xml.match(/<masterLabel>([\s\S]*?)<\/masterLabel>/)?.[1] || "",
+      type: xml.match(/<type>([\s\S]*?)<\/type>/)?.[1] || "",
+      components: [...xml.matchAll(/<componentName>([\s\S]*?)<\/componentName>/g)].map(match => match[1])
+    };
   }).filter(page => /housie|house account/i.test(page.label + " " + page.file));
 
-  housie.note("Retrieved Housie FlexiPages: " + JSON.stringify(pages, null, 2));
-  expect(pages.length, "Developer Org should contain Housie App Page metadata").toBeGreaterThan(0);
+  const experienceDir = path.join(projectRoot, "force-app", "main", "default", "experiences");
+  const experienceFiles = filesUnder(experienceDir).filter(file => /\.json$|\.site-meta\.xml$/.test(file));
+  const networkDir = path.join(projectRoot, "force-app", "main", "default", "networks");
+  const networkFiles = filesUnder(networkDir).filter(file => file.endsWith(".network-meta.xml"));
+
+  housie.note("Housie FlexiPages: " + JSON.stringify(pageDetails, null, 2));
+  housie.note("ExperienceBundle files retrieved: " + experienceFiles.map(file => path.relative(projectRoot, file)).join(", "));
+  housie.note("Network metadata files retrieved: " + networkFiles.map(file => path.relative(projectRoot, file)).join(", "));
+
+  expect(pageDetails.length, "Developer Org should contain Housie App Page metadata").toBeGreaterThan(0);
   expect(
-    pages.some(page => page.components.includes("c:housieAccountAdmin")),
+    pageDetails.some(page => page.components.includes("c:housieAccountAdmin")),
     "At least one Housie Account Admin page should contain c:housieAccountAdmin"
   ).toBe(true);
+  expect(experienceFiles.length, "ExperienceBundle should now be retrievable after enabling the setting").toBeGreaterThan(0);
 });
