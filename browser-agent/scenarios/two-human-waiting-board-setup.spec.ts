@@ -1,6 +1,9 @@
 import { test, expect } from "../core";
 import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
+// These scenarios handle bearer account keys; do not retain Playwright traces on failure.
+test.use({ trace: "off" });
+
 async function createActiveAccount(page: import("@playwright/test").Page, stamp: number, suffix: string) {
   const email = "housie.m1.twohuman." + stamp + "." + suffix + "@housie.test";
   const displayName = "M1 Two Human " + stamp + " " + suffix;
