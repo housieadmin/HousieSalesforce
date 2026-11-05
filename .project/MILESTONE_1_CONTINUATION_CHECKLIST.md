@@ -22,14 +22,14 @@
 - [x] Run targeted dry-run with NoTestRun; it passed.
 - [x] Deploy only the user-authorized Apex class after the NoTestRun dry-run passed ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
 - [x] Confirm the real deployment reports Succeeded, with zero component failures and zero tests run. Only ApexClass:HousieGameTicketService was selected; no object, permission, ExperienceBundle, Network or unrelated Apex deployment was included ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
-- [ ] Run the curated source/org round-trip and confirm HousieGameTicketService.cls matches the Developer Org. Combined acceptance run is pending; record the actual run link after completion.
+- [x] Curated source/org round-trip passed in [#42011719670](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011719670): 30/30 Apex files present; HousieGameTicketService exact match; only HousieOperationService comment-only drift remains; LWC/access metadata exact.
 
 **Deployment result:** [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389) passed both the NoTestRun dry-run and actual single-class deployment. CLI status 0, Salesforce status Succeeded, zero component failures, zero tests run. This is a deployment success, not an Apex test pass.
 
 ## 2. Prove two-human paid-ticket purchase
 
-- [ ] Run two-human-ticket-purchase.spec.ts only after the targeted Apex deployment and round-trip pass.
-- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game.
+- [x] Run two-human-ticket-purchase.spec.ts after deployment and source/org round-trip; fix its hold query to select indexed Record_Id__c rather than unsupported Hold_Id__c before the acceptance rerun.
+- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Run #42011719670 created both tickets and passed distinct-ID, layout, WAITING-state and reserved-balance assertions, but the scenario stopped at an invalid non-index Big Object field in its hold query; rerun after the query correction.
 - [ ] Verify 90-ball layout validity and no duplicate active layout within the game.
 - [ ] Reconcile each account's reserved balance, wallet-hold rows, participant rows and immutable resource-transaction ledger entries.
 - [ ] Confirm ticket count, point balances and ledger deltas after independent page reloads.
@@ -44,7 +44,7 @@
 
 ## 4. Cleanup and closeout
 
-- [ ] Suspend only accounts created by these Milestone 1 scenarios using suspend-milestone1-synthetic-accounts.spec.ts; verify the resulting status.
+- [ ] Suspend only accounts created by these Milestone 1 scenarios using suspend-milestone1-synthetic-accounts.spec.ts; the cleanup scenario now releases WAITING tickets/holds and leaves scenario boards before suspension.
 - [ ] Update .project/MILESTONES.md and .project/SESSION_2026-11-05.md with exact run links and accepted/unaccepted outcomes.
 - [ ] Keep Milestone 1 IN PROGRESS until all required acceptance criteria pass.
 
