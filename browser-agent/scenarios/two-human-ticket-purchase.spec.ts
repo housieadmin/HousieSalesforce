@@ -52,6 +52,7 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page);
+  await page.evaluate(() => history.replaceState(null, "", location.pathname));
   await expect(app.getByText("Welcome, " + displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const hub = app.locator("c-housie-board-hub");
   await expect(hub).toHaveCount(1, { timeout: 30000 });
@@ -205,7 +206,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(Number(accountRows[0].Reserved_Points__c)).toBe(10);
 
     const holds = queryBigObject<Record<string, unknown>>(
-      "SELECT Account_Id__c, Game_Id__c, Hold_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
+      "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
     );
     expect(holds).toHaveLength(1);
 
@@ -247,7 +248,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(Number(rows[0].Points_Balance__c)).toBe(100);
     expect(Number(rows[0].Reserved_Points__c)).toBe(0);
     const releasedHolds = queryBigObject<Record<string, unknown>>(
-      "SELECT Account_Id__c, Game_Id__c, Hold_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
+      "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
     );
     expect(releasedHolds, "Withdrawal must release the account's active wallet hold").toHaveLength(0);
   }
@@ -273,7 +274,7 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   expect(Number(ownerAfterRepurchase[0].Points_Balance__c)).toBe(100);
   expect(Number(ownerAfterRepurchase[0].Reserved_Points__c)).toBe(10);
   const replacementHolds = queryBigObject<Record<string, unknown>>(
-    "SELECT Account_Id__c, Game_Id__c, Hold_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + owner.key + "' AND Game_Id__c = '" + gameId + "'"
+    "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + owner.key + "' AND Game_Id__c = '" + gameId + "'"
   );
   expect(replacementHolds, "Repurchase must create a fresh active wallet hold").toHaveLength(1);
   const ownerLedgerAfterRepurchase = queryBigObject<Record<string, unknown>>(
