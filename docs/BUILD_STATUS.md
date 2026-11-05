@@ -148,3 +148,11 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Source parity details: the `HousieGameTicketService.cls` mismatch is functional and exact: source adds `Mode__c`, `Entry_Fee__c`, `Layout__c` to the completion query; the org has the old list. The `HousieOperationService.cls` mismatch is comment-only: source clarifies transaction semantics; org retains older transaction-boundary comments. Keep the accurate source documentation; record this as comment drift, not a functional code defect.
 - Updated board-create scenario validation [#41985178221](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985178221) passed metadata validation and all 39 org-resident Apex tests. It does not validate board creation runtime or withdrawal.
 - Milestone 1 remains **IN PROGRESS**. No two-human ticket/ledger acceptance is proven.
+
+
+## Record-page Board Hub acceptance — 2026-11-05
+
+- BoardHub LWC deployment #41984322994 succeeded for the LWC bundle only.
+- Post-deployment board-create regression [#41985201458](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985201458) passed 1/1: the test waits for the existing membership after record context resolution, creates a board, verifies the initial WAITING game and visible membership, then cleans up. This confirms the Experience Cloud record-page `recordId` path.
+- The separate public `HousieApp` `accountKey` path still needs its own acceptance run.
+- Withdrawal/repurchase run #41984570416 remains failed on the org's old ticket completion query (missing `Mode__c`). The Apex source correction is not deployed; obtain separate authorization for that narrow Apex deployment before retrying.
