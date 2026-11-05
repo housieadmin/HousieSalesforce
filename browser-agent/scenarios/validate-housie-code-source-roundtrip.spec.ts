@@ -46,8 +46,18 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
   const actual = filesUnder(actualRoot).map(file => path.relative(actualRoot, file)).filter(file => !ignore.includes(file)).sort();
   const missing = expected.filter(file => !actual.includes(file));
   const unexpected = actual.filter(file => !expected.includes(file));
+  const normalize = (file: string, value: Buffer): string => {
+    let text = value.toString("utf8").replace(/\\r\\n/g, "\\n").replace(/\\n+$/, "");
+    // Metadata API retrieval canonicalizes XML indentation and omits the default Active status.
+    if (file.endsWith(".xml")) {
+      text = text.replace(/<status>Active<\\/status>/g, "");
+      text = text.replace(/>\\s+</g, "><").replace(/\\s+/g, " ").trim();
+    }
+    return text;
+  };
   const different = expected.filter(file => actual.includes(file) &&
-    !fs.readFileSync(path.join(expectedRoot, file)).equals(fs.readFileSync(path.join(actualRoot, file))));
+    normalize(file, fs.readFileSync(path.join(expectedRoot, file))) !==
+    normalize(file, fs.readFileSync(path.join(actualRoot, file))));
   const differentDetails = different.slice(0, 12).map(file => {
     const expectedBytes = fs.readFileSync(path.join(expectedRoot, file));
     const actualBytes = fs.readFileSync(path.join(actualRoot, file));
