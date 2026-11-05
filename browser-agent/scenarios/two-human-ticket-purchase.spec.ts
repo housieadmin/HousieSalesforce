@@ -58,6 +58,49 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
   return hub;
 }
 
+function assertValidNinetyBallLayout(layoutText: string) {
+  const rows = layoutText.split(/\r?\n/).map(line => line.trim().split(/\s+/));
+  expect(rows, "A 90-ball ticket must have exactly three rows").toHaveLength(3);
+  const parsed = rows.map(row => {
+    expect(row, "A 90-ball ticket row must have nine cells").toHaveLength(9);
+    return row.map(cell => cell === "·" ? null : Number(cell));
+  });
+  const numbers: number[] = [];
+  for (let row = 0; row < 3; row++) {
+    const values = parsed[row].filter((value): value is number => value !== null);
+    expect(values, "Each ticket row must contain exactly five numbers").toHaveLength(5);
+    numbers.push(...values);
+    for (let column = 0; column < 9; column++) {
+      const value = parsed[row][column];
+      if (value === null) continue;
+      const minimum = column === 0 ? 1 : column * 10;
+      const maximum = column === 8 ? 90 : column * 10 + 9;
+      expect(value, "Ticket number must belong to its 90-ball column").toBeGreaterThanOrEqual(minimum);
+      expect(value).toBeLessThanOrEqual(maximum);
+      if (row > 0 && parsed[row - 1][column] !== null) {
+        expect(value, "Numbers must ascend down each column").toBeGreaterThan(parsed[row - 1][column] as number);
+      }
+    }
+  }
+  expect(numbers, "A 90-ball ticket must contain exactly 15 numbers").toHaveLength(15);
+  expect(new Set(numbers).size, "A 90-ball ticket cannot contain duplicate numbers").toBe(15);
+  for (let strip = 0; strip < 3; strip++) {
+    const count = parsed.reduce((sum, row) =>
+      sum + row.slice(strip * 3, strip * 3 + 3).filter(value => value !== null).length, 0);
+    expect(count, "Each 3x3 strip must contain exactly five numbers").toBe(5);
+  }
+  for (const row of parsed) {
+    for (let column = 0; column < 7; column++) {
+      expect(row.slice(column, column + 3).every(value => value === null),
+        "Three consecutive blank cells are not permitted horizontally").toBe(false);
+    }
+  }
+  for (let column = 0; column < 9; column++) {
+    expect(parsed.every(row => row[column] === null),
+      "Three consecutive blank cells are not permitted vertically").toBe(false);
+  }
+}
+
 async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardName: string) {
   const card = hub.locator("article.board-card").filter({ hasText: boardName });
   await expect(card).toBeVisible({ timeout: 60000 });
@@ -110,6 +153,8 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   expect(ownerTicket.entryFee).toBe(10);
   expect(memberTicket.entryFee).toBe(10);
   expect(ownerTicket.layoutText).not.toBe(memberTicket.layoutText);
+  assertValidNinetyBallLayout(ownerTicket.layoutText);
+  assertValidNinetyBallLayout(memberTicket.layoutText);
 
   // Reload both sessions so ticket visibility reflects committed storage.
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -201,6 +246,10 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(rows).toHaveLength(1);
     expect(Number(rows[0].Points_Balance__c)).toBe(100);
     expect(Number(rows[0].Reserved_Points__c)).toBe(0);
+    const releasedHolds = queryBigObject<Record<string, unknown>>(
+      "SELECT Account_Id__c, Game_Id__c, Hold_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
+    );
+    expect(releasedHolds, "Withdrawal must release the account's active wallet hold").toHaveLength(0);
   }
   const ownerLedgerAfterWithdrawal = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
@@ -223,6 +272,10 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   expect(ownerAfterRepurchase).toHaveLength(1);
   expect(Number(ownerAfterRepurchase[0].Points_Balance__c)).toBe(100);
   expect(Number(ownerAfterRepurchase[0].Reserved_Points__c)).toBe(10);
+  const replacementHolds = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Game_Id__c, Hold_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + owner.key + "' AND Game_Id__c = '" + gameId + "'"
+  );
+  expect(replacementHolds, "Repurchase must create a fresh active wallet hold").toHaveLength(1);
   const ownerLedgerAfterRepurchase = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
   );
