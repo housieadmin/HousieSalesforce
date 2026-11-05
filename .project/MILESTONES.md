@@ -264,3 +264,10 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Source/org round-trip [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320) passed.
 - PR validation [#42016252653](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016252653) passed with 39/39 local Apex tests.
 - Two-human acceptance retry using persisted-key verification and namespaced route state is queued in [#42016487393](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016487393).
+
+
+### Public account token route fallback — 2026-11-05
+
+- Retry [#42016487393](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016487393) confirmed that Experience Cloud did not surface `?c__token`/`?token` through `CurrentPageReference.state`; the page remained unauthenticated and no ticket operations occurred.
+- `housieApp.js` now reads the token directly from `window.location.search` as a fallback and removes the bearer parameter from the visible URL after capture.
+- A targeted NoTestRun deployment scenario for only `LightningComponentBundle:housieApp` is added; deployment and route acceptance are pending.
