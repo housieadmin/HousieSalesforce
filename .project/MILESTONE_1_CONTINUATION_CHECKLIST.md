@@ -29,14 +29,14 @@
 ## 2. Prove two-human paid-ticket purchase
 
 - [x] Run two-human-ticket-purchase.spec.ts after deployment and source/org round-trip; fix its hold query to select indexed Record_Id__c rather than unsupported Hold_Id__c before the acceptance rerun.
-- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Query-token and wire-persistence fixes did not resolve Experience Cloud route state. Fragment-token fallback added; third narrow LWC deployment and retry pending.
+- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Third narrow `housieApp` NoTestRun deployment passed in [#42042968124](https://github.com/housieadmin/HousieSalesforce/actions/runs/42042968124). Integrated run [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673) reached the token route but failed in the test helper waiting for an `Account key:` label that is not rendered on that route. The helper is now optional for token-authenticated pages; retry queued in issue #9 comment [6661443528](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661443528).
 - [ ] Verify 90-ball layout validity and no duplicate active layout within the game.
 - [ ] Reconcile each account's reserved balance, wallet-hold rows, participant rows and immutable resource-transaction ledger entries.
 - [ ] Confirm ticket count, point balances and ledger deltas after independent page reloads.
 
 ## 3. Prove WAITING withdrawal, release and repurchase
 
-- [ ] Run the two-human withdrawal/repurchase flow after both ticket and board-service deployments. BoardService deployment is complete; earlier failed fixtures have been cleaned.
+- [ ] Complete the two-human withdrawal/repurchase flow after both ticket and board-service deployments. The fixed-fixture withdrawal regression passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673); the integrated two-human scenario has not yet reached ticket purchase.
 - [ ] Verify both humans' active tickets are removed, reserved points return to zero, and Leave Board is rejected while an active human ticket remains.
 - [ ] Verify one HOLD_RELEASE resource-ledger row per withdrawn ticket and no stale active hold/command lock.
 - [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row; release that final fixture ticket before leaving the board.
@@ -45,12 +45,12 @@
 ## 4. Cleanup and closeout
 
 - [x] Suspended only the two prior M1 Purchase synthetic accounts after withdrawal, zero reserved points, two append-only hold rows and six resource-ledger rows were verified ([#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549)).
-- [ ] Update .project/MILESTONES.md and .project/SESSION_2026-11-05.md with exact run links and accepted/unaccepted outcomes. Combined run #42040038322 is stalled in source retrieve; added a 180-second CLI process timeout for retry.
+- [x] Update the continuation checklist, session tracker and route/security review with exact run links and accepted/unaccepted outcomes. Source/org parity passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673): Apex 30/30 present with only the explicitly accepted `HousieOperationService.cls` comment-only drift; LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 exact. Earlier [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322) failed before the latest bounded retry.
 - [ ] Keep Milestone 1 IN PROGRESS until all required acceptance criteria pass.
 
 ## Deferred, separate review
 
-- [ ] ExperienceBundle/Network route, guest access, sharing and security reconciliation requires a SPEC-reviewed design and a separate narrowly scoped PR/deployment. Do not mix it into the paid-ticket Apex deployment.
+- [x] Re-confirm ExperienceBundle routes and Network settings read-only in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673). Decision recorded in `.project/MILESTONE_1_ROUTE_SECURITY_REVIEW.md`: no Network/ExperienceBundle deployment or site activation in Milestone 1; keep `UnderConstruction`; actual remediation/sender replacement remains separate approved work.
 - [ ] Artifact #13398760836 remains retained; deletion is not authorized.
 
 
@@ -61,3 +61,13 @@
 
 
 - [ ] Post-Milestone 1: suspend/delete only synthetic accounts created by failed/retried two-human acceptance attempts after verifying their ticket/hold/ledger state. User requested that remaining cleanup work be deferred until after Milestone 1; do not interrupt acceptance to clean them now.
+
+
+## Verified continuation update — 2026-11-05, session 4
+
+- PR validation [#42043742084](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043742084) passed metadata validation and all 39 local Apex tests.
+- Synthetic-account recovery [#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549) passed 2/2 scenarios; the two prior `M1 Purchase` fixtures were safely released/verified and suspended.
+- Integrated acceptance [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673): source/org parity, fixed-fixture withdrawal regression and read-only Experience route/Network inspection passed; two-human acceptance failed only because the browser redaction helper incorrectly required an account-key label on a token-authenticated route.
+- Corrected `redactAccountKey` to redact when a label is present without requiring that label on token routes; query/fragment bearer tokens are still removed from browser history after app resolution. Retry requested in issue #9 comment [6661443528](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661443528).
+- Verified current Network settings: `UnderConstruction`, guest file access `true`, guest member visibility `false`, guest Chatter `false`, self-registration `false`, sender `sumit.gupta@salesforce.com`; ExperienceBundle `isAvailableToGuests=true`. Root is `c:housieApp`; account detail is `c:housieBoardHub` with `recordId`. No Network/ExperienceBundle deployment or activation is approved or included.
+- Milestone 1 remains **IN PROGRESS**. Do not merge until two-human purchase/withdrawal/repurchase/leave-guard acceptance passes and the final PR checks are green.
