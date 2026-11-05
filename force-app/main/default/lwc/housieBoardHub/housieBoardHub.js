@@ -16,7 +16,7 @@ import listMyPendingActions from '@salesforce/apex/HousieGameTicketService.listM
 
 export default class HousieBoardHub extends LightningElement {
   @api recordId;
-  accountKey;
+  @api accountKey;
   boards = [];
   publicBoards = [];
   publicSearch = '';
@@ -49,6 +49,12 @@ export default class HousieBoardHub extends LightningElement {
     { label: 'Manual', value: 'MANUAL' },
     { label: 'Automatic · uses 1 token', value: 'AUTOMATIC' }
   ];
+
+  connectedCallback() {
+    // The public HousieApp supplies the resolved account key directly.
+    // Record-page usage can still resolve it later through the record wire below.
+    if (this.accountKey) this.refresh();
+  }
 
   get hasBoards() { return this.boards.length > 0; }
   get filteredPublicBoards() {
