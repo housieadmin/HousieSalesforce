@@ -32,7 +32,8 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [ ] Complete curated Apex/LWC/access metadata reconciliation. Run #41963078143 found all files present; tab metadata matched. Real differences remain in HousieOperationService, housieBoardHub.js, custom permission descriptions and permission-set class access. Do not suppress these differences as serialization noise.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
 - [x] Adopt Salesforce DX split source format. [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) merged after metadata dry-run, 39 org-resident Apex tests and a 249-file byte-for-byte object round-trip passed. No deployment was performed.
-- [ ] Reconcile Housie Network, tabs and permission sets. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) remains review-only; [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) remains audit-only and must be curated to exclude Salesforce-managed entries.
+- [x] Curate Housie-owned custom permissions, permission sets and tabs from [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) into merged PR #32; exclude Salesforce-managed `sfdcInternalInt__*` permission sets. This is source sync only, not permission assignment or deployment.
+- [ ] Reconcile Housie Network/ExperienceBundle route and security configuration. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) is closed without merge; its guest-access, sender and site settings remain deferred pending a SPEC-reviewed curated route change.
 - [ ] Retrieve the Aura site's ExperienceBundle now that **Enable ExperienceBundle Metadata API** has been enabled. Identify the actual public root and account routes.
 - [x] Verify the authoritative Account Admin entry point. The `Housie_Account_Admin` tab mounts the `housieAccountAdmin` LWC. The user deleted the duplicate `House_Account_Admin` page; do not recreate it.
 - [x] Keep Salesforce-generated community login/profile controllers and unrelated standard components out of Housie source. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) was closed; scoped manifests now enumerate Housie-owned components only.
@@ -58,7 +59,7 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 - [ ] A second human joins through the private invitation board ID or public-board search.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
-- [ ] WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed. Run #41962935952 exposed an Apex query defect in completeTicketCommand: Mode__c was read but not selected, leaving the command PREPARED and lock active. Source query fixed in PR #32; targeted deployment and browser rerun require explicit authorization.
+- [ ] WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed. Runs #41962935952 and #41984570416 exposed an org Apex query defect in `completeTicketCommand()`: `Mode__c` (and related result fields `Entry_Fee__c`, `Layout__c`) are read but not selected, leaving the command PREPARED and lock active. Source fix merged in PR #32; targeted Apex deployment requires separate explicit authorization. The LWC-only deployment did not include Apex.
 - [ ] Independent, reusable browser scenarios cover account creation, board creation, board join, ticket purchase and withdrawal. Scenarios verify persisted outcomes, not just successful clicks.
 - [ ] Apex tests cover business invariants; the browser journey runs against dedicated Developer Org test accounts and scenario-owned data.
 
@@ -123,7 +124,7 @@ Acceptance criteria:
 - Monitoring, alerts and deliberate operator repair procedures are documented and tested.
 - Public launch and real-value points remain disabled until this milestone and all preceding milestones pass.
 
-**Deferred work:** draft [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) is recovery infrastructure work, not a prerequisite to the first positive game path. It remains unmerged and undeployed pending this milestone's later design review. Do not merge or deploy it as part of Milestone 1.
+**Deferred work:** [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) is closed without merge. Its general recovery infrastructure is not a prerequisite to the first positive game path and remains deferred to Milestone 5. Do not revive or deploy it as part of Milestone 1.
 
 ## Milestone 6 — Remaining product capabilities
 
@@ -159,3 +160,14 @@ A milestone is complete only when its acceptance criteria pass and the evidence 
 ### Session closure — 2026-11-05 (previous implementation session)
 
 The previous Milestone 1 implementation session is closed as a work period, **not as a completed milestone**. All its confirmed source changes, handoff notes, and open acceptance gaps are carried forward in PR #32. The next session must resume from this checklist and the session tracker. No Milestone 1 acceptance gate is waived.
+
+
+### Session closeout and continuation — 2026-11-05
+
+- Previous Milestone 1 implementation session is closed as a work period only. Milestone 1 remains **IN PROGRESS**.
+- [PR #32](https://github.com/housieadmin/HousieSalesforce/pull/32) merged as `8a060c91d1db46ee4e2162ce22d2ee4828470068`. Final validation [#41985724115](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985724115) passed metadata validation and all 39 org-resident Apex tests.
+- [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) closed without merge; Housie-owned access metadata was curated into #32. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) closed without merge and remains deferred pending route/security review. [PR #31](https://github.com/housieadmin/HousieSalesforce/pull/31) closed without merge; recovery remains deferred to Milestone 5.
+- BoardHub LWC-only deployment [#41984322994](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984322994) succeeded. Record-page board-create [#41985201458](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985201458) passed 1/1, creating a WAITING board. This proves the `recordId` path only.
+- Withdrawal/repurchase remains unaccepted: [#41984570416](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984570416) failed because org Apex omitted `Mode__c` from the completion query; the prepared withdrawal is unresolved. A separate Apex deployment approval is required.
+- Remaining Milestone 1 work: property-level schema parity; curated Apex/LWC/access round-trip; actual public `HousieApp` route proof; second-human join and two-human ticket purchases; wallet hold/resource-ledger reconciliation; withdrawal/repurchase after authorized Apex sync.
+- Active continuation branch: `milestone1/continuation`. Keep this as the single implementation PR for all remaining work.
