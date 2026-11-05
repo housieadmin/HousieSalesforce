@@ -13,16 +13,20 @@ export default class HousieApp extends LightningElement {
     this.pageRef = ref;
     const params = new URLSearchParams(window.location.search);
     const queryToken = params.get('c__token') || params.get('token');
-    const token = ref?.state?.c__token || ref?.state?.token || queryToken || this.routeToken || this.readTokenFromPath();
+    const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const fragmentToken = fragmentParams.get('c__token') || fragmentParams.get('token');
+    const token = ref?.state?.c__token || ref?.state?.token || queryToken ||
+      fragmentToken || this.routeToken || this.readTokenFromPath();
     if (token && token !== 's') this.routeToken = token;
 
     // Experience Cloud does not consistently expose unnamespaced query
     // parameters through CurrentPageReference. Read them directly as a
     // fallback, then remove the bearer credential from the visible URL.
-    if (queryToken) {
+    if (queryToken || fragmentToken) {
       const url = new URL(window.location.href);
       url.searchParams.delete('c__token');
       url.searchParams.delete('token');
+      url.hash = '';
       window.history.replaceState({}, '', url.pathname + url.search + url.hash);
     }
 
