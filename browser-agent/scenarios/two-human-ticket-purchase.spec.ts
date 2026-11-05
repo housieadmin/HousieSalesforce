@@ -81,9 +81,6 @@ function assertValidNinetyBallLayout(layoutText: string) {
       const maximum = column === 8 ? 90 : column * 10 + 9;
       expect(value, "Ticket number must belong to its 90-ball column").toBeGreaterThanOrEqual(minimum);
       expect(value).toBeLessThanOrEqual(maximum);
-      if (row > 0 && parsed[row - 1][column] !== null) {
-        expect(value, "Numbers must ascend down each column").toBeGreaterThan(parsed[row - 1][column] as number);
-      }
     }
   }
   expect(numbers, "A 90-ball ticket must contain exactly 15 numbers").toHaveLength(15);
@@ -102,6 +99,10 @@ function assertValidNinetyBallLayout(layoutText: string) {
   for (let column = 0; column < 9; column++) {
     expect(parsed.every(row => row[column] === null),
       "Three consecutive blank cells are not permitted vertically").toBe(false);
+    const columnValues = parsed.map(row => row[column]).filter((value): value is number => value !== null);
+    for (let index = 1; index < columnValues.length; index++) {
+      expect(columnValues[index], "Numbers must ascend down each column").toBeGreaterThan(columnValues[index - 1]);
+    }
   }
 }
 
@@ -224,7 +225,12 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(participants).toHaveLength(1);
   }
 
-  housie.note("Two distinct ACTIVE humans each own one unique MANUAL ticket in the same WAITING game. Each account has a persisted wallet-hold row, 10 reserved points, five resource transaction rows (four signup grants plus one ticket hold), and one Game_Participant row. Both tickets and memberships remain visible after reload. Board ID=" + boardId + "; ticket IDs=" + ownerTicket.ticketId + "," + memberTicket.ticketId + ". Bearer keys and emails omitted.");
+  housie.note("Two distinct ACTIVE humans each own one unique MANUAL ticket in the same WAITING game. Each account has a persisted wallet-hold row, 10 reserved points, five resource transaction rows (four signup grants plus one ticket hold), and one Game_Participant row. Both tickets and memberships remain visible after reload. No bearer keys, emails, board IDs or ticket IDs are retained.");
+  await ownerReloadedCard.getByRole("button", { name: "Leave board", exact: true }).click();
+  await expect(ownerApp.getByText("Withdraw from the waiting game before leaving the board.", { exact: true }))
+    .toBeVisible({ timeout: 30000 });
+  await expect(ownerReloadedCard).toBeVisible();
+
   await housie.screenshot("two-human-ticket-holds-verified-redacted");
 
   // Exercise the full WAITING withdrawal lifecycle for both humans, then
@@ -287,7 +293,30 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   );
   expect(ownerLedgerAfterRepurchase).toHaveLength(ownerLedgerAfterWithdrawal.length + 1);
 
-  housie.note("WAITING withdrawal released both humans' 10-point holds with one ledger release row each. Owner then repurchased a fresh ticket; reserved points returned to 10 and one new hold-reserve ledger row was recorded. Ticket ID and account keys are not included in retained notes.");
+  // Release the replacement ticket as fixture cleanup, then prove board leave
+  // is permitted only after every human ticket hold has been released.
+  await ownerReloadedCard.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
+  await expect(ownerReloadedCard.getByText("Active tickets: 0", { exact: true })).toBeVisible({ timeout: 60000 });
+  const ownerAfterFinalWithdrawal = sfQuery<Record<string, unknown>>(
+    "SELECT Points_Balance__c, Reserved_Points__c FROM Housie_Account__c WHERE Account_Key__c = '" + owner.key + "'"
+  );
+  expect(ownerAfterFinalWithdrawal).toHaveLength(1);
+  expect(Number(ownerAfterFinalWithdrawal[0].Reserved_Points__c)).toBe(0);
+  const finalOwnerHolds = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + owner.key + "' AND Game_Id__c = '" + gameId + "'"
+  );
+  expect(finalOwnerHolds).toHaveLength(4);
+  const ownerLedgerAfterFinalWithdrawal = queryBigObject<Record<string, unknown>>(
+    "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
+  );
+  expect(ownerLedgerAfterFinalWithdrawal).toHaveLength(ownerLedgerAfterRepurchase.length + 1);
+
+  await ownerReloadedCard.getByRole("button", { name: "Leave board", exact: true }).click();
+  await expect(ownerReloadedCard).toHaveCount(0, { timeout: 60000 });
+  await memberReloadedCard.getByRole("button", { name: "Leave board", exact: true }).click();
+  await expect(memberReloadedCard).toHaveCount(0, { timeout: 60000 });
+
+  housie.note("Two humans purchased distinct valid MANUAL tickets, withdrawal released each hold and appended ledger rows, the owner repurchased a fresh ticket and released it again, and both users could leave only after their active tickets were gone. No keys, emails or record IDs retained.");
   await housie.screenshot("two-human-withdrawal-and-repurchase-redacted");
   await memberPage.close();
 });
