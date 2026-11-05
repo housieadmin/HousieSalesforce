@@ -13,8 +13,14 @@ function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"]
     });
-  } catch {
-    throw new Error("Salesforce CLI query failed; query text and credentials were intentionally not copied into diagnostics.");
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & { stderr?: string | Buffer; stdout?: string | Buffer };
+    const detail = String(failure.stderr ?? failure.stdout ?? "")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+      .slice(0, 1200);
+    throw new Error("Salesforce CLI query failed (exit " + String(failure.code ?? "unknown") + "). " + detail);
   }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const jsonStart = clean.indexOf("{");
