@@ -19,7 +19,7 @@ This tracker is the operational closeout checklist for PR #42. Keep the mileston
 
 ## Remaining merge gates
 
-- [ ] Pass the complete two-human purchase/withdrawal/repurchase/leave-guard scenario. In [run #42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673), both ticket purchases and 90-ball layout assertions completed; the run then failed because the staged test called required account-key redaction after reload, when the key is not rendered. The current branch version makes post-reload redaction optional. Rerun the failed Browser Agent job and inspect the full result.
+- [ ] Pass the complete two-human purchase/withdrawal/repurchase/leave-guard scenario. In [run #42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673), the test failed before creating the board or purchasing tickets: the token-authenticated `openAccount` route called required account-key redaction, but that route does not render an `Account key:` label. No ticket purchase or 90-ball assertion ran. The current branch makes redaction optional on token routes and still requires it immediately after account creation. Retry queued via issue #9 comment [6661443528](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661443528); inspect its result before any duplicate mutating run.
 - [ ] Confirm persisted ticket rows, distinct ticket IDs/layouts, 10-point holds, participant rows and resource-ledger deltas for both humans.
 - [ ] Confirm Leave Board is rejected while each human has an active ticket.
 - [ ] Confirm withdrawal commits for both humans, reserved points return to zero, release rows append, repurchase uses a fresh ticket/hold, and final release permits board leave.
@@ -38,4 +38,8 @@ This tracker is the operational closeout checklist for PR #42. Keep the mileston
 
 - 2026-11-05: recovered PR #42 state, inspected Actions jobs/logs and current branch checklist.
 - 2026-11-05: confirmed #42014618549 cleanup passed (two prior M1 Purchase accounts reconciled, left their boards and were suspended).
-- 2026-11-05: integrated run #42043222673 passed source parity, withdrawal regression and route/security inspection; two-human scenario stopped at a post-reload redaction-helper assertion. Current branch source uses optional redaction after reload; rerun remains required.
+- 2026-11-05: integrated run #42043222673 passed source parity, fixed-fixture withdrawal regression and route/security inspection. Two-human scenario failed before board creation/purchase in `openAccount` because the redaction helper required a key label not rendered on token routes. No purchase/layout assertions ran. Helper fixed; retry requested in issue #9 comment #6661443528.
+
+
+- 2026-11-05: route/security review artifact #13423708327 verified the current Network values and ExperienceBundle routes. Decision for this PR: keep Network `UnderConstruction`; no Network/ExperienceBundle deployment or activation.
+- 2026-11-05: helper fix committed; account creation still requires key redaction, while token-route and post-reload calls are optional. Browser retry is queued; no result recorded yet.
