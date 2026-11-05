@@ -63,7 +63,8 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
     const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     (window as any).__housieRouteTransport = {
       queryTokenPresent: query.has("c__token") || query.has("token"),
-      fragmentTokenPresent: fragment.has("c__token") || fragment.has("token")
+      fragmentTokenPresent: fragment.has("c__token") || fragment.has("token"),
+      historyTokenPresent: Boolean((window.history.state as any)?.housieAccountToken)
     };
   });
   const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
@@ -73,7 +74,18 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page, false);
-  await page.evaluate(() => history.replaceState(null, "", location.pathname));
+  const cleanRoute = await page.evaluate(() => {
+    const query = new URLSearchParams(window.location.search);
+    const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    return {
+      queryTokenPresent: query.has("c__token") || query.has("token"),
+      fragmentTokenPresent: fragment.has("c__token") || fragment.has("token"),
+      historyTokenPresent: Boolean((window.history.state as any)?.housieAccountToken)
+    };
+  });
+  expect(cleanRoute.queryTokenPresent).toBe(false);
+  expect(cleanRoute.fragmentTokenPresent).toBe(false);
+  expect(cleanRoute.historyTokenPresent).toBe(true);
   await expect(app.getByText("Welcome, " + displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const hub = app.locator("c-housie-board-hub");
   await expect(hub).toHaveCount(1, { timeout: 30000 });
@@ -124,16 +136,20 @@ function assertValidNinetyBallLayout(layoutText: string) {
   }
 }
 
-async function reloadAccount(page: import("@playwright/test").Page, key: string, displayName: string) {
-  // A full reload creates a new LWC instance. Re-present the bearer credential
-  // for this request, then let HousieApp capture it and remove it from history.
-  await page.evaluate((token) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("c__token", token);
-    url.hash = "c__token=" + encodeURIComponent(token);
-    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
-  }, key);
+async function reloadAccount(
+  page: import("@playwright/test").Page,
+  displayName: string,
+  housie: { note(message: string): void }
+) {
+  // The invitation credential must already be captured in the current history
+  // entry. Reload with a clean URL to prove the same-tab session survives.
   await page.reload({ waitUntil: "domcontentloaded" });
+  const routeTransport = await page.evaluate(() => (window as any).__housieRouteTransport || {});
+  housie.note("Reload route transport flags: " + JSON.stringify(routeTransport));
+  expect(routeTransport.queryTokenPresent).toBe(false);
+  expect(routeTransport.fragmentTokenPresent).toBe(false);
+  expect(routeTransport.historyTokenPresent).toBe(true);
+
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page, false);
@@ -201,14 +217,14 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
 
   // Reload both sessions with the same account credential so this checks
   // persisted board/ticket data, not an unimplemented cross-reload auth session.
-  const ownerSession = await reloadAccount(page, owner.key, owner.displayName);
+  const ownerSession = await reloadAccount(page, owner.displayName, housie);
   const ownerApp = ownerSession.app;
   const ownerReloadedHub = ownerSession.hub;
   const ownerReloadedCard = ownerReloadedHub.locator("article.board-card").filter({ hasText: boardName });
   await expect(ownerReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
   await expect(ownerReloadedCard).toContainText("Game: WAITING");
 
-  const memberSession = await reloadAccount(memberPage, member.key, member.displayName);
+  const memberSession = await reloadAccount(memberPage, member.displayName, housie);
   const memberApp = memberSession.app;
   const memberReloadedHub = memberSession.hub;
   const memberReloadedCard = memberReloadedHub.locator("article.board-card").filter({ hasText: boardName });
