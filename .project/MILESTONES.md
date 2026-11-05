@@ -271,3 +271,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Retry [#42016487393](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016487393) confirmed that Experience Cloud did not surface `?c__token`/`?token` through `CurrentPageReference.state`; the page remained unauthenticated and no ticket operations occurred.
 - `housieApp.js` now reads the token directly from `window.location.search` as a fallback and removes the bearer parameter from the visible URL after capture.
 - A targeted NoTestRun deployment scenario for only `LightningComponentBundle:housieApp` is added; deployment and route acceptance are pending.
+
+
+### Route and regression status — 2026-11-05
+
+- Public route inspector passed: root `c:housieApp`, account detail `c:housieBoardHub` with recordId context ([#42016864318](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016864318)). Network metadata was retrieved, but security fields were blank in the inspector output; no fresh security conclusion or Network deployment is authorized from this result.
+- Fixed withdrawal regression's incorrect assumption that all account reservations belonged to its target board. The fixture account has 30 reserved points while the target board ticket holds 10; 20 points belong to unrelated boards and must remain reserved. Updated test now checks board-specific reservation deltas and releases its final replacement ticket.
+- Latest public account-route retry predates the LWC query-string fix. Narrow NoTestRun deployment of only `LightningComponentBundle:housieApp` is running in [#42039834760](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039834760).
+- User-directed deferred items: historical synthetic-key artifact deletion (3 artifacts, accounts suspended) and broad Apex coverage uplift after Milestone 1.
