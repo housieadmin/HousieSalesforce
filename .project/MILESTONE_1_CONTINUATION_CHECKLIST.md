@@ -29,7 +29,7 @@
 ## 2. Prove two-human paid-ticket purchase
 
 - [x] Run two-human-ticket-purchase.spec.ts after deployment and source/org round-trip; fix its hold query to select indexed Record_Id__c rather than unsupported Hold_Id__c before the acceptance rerun.
-- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Follow-up LWC token-persistence fix deployed in #42041209642; integrated acceptance retry queued in #42041622400.
+- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Query-token and wire-persistence fixes did not resolve Experience Cloud route state. Fragment-token fallback added; third narrow LWC deployment and retry pending.
 - [ ] Verify 90-ball layout validity and no duplicate active layout within the game.
 - [ ] Reconcile each account's reserved balance, wallet-hold rows, participant rows and immutable resource-transaction ledger entries.
 - [ ] Confirm ticket count, point balances and ledger deltas after independent page reloads.
@@ -40,7 +40,7 @@
 - [ ] Verify both humans' active tickets are removed, reserved points return to zero, and Leave Board is rejected while an active human ticket remains.
 - [ ] Verify one HOLD_RELEASE resource-ledger row per withdrawn ticket and no stale active hold/command lock.
 - [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row; release that final fixture ticket before leaving the board.
-- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. Baseline preserves unrelated reservations; withdrawal/release passed, app-level repurchase receipt locator corrected. Retry in #42041622400.
+- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. Withdrawal/release passed; replacement-ticket assertion now checks the new card after repurchase.
 
 ## 4. Cleanup and closeout
 
