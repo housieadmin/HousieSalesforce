@@ -156,3 +156,14 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Post-deployment board-create regression [#41985201458](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985201458) passed 1/1: the test waits for the existing membership after record context resolution, creates a board, verifies the initial WAITING game and visible membership, then cleans up. This confirms the Experience Cloud record-page `recordId` path.
 - The separate public `HousieApp` `accountKey` path still needs its own acceptance run.
 - Withdrawal/repurchase run #41984570416 remains failed on the org's old ticket completion query (missing `Mode__c`). The Apex source correction is not deployed; obtain separate authorization for that narrow Apex deployment before retrying.
+
+
+## Authoritative Git closeout and current continuation — 2026-11-05
+
+- Previous Milestone 1 implementation session is closed as a session only. Milestone 1 remains **IN PROGRESS**.
+- PR #32 is **MERGED** at `8a060c91d1db46ee4e2162ce22d2ee4828470068`; final validation #41985724115 passed metadata validation and 39 org-resident Apex tests.
+- PR #36 is **CLOSED WITHOUT MERGE**; Housie-owned permissions/tabs were curated into #32. PR #37 is **CLOSED WITHOUT MERGE** and deferred due unapproved Network/ExperienceBundle guest/sender/site settings. PR #31 is **CLOSED WITHOUT MERGE** and deferred to Milestone 5. PRs #38, #39 and #40 remain merged.
+- BoardHub LWC-only deployment #41984322994 succeeded. Record-page board-create run #41985201458 passed 1/1 and verified a WAITING game and membership. This confirms the record-page `recordId` path, not the public `HousieApp` token/`accountKey` path.
+- Withdrawal/repurchase run #41984570416 failed because org `HousieGameTicketService.completeTicketCommand()` still queries without `Mode__c` (also missing result fields `Entry_Fee__c` and `Layout__c`). The existing prepared withdrawal is unresolved. The Apex fix is in merged source but was not deployed; user authorization so far covers only the LWC bundle. Do not deploy Apex until separately authorized.
+- Main contains `HousieApp` and `HousieRouteController` but no ExperienceBundle metadata; the actual public site route/mount remains unverified. Do not deploy PR #37's raw Network/ExperienceBundle settings or activate the site.
+- Current work is consolidated on `milestone1/continuation`; next PR is the single open implementation PR for remaining Milestone 1 items. See `.project/SESSION_2026-11-05.md` and `.project/MILESTONES.md` for lane checklists.
