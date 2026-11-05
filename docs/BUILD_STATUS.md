@@ -269,3 +269,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - [Read-only run #41995794186](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995794186) retrieved all curated metadata. LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 all had zero missing, unexpected or content differences. PR #36 Housie-owned metadata now matches the Developer Org exactly.
 - Apex 30/30 files were present with zero missing/unexpected; only `HousieGameTicketService.cls` (functional missing completion-query fields) and `HousieOperationService.cls` (comment-only transaction semantics) differ.
+
+
+## Apex parity exception — 2026-11-05
+
+- `HousieOperationService.cls` differs only in comments explaining Big Object-only transactions and why the global DML row lock is not used for those writes. Source comments are more accurate and are retained. The round-trip test now explicitly allowlists only this file and asserts the exact expected/actual comment lines; any other Apex difference remains a failure.
+- `HousieGameTicketService.cls` remains the sole functional Apex delta and is the only class requiring deployment authorization.
