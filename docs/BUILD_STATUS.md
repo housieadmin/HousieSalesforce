@@ -246,3 +246,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 ## Two-human scenario harness correction — 2026-11-05
 
 - Signup grant acceptance passed in #41994178363 and #41994239381. The two-human scenario in both runs failed only because the member page variable was not initialized, after the owner board was created. The member-page setup and join flow are now corrected; rerun requested (#6653370553).
+
+
+## Two-human WAITING board acceptance — 2026-11-05
+
+- Browser run [#41994781213](https://github.com/housieadmin/HousieSalesforce/actions/runs/41994781213) passed 1/1. Two distinct ACTIVE accounts joined the same private board; both Board_Member index rows and one WAITING Game row persisted; both public token sessions listed the board after independent reloads. Account keys were redacted before artifacts.
+- Milestone 1 now has schema parity, LWC/access parity, signup grants, both BoardHub routes, owner board creation and second-human WAITING membership accepted. Remaining: paid ticket purchase/holds/ledger and withdrawal/repurchase, gated by explicit approval to deploy the one-class Apex query fix.
