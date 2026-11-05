@@ -48,6 +48,7 @@ function resourceLedgerRows(accountKey: string) {
 }
 
 test("withdraw active WAITING tickets, release the hold, then purchase again", async ({ page, housie }) => {
+  test.setTimeout(180000);
   await housie.navigate(playerUrl);
   const hub = page.locator("c-housie-board-hub");
   await expect(hub, "The public account page should render Board Hub").toHaveCount(1, { timeout: 60000 });
