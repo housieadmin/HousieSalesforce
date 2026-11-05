@@ -51,10 +51,10 @@ async function openAccount(page: import("@playwright/test").Page, key: string, d
   await page.goto(root + "?token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
+  await redactAccountKey(page);
   await expect(app.getByText("Welcome, " + displayName, { exact: true })).toBeVisible({ timeout: 60000 });
   const hub = app.locator("c-housie-board-hub");
   await expect(hub).toHaveCount(1, { timeout: 30000 });
-  await redactAccountKey(page);
   return hub;
 }
 
