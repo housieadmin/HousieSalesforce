@@ -1,8 +1,9 @@
 import { test, expect } from "../core";
 import { execFileSync } from "node:child_process";
+import path from "node:path";
 
 test("open the configured Housie Account Admin tab", async ({ page, housie }) => {
-  const projectRoot = process.cwd().replace(/\\/browser-agent$/, "");
+  const projectRoot = path.resolve(process.cwd(), "..");
   const openOutput = execFileSync("sf", [
     "org", "open", "--url-only", "--path", "/lightning/n/Housie_Account_Admin",
     "--target-org", "housie-browser-agent", "--json"
