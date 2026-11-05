@@ -45,7 +45,7 @@ test("inspect only M1 Purchase account financial cleanup state", async ({ housie
   for (const account of accounts) {
     const key = String(account.Account_Key__c);
     const commands = sfQuery<Record<string, unknown>>(
-      "SELECT Action_Type__c, Entry_Fee__c, Status__c, Board_Id__c, Game_Id__c " +
+      "SELECT Action_Type__c, Status__c, Board_Id__c, Game_Id__c " +
       "FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + key + "' LIMIT 20"
     );
     const holds = queryBigObject<Record<string, unknown>>(
@@ -61,7 +61,6 @@ test("inspect only M1 Purchase account financial cleanup state", async ({ housie
       reserved: Number(account.Reserved_Points__c),
       commands: commands.map(command => ({
         action: command.Action_Type__c,
-        entryFee: Number(command.Entry_Fee__c || 0),
         status: command.Status__c,
         boardIdPresent: Boolean(command.Board_Id__c),
         gameIdPresent: Boolean(command.Game_Id__c)
