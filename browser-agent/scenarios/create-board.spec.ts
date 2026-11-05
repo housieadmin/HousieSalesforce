@@ -1,32 +1,10 @@
 import { test, expect } from "../core";
+import { captureAuraErrors } from "../utilities/salesforce";
 
 const playerUrl = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/housie-account/a00g500001DFWqoAAH/housie-test-user-3";
 
 test("create and clean up an isolated WAITING board", async ({ page, housie }) => {
-  const auraTasks: Promise<{ status: number; errors: string[] }>[] = [];
-  page.on("response", response => {
-    if (!/\/sfsites\/aura(?:\?|$)/.test(response.url()) || response.request().method() !== "POST") return;
-    auraTasks.push((async () => {
-      const entry = { status: response.status(), errors: [] as string[] };
-      try {
-        const payload = JSON.parse(await response.text());
-        const visit = value => {
-          if (!value || typeof value !== "object") return;
-          if (Array.isArray(value)) return value.forEach(visit);
-          for (const key of ["message", "exceptionMessage", "errorCode", "state"]) {
-            if (typeof value[key] === "string" && /error|exception|fail|invalid|denied|not enough|limit/i.test(value[key])) {
-              entry.errors.push(key + ": " + value[key].slice(0, 1200));
-            }
-          }
-          Object.values(value).forEach(visit);
-        };
-        visit(payload);
-      } catch (error) {
-        entry.errors.push("Unable to parse Aura response: " + String(error).slice(0, 250));
-      }
-      return entry;
-    })());
-  });
+  const auraDiagnostics = captureAuraErrors(page);
 
   await housie.navigate(playerUrl);
   const hub = page.locator("c-housie-board-hub");
@@ -42,14 +20,15 @@ test("create and clean up an isolated WAITING board", async ({ page, housie }) =
 
   await page.waitForTimeout(6000);
   let afterClick = await hub.innerText();
-  let auraResponses = await Promise.all(auraTasks);
+  let auraResponses = await auraDiagnostics.snapshot();
   if (!await card.isVisible().catch(() => false)) {
     await page.getByRole("button", { name: "Refresh boards" }).click();
     await page.waitForTimeout(3000);
     afterClick = await hub.innerText();
-    auraResponses = await Promise.all(auraTasks);
+    auraResponses = await auraDiagnostics.snapshot();
   }
   housie.note("Board Hub after create click:\n" + afterClick.slice(0, 6000));
+  auraDiagnostics.stop();
   housie.note("Aura responses observed during board create: " + JSON.stringify(auraResponses).slice(0, 4000));
 
   await expect(card, "Board creation should create a visible board membership").toBeVisible({ timeout: 15000 });
