@@ -90,7 +90,7 @@ test("release active tickets and suspend only Milestone 1 synthetic purchase acc
     if (row.Status__c !== "SUSPENDED") {
       expect(key).toMatch(/^[a-f0-9]{32}$/i);
       const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
-      await page.goto(root + "?c__token=" + encodeURIComponent(key) + "&token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
+      await page.goto(root + "?c__token=" + encodeURIComponent(key) + "&token=" + encodeURIComponent(key) + "#c__token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
       const app = page.locator("c-housie-app");
       await expect(app).toHaveCount(1, { timeout: 60000 });
       await redactAccountKey(page);
