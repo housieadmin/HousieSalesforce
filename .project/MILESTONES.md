@@ -20,7 +20,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — schema representation proposal under validation; Experience Cloud/page setup and positive-path runtime verification remain open**
+**Status: IN PROGRESS — object source format reconciled; Apex/LWC round-trip and remaining setup/runtime checks are open**
 
 **Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
@@ -30,11 +30,11 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
 - [ ] Complete a property-level field metadata comparison for types, lengths, precision/scale, requiredness, uniqueness, defaults, relationships and picklist values before declaring full schema parity.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
-- [ ] Adopt one canonical metadata representation. Draft [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) converts all 20 objects to Salesforce DX split source format using org-retrieved metadata. It is a representation-only proposal; require metadata dry-run and round-trip validation before merge.
-- [ ] Reconcile Housie Network, tabs and permission sets. [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) and [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) are audit proposals, not merge candidates as-is.
+- [x] Adopt Salesforce DX split source format. [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) merged after metadata dry-run, 39 org-resident Apex tests and a 249-file byte-for-byte object round-trip passed. No deployment was performed.
+- [ ] Reconcile Housie Network, tabs and permission sets. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) remains review-only; [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) remains audit-only and must be curated to exclude Salesforce-managed entries.
 - [ ] Retrieve the Aura site's ExperienceBundle now that **Enable ExperienceBundle Metadata API** has been enabled. Identify the actual public root and account routes.
-- [ ] Retrieve/track Lightning App Page definitions and identify the authoritative Housie Account Admin page. Setup showed two similarly named pages and a Housie Account Admin tab; verify component placement and activation before changing org setup.
-- [ ] Keep Salesforce-generated community login/profile controllers out of Housie business source unless the application demonstrably depends on them. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) remains audit-only.
+- [x] Verify the authoritative Account Admin entry point. The `Housie_Account_Admin` tab mounts the `housieAccountAdmin` LWC. The user deleted the duplicate `House_Account_Admin` page; do not recreate it.
+- [x] Keep Salesforce-generated community login/profile controllers and unrelated standard components out of Housie source. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) was closed; scoped manifests now enumerate Housie-owned components only.
 
 ### 1A.1. Object inventory outside the logical model
 
@@ -47,11 +47,11 @@ The agreed logical model remains 16 entities. Main has 20 custom objects: those 
 | `Housie_Game_Command_Lock__c` | Per-game gate serializes ticket purchase/withdrawal and prevents overlapping commands. | **Keep.** It protects current ticket financial operations against concurrent requests. |
 | `Housie_Operation_Lock__c` | Singleton DML lock used by account creation/activation and ticket command preparation/finalization. It does not serialize Big Object writes and is not held across `insertImmediate`. | **Keep provisionally; candidate for removal.** Existing per-account, per-command and per-game row locks cover most call sites, but account creation currently relies on the global lock to serialize its email check-then-insert. Remove only after a unique-email constraint is validated against org data and the narrower locking scheme passes concurrency tests. |
 
-No extra recovery Big Objects are accepted into this milestone. General recovery remains deferred to Milestone 5. Do not remove the four existing technical objects simply because they are outside the logical business model; first remove their code dependencies safely, if and when a replacement is proven.
+Developer Edition currently has 5 MB standard data storage and a separate 1-million-record Big Object allocation per org. All 16 Big Objects share that allocation. See the Salesforce storage documentation in `docs/BUILD_STATUS.md`; define per-object retention and test indexed `deleteImmediate()` purges before enabling cleanup. No extra recovery Big Objects are accepted into this milestone. General recovery remains deferred to Milestone 5. Do not remove the four existing technical objects simply because they are outside the logical business model; first remove their code dependencies safely, if and when a replacement is proven.
 
 ### 1B. Positive account, board and ticket journey
 
-- [ ] A platform admin creates a test account through the supported admin UI; the account receives the four signup grants and becomes ACTIVE only after all grants commit.
+- [x] Account Admin tab and form render in the Developer Org. Browser run #41945104195 showed account creation returning a key and `Status: ACTIVE`; its test assertion was corrected because the UI does not render a `Created:` line. Re-run corrected scenario before treating this as repeatable acceptance evidence.
 - [ ] The account invitation route resolves to the correct active account context.
 - [ ] The owner creates a public or private board. Board creation also creates its initial WAITING game and BOARD_ADMIN membership.
 - [ ] A second human joins through the private invitation board ID or public-board search.
