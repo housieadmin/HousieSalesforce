@@ -235,3 +235,11 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Updated the guard to block leave while a committed ACTIVE human ticket has no committed TICKET_WITHDRAWN event. This aligns with Milestone 1's rule that a user cannot leave while holding a paid ticket.
 - Added browser acceptance for leave rejection while a ticket is active and successful leave only after withdrawal; the fixture releases the repurchased ticket before leaving.
 - Targeted NoTestRun dry-run/deployment for `HousieBoardService` is pending; this class is not yet deployed.
+
+
+### Board leave guard deployed — 2026-11-05
+
+- `HousieBoardService.hasActiveParticipation()` now checks committed active human tickets and committed withdrawal events, preventing board leave while a paid human ticket remains active even if the participant projection is missing or stale.
+- Narrow NoTestRun dry-run and actual deployment of only `ApexClass:HousieBoardService` succeeded ([#42014362545](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014362545)).
+- PR validation passed metadata dry-run and all 39 existing Apex tests ([#42014499689](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014499689)).
+- Existing M1 Purchase test fixtures are being recovered and cleaned before a fresh full acceptance run.
