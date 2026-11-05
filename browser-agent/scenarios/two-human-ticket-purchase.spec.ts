@@ -42,16 +42,22 @@ async function createAccount(page: import("@playwright/test").Page, stamp: numbe
   await page.getByRole("button", { name: "Create account", exact: true }).click();
   const line = page.getByText(/Account key:/);
   await expect(line).toBeVisible({ timeout: 60000 });
-  const key = (await line.innerText()).match(/Account key:\s*([a-f0-9]{32})/i)?.[1];
-  expect(key).toMatch(/^[a-f0-9]{32}$/i);
+  const pageKey = (await line.innerText()).match(/Account key:\s*([a-f0-9]{32})/i)?.[1];
+  expect(pageKey).toMatch(/^[a-f0-9]{32}$/i);
   await redactAccountKey(page);
   await expect(page.getByText(/^Status: /)).toHaveText("Status: ACTIVE", { timeout: 60000 });
-  return { displayName, key: key as string };
+  const accountRows = sfQuery<Record<string, unknown>>(
+    "SELECT Account_Key__c, Status__c FROM Housie_Account__c WHERE Display_Name__c = '" + displayName + "'"
+  );
+  expect(accountRows).toHaveLength(1);
+  expect(String(accountRows[0].Account_Key__c) === pageKey).toBe(true);
+  expect(accountRows[0].Status__c).toBe("ACTIVE");
+  return { displayName, key: String(accountRows[0].Account_Key__c) };
 }
 
 async function openAccount(page: import("@playwright/test").Page, key: string, displayName: string) {
   const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
-  await page.goto(root + "?token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
+  await page.goto(root + "?c__token=" + encodeURIComponent(key) + "&token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page);
