@@ -25,6 +25,15 @@ test("inspect Salesforce admin pages and Housie Experience Cloud shell", async (
   housie.note("Housie Account Admin page editor content:\n" + editorText);
   await housie.screenshot("housie-account-admin-page-editor");
 
+  const adminTabUrl = new URL("/lightning/n/Housie_Account_Admin", page.url()).toString();
+  await page.goto(adminTabUrl, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(error => {
+    if (!String(error).includes("ERR_ABORTED")) throw error;
+  });
+  await expect(page.getByText("Housie Account Administration", { exact: true }))
+    .toBeVisible({ timeout: 60000 });
+  housie.note("Housie Account Admin tab renders the account creation component.");
+  await housie.screenshot("housie-account-admin-tab");
+
   const communityUrl = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
   await page.goto(communityUrl, { waitUntil: "domcontentloaded", timeout: 60000 }).catch(error => {
     if (!String(error).includes("ERR_ABORTED")) throw error;
