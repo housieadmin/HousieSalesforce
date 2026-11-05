@@ -41,3 +41,7 @@ Use the Salesforce storage documentation linked from `docs/BUILD_STATUS.md` as t
 ## Implementation gate
 
 No scheduled cleanup, Big Object purge, lock consolidation or object deletion is authorized by this document. First collect per-object volume, retention requirements, index keys and consumer call sites; then implement and test a separate retention milestone.
+
+## Verified lock-removal constraint
+
+`Housie_Account__c.Email__c` currently has `<unique>false</unique>`. `HousieAccountService.createAccount()` serializes the duplicate-email check and insert with `HousieOperationService.lockForWrite()`. Removing the global operation lock before adding and validating a database-enforced uniqueness guarantee would create a check-then-insert race. Keep the lock for now; audit existing duplicate emails before considering a unique-field migration.
