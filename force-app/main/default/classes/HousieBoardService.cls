@@ -402,6 +402,34 @@ public without sharing class HousieBoardService {
             if (String.isNotBlank(participant.Operation_Id__c)) operationIds.add(participant.Operation_Id__c);
         }
 
+        // A human's paid ticket is authoritative participation. Do not rely
+        // solely on the participant projection: it can be missing or stale.
+        List<Ticket__b> humanTickets = [
+            SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Status__c
+            FROM Ticket__b
+            WHERE Game_Id__c = :gameId AND Ticket_Kind__c = 'HUMAN'
+            LIMIT 2000
+        ];
+        Set<String> activeHumanTicketIds = new Set<String>();
+        for (Ticket__b ticket : humanTickets) {
+            if (ticket.Owner_Account_Id__c != accountId || ticket.Status__c != 'ACTIVE') continue;
+            activeHumanTicketIds.add(ticket.Record_Id__c);
+            if (String.isNotBlank(ticket.Operation_Id__c)) operationIds.add(ticket.Operation_Id__c);
+        }
+
+        List<Game_Event__b> withdrawalEvents = new List<Game_Event__b>();
+        if (!activeHumanTicketIds.isEmpty()) {
+            withdrawalEvents = [
+                SELECT Record_Id__c, Operation_Id__c, Event_Type__c, Payload__c
+                FROM Game_Event__b
+                WHERE Game_Id__c = :gameId
+                LIMIT 2000
+            ];
+            for (Game_Event__b eventRow : withdrawalEvents) {
+                if (String.isNotBlank(eventRow.Operation_Id__c)) operationIds.add(eventRow.Operation_Id__c);
+            }
+        }
+
         List<Ticket__b> botTickets = [
             SELECT Record_Id__c, Operation_Id__c, Status__c
             FROM Ticket__b
@@ -438,6 +466,19 @@ public without sharing class HousieBoardService {
             }
         }
         if (latestParticipant != null && latestParticipant.status == 'ACTIVE') return true;
+
+        Set<String> withdrawnTicketIds = new Set<String>();
+        for (Game_Event__b eventRow : withdrawalEvents) {
+            if (eventRow.Event_Type__c != 'TICKET_WITHDRAWN' ||
+                !committed.contains(eventRow.Operation_Id__c) || String.isBlank(eventRow.Payload__c)) continue;
+            Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(eventRow.Payload__c);
+            if (payload != null && payload.containsKey('ticketId')) {
+                withdrawnTicketIds.add(String.valueOf(payload.get('ticketId')));
+            }
+        }
+        for (String ticketId : activeHumanTicketIds) {
+            if (!withdrawnTicketIds.contains(ticketId)) return true;
+        }
 
         for (Bot_Contribution__b contribution : contributions) {
             if (contribution.Contributor_Account_Id__c != accountId ||

@@ -1,6 +1,9 @@
 import { test, expect } from "../core";
 import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities/salesforce";
 
+// These scenarios handle bearer account keys; do not retain Playwright traces on failure.
+test.use({ trace: "off" });
+
 async function createActiveAccount(page: import("@playwright/test").Page, stamp: number, suffix: string) {
   const email = "housie.m1.twohuman." + stamp + "." + suffix + "@housie.test";
   const displayName = "M1 Two Human " + stamp + " " + suffix;
@@ -19,7 +22,7 @@ async function createActiveAccount(page: import("@playwright/test").Page, stamp:
 
 async function openPublicAccount(page: import("@playwright/test").Page, key: string, displayName: string) {
   const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
-  await page.goto(root + "?token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
+  await page.goto(root + "?c__token=" + encodeURIComponent(key) + "&token=" + encodeURIComponent(key) + "#c__token=" + encodeURIComponent(key), { waitUntil: "domcontentloaded" });
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   // Account_Key__c is a bearer credential rendered by HousieApp; redact it

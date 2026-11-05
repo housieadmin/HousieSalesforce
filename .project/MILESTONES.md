@@ -20,7 +20,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — schema, LWC/access, signup grants, public/record-page routes, owner board creation and second-human WAITING membership verified; functional Apex parity and two-human paid-ticket acceptance remain open**
+**Status: IN PROGRESS — schema, Apex/LWC/access parity, signup grants, public/record-page routes, owner board creation, second-human WAITING membership and route/security review verified; full two-human paid-ticket acceptance remains open**
 
 **Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
@@ -30,12 +30,11 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
 - [x] Git tree parity against the archived org-retrieve snapshot: all 249 object metadata files (20 object definitions, 213 field definitions, 16 Big Object indexes) have identical Git blob SHAs between main and `automation/org-retrieve-41937124487`.
 - [x] Confirm live Developer Org schema parity via Metadata API retrieve/round-trip: [PR #38 run #41944754055](https://github.com/housieadmin/HousieSalesforce/actions/runs/41944754055) retrieved 249 object metadata files from the Developer Org and found 249 expected, zero missing, zero unexpected and zero content differences. This covers 20 objects, 213 fields and 16 Big Object indexes.
-- [ ] Complete curated Apex reconciliation. [#41995794186](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995794186) verified LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 with zero differences; Apex 30/30 files were present with exactly two content differences. Follow-up [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) accepted only the `HousieOperationService.cls` comment-only transaction-boundary drift and isolated `HousieGameTicketService.cls` as the sole unaccepted functional difference (`Mode__c`, `Entry_Fee__c`, `Layout__c` absent from the org completion query). The follow-up stopped before its LWC/access checks. Do not suppress the functional difference.
+- [x] Complete curated Apex/LWC/access reconciliation. Final integrated source/org round-trip [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673) verified Apex 30/30 files present with only the explicitly accepted `HousieOperationService.cls` comment-only transaction-boundary drift; LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 had zero differences. `HousieGameTicketService` is exact after its narrow deployment. No functional Apex drift remains in the accepted source/org scope.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
 - [x] Adopt Salesforce DX split source format. [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) merged after metadata dry-run, 39 org-resident Apex tests and a 249-file byte-for-byte object round-trip passed. No deployment was performed.
 - [x] Curate Housie-owned custom permissions, permission sets and tabs from [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) into merged PR #32; exclude Salesforce-managed `sfdcInternalInt__*` permission sets. This is source sync only, not permission assignment or deployment.
-- [ ] Reconcile Housie Network/ExperienceBundle route and security configuration. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) is closed without merge; its guest-access, sender and site settings remain deferred pending a SPEC-reviewed curated route change.
-- [ ] Retrieve the Aura site's ExperienceBundle now that **Enable ExperienceBundle Metadata API** has been enabled. Identify the actual public root and account routes.
+- [x] Reconcile Housie Network/ExperienceBundle routes and record the security decision. Read-only inspection [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673) verified public root `c:housieApp`, account detail `c:housieBoardHub` with `recordId`, and Network settings: `UnderConstruction`, guest file access `true`, guest member visibility `false`, guest Chatter `false`, self-registration `false`, sender `sumit.gupta@salesforce.com`, ExperienceBundle `isAvailableToGuests=true`. Decision: no Network/ExperienceBundle deployment or site activation in Milestone 1; keep under construction. Future remediation requires a verified Housie sender and explicit launch/security approval. See `.project/MILESTONE_1_ROUTE_SECURITY_REVIEW.md`.
 - [x] Verify the authoritative Account Admin entry point. The `Housie_Account_Admin` tab mounts the `housieAccountAdmin` LWC. The user deleted the duplicate `House_Account_Admin` page; do not recreate it.
 - [x] Keep Salesforce-generated community login/profile controllers and unrelated standard components out of Housie source. Broad retrieve [PR #34](https://github.com/housieadmin/HousieSalesforce/pull/34) was closed; scoped manifests now enumerate Housie-owned components only.
 
@@ -60,7 +59,7 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 - [x] A second human joins through the private invitation board ID. Run #41994781213 passed: two distinct ACTIVE accounts joined the same board; both Board_Member index rows and one WAITING Game row persisted; both BoardHub sessions still listed the board after independent reloads.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
-- [ ] WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed. Runs #41962935952 and #41984570416 exposed an org Apex query defect in `completeTicketCommand()`: `Mode__c` (and related result fields `Entry_Fee__c`, `Layout__c`) are read but not selected, leaving the command PREPARED and lock active. Source fix merged in PR #32; targeted Apex deployment requires separate explicit authorization. The LWC-only deployment did not include Apex. The regression scenario now verifies reserved-point release and immutable resource-ledger row deltas before/after repurchase.
+- [ ] Complete the two-human WAITING withdrawal/repurchase/leave lifecycle as part of the end-to-end acceptance. The missing `Mode__c`, `Entry_Fee__c` and `Layout__c` completion-query fields were fixed in source and the narrow `HousieGameTicketService` deployment passed [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389); `HousieBoardService` leave-guard deployment passed [#42014362545](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014362545). Fixed-fixture withdrawal/release/repurchase/final-release regression passed [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673). The two-human scenario still needs to pass its purchase, withdrawal, repurchase and leave assertions.
 - [ ] Independent, reusable browser scenarios cover account creation, board creation, board join, ticket purchase and withdrawal. Scenarios verify persisted outcomes, not just successful clicks.
 - [ ] Apex tests cover business invariants; the browser journey runs against dedicated Developer Org test accounts and scenario-owned data.
 
@@ -210,3 +209,132 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - [x] Latest PR #41 validation: [#41997545531](https://github.com/housieadmin/HousieSalesforce/actions/runs/41997545531) passed metadata dry-run and all 39 org-resident Apex tests for head `cc0c667913ec5b5fff29c536bfdaa1c1ed456dd7`. Validation only; no deployment.
 - [ ] Two-human paid-ticket purchase, ticket-layout uniqueness, holds/ledger reconciliation and WAITING withdrawal/repurchase remain unaccepted until the narrowly scoped Apex correction is separately authorized and deployed. Do not deploy `HousieGameTicketService.cls` without explicit user approval.
 - Artifact #13398760836 remains retained. No deletion was attempted; deletion requires explicit user approval.
+
+
+### PR #41 merge and current deployment status — 2026-11-05
+
+- PR #41 was squash-merged as [8300f6e4f951bb34063e989883a306d18d62c586](https://github.com/housieadmin/HousieSalesforce/commit/8300f6e4f951bb34063e989883a306d18d62c586). Its latest PR validation [#42004763089](https://github.com/housieadmin/HousieSalesforce/actions/runs/42004763089) passed.
+- The user-authorized single-class Apex deployment attempt [#42004584546](https://github.com/housieadmin/HousieSalesforce/actions/runs/42004584546) failed during dry-run/check-only. The class appears in componentSuccesses, but CLI exit status was 1; the scenario truncated the JSON before exposing the test/coverage failure details. It did not run the real deployment command. **No Apex deployment occurred.**
+- Do not mark Apex parity or paid-ticket/withdrawal acceptance complete. Continue from .project/MILESTONE_1_CONTINUATION_CHECKLIST.md on branch milestone1/paid-ticket-acceptance.
+- GitHub Actions run inspection is available and has been used to inspect the issue-comment-triggered workflow, jobs, logs and artifact.
+- ExperienceBundle/Network route and guest-security review remains separate and SPEC-reviewed. Artifact #13398760836 remains retained; deletion is not authorized.
+
+
+### NoTestRun Apex deployment and Milestone 1 acceptance — 2026-11-05
+
+- The repository already had a supported NoTestRun deployment mode; no workflow change was required. The user chose to defer broad Apex coverage uplift until after Milestone 1.
+- Targeted dry-run and actual deployment of only `ApexClass:HousieGameTicketService` succeeded in [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389). Both reported Salesforce status Succeeded, CLI exit 0, zero component failures, and zero tests run. No unrelated metadata was deployed.
+- Source/org round-trip and two-human purchase/withdrawal/repurchase acceptance are now in progress. Apex coverage remains 22.43% and is explicitly deferred to post-Milestone 1 hardening; do not mark coverage complete.
+- ExperienceBundle/Network configuration remains unapproved for deployment: retrieved Network has guest file access enabled, a non-Housie sender address, and UnderConstruction status. Any curated route/security change must be SPEC-reviewed and must not expose the site publicly without separate user approval.
+
+
+### Human-ticket board-leave guard correction — 2026-11-05
+
+- A cleanup helper defect parsed active-ticket counts as zero and attempted to leave a board while a committed human ticket still existed. The server allowed that leave because `HousieBoardService.hasActiveParticipation()` relied on the Game_Participant projection and bot contributions, but did not independently inspect human Ticket__b rows.
+- Updated the guard to block leave while a committed ACTIVE human ticket has no committed TICKET_WITHDRAWN event. This aligns with Milestone 1's rule that a user cannot leave while holding a paid ticket.
+- Added browser acceptance for leave rejection while a ticket is active and successful leave only after withdrawal; the fixture releases the repurchased ticket before leaving.
+- Targeted NoTestRun dry-run/deployment for `HousieBoardService` is pending; this class is not yet deployed.
+
+
+### Board leave guard deployed — 2026-11-05
+
+- `HousieBoardService.hasActiveParticipation()` now checks committed active human tickets and committed withdrawal events, preventing board leave while a paid human ticket remains active even if the participant projection is missing or stale.
+- Narrow NoTestRun dry-run and actual deployment of only `ApexClass:HousieBoardService` succeeded ([#42014362545](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014362545)).
+- PR validation passed metadata dry-run and all 39 existing Apex tests ([#42014499689](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014499689)).
+- Existing M1 Purchase test fixtures have been recovered and cleaned before a fresh full acceptance run.
+
+
+### Synthetic M1 Purchase fixtures cleaned — 2026-11-05
+
+- Cleanup [#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549) passed. Both prior `M1 Purchase` synthetic accounts were withdrawn from their WAITING tickets, reconciled to zero reserved points, checked against append-only wallet-hold and resource-ledger row counts, left their scenario-owned boards and were suspended.
+- Fresh two-human source parity and paid-ticket acceptance is running in [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320).
+
+
+### Source parity confirmed; route test helper corrected — 2026-11-05
+
+- Source/org round-trip [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320) passed after the two Apex deployments: Apex 30/30 present with only the documented OperationService comment drift; LWC/access metadata exact.
+- The same run's new two-human test timed out opening the newly created account; it showed the unauthenticated welcome state and did not create a board or purchase tickets. Updated the test to compare the displayed signup key with the persisted account key (without logging either) and pass namespaced `c__token` plus legacy `token` route state.
+- Signup-only fixture cleanup is in progress; no ticket/financial operation was made in the failed run.
+
+
+### Signup-only fixture cleanup and route retry — 2026-11-05
+
+- Cleanup [#42015973440](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015973440) passed. Four `M1 Purchase` synthetic accounts, including signup-only accounts created by the route-resolution timeout, are SUSPENDED with zero reserved points and no outstanding tickets; append-only hold and resource-ledger counts reconcile.
+- Source/org round-trip [#42015109320](https://github.com/housieadmin/HousieSalesforce/actions/runs/42015109320) passed.
+- PR validation [#42016252653](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016252653) passed with 39/39 local Apex tests.
+- Two-human acceptance retry using persisted-key verification and namespaced route state is queued in [#42016487393](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016487393).
+
+
+### Public account token route fallback — 2026-11-05
+
+- Retry [#42016487393](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016487393) confirmed that Experience Cloud did not surface `?c__token`/`?token` through `CurrentPageReference.state`; the page remained unauthenticated and no ticket operations occurred.
+- `housieApp.js` now reads the token directly from `window.location.search` as a fallback and removes the bearer parameter from the visible URL after capture.
+- A targeted NoTestRun deployment scenario for only `LightningComponentBundle:housieApp` is added; deployment and route acceptance are pending.
+
+
+### Route and regression status — 2026-11-05
+
+- Public route inspector passed: root `c:housieApp`, account detail `c:housieBoardHub` with recordId context ([#42016864318](https://github.com/housieadmin/HousieSalesforce/actions/runs/42016864318)). Network metadata was retrieved, but security fields were blank in the inspector output; no fresh security conclusion or Network deployment is authorized from this result.
+- Fixed withdrawal regression's incorrect assumption that all account reservations belonged to its target board. The fixture account has 30 reserved points while the target board ticket holds 10; 20 points belong to unrelated boards and must remain reserved. Updated test now checks board-specific reservation deltas and releases its final replacement ticket.
+- Latest public account-route retry predates the LWC query-string fix. Narrow NoTestRun deployment of only `LightningComponentBundle:housieApp` is running in [#42039834760](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039834760).
+- User-directed deferred items: historical synthetic-key artifact deletion (3 artifacts, accounts suspended) and broad Apex coverage uplift after Milestone 1.
+
+
+### Public app route fix deployed — 2026-11-05
+
+- Narrow NoTestRun dry-run and deployment of only `LightningComponentBundle:housieApp` passed ([#42039834760](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039834760)).
+- Public token route now reads query parameters directly when Experience Cloud omits them from CurrentPageReference state, and removes bearer parameters from the visible URL.
+- PR validation [#42039758560](https://github.com/housieadmin/HousieSalesforce/actions/runs/42039758560) passed manifest validation and all 39 local Apex tests.
+- Fresh source parity, two-human acceptance and corrected withdrawal regression queued in [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322).
+
+
+### Browser execution stall isolated — 2026-11-05
+
+- Combined acceptance run [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322) is still in progress at the source parity scenario, with no status update since 13:55 UTC.
+- The source parity scenario used synchronous Salesforce CLI metadata retrieve with `--wait 60` but no process timeout; this can block the Playwright timeout. Added a 180-second execFileSync timeout and output redaction for the next run.
+- Network parser corrected; read-only metadata reinspection is queued in [#42040342202](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040342202).
+- No duplicate mutating acceptance run is being started while the prior run remains active.
+
+
+### Source parity and acceptance corrections — 2026-11-05
+
+- Source/org round-trip passed in [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322): Apex 30/30 present; only accepted OperationService comment drift; LWC/access exact.
+- Withdrawal regression released the original hold and appended its ledger release row. Repurchase test failed only because it searched the board card for a receipt rendered at app level; locator corrected to read the app-level completed-purchase notice.
+- Two-human account route remained unauthenticated after the first LWC fix. Updated app to preserve captured token across repeated CurrentPageReference wire setter calls and ignore the Experience Cloud root path segment as a token.
+- Follow-up narrow LWC deployment is queued; read-only Experience/Network reinspection is running.
+
+
+### Follow-up route deployment and final acceptance retry — 2026-11-05
+
+- Follow-up narrow NoTestRun dry-run/deployment of only `LightningComponentBundle:housieApp` passed ([#42041209642](https://github.com/housieadmin/HousieSalesforce/actions/runs/42041209642)). The app now retains the route token across repeated CurrentPageReference wire updates.
+- Source parity passed in [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322): Apex 30/30 present, only accepted OperationService comment drift, LWC/access exact.
+- Previous withdrawal regression successfully released its initial hold; the subsequent repurchase receipt assertion was targeting the wrong DOM container and is corrected.
+- Final integrated acceptance and corrected route/security inspection queued in [#42041622400](https://github.com/housieadmin/HousieSalesforce/actions/runs/42041622400).
+
+
+## Third route iteration based on browser evidence — 2026-11-05
+
+- Integrated run [#42041622400](https://github.com/housieadmin/HousieSalesforce/actions/runs/42041622400): source/org parity passed (Apex 30/30; only accepted OperationService comment drift; LWC/access exact). The Experience route inspector passed but its settings output came from the still-overescaped parser and is not authoritative.
+- Two-human route remained unauthenticated even after the second LWC deployment. Screenshot showed the public app's unauthenticated welcome state; the account creation helper had already verified the generated key against an ACTIVE persisted Housie_Account__c. The issue is route-state delivery through Experience Cloud, not account creation.
+- Added fragment-token support (`#c__token=`) to `housieApp`, preserving query/state fallback and the captured token across repeated wire updates; fragment is client-side and is removed from browser history after capture. Updated public-account browser scenarios to pass both query and fragment forms. A third narrow LWC deployment is required.
+- Fixed withdrawal regression assertion again: the app-level receipt text is not a stable locator; after repurchase, the ticket appears in the board card. The scenario now waits for a new active MANUAL/AUTOMATIC ticket card and compares its ID with the withdrawn ticket.
+- Previous regression run confirmed original ticket withdrawal, zero active tickets on the regression board, and release ledger append. Its only failure was the repurchase assertion, not the withdrawal path.
+
+
+### Session 4 evidence update — 2026-11-05
+
+- [x] Source/org parity after all targeted deployments: [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673), Apex 30/30 with only accepted OperationService comment drift; LWC/access metadata exact.
+- [x] Fixed-fixture withdrawal regression: [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673), including fresh repurchase and final release.
+- [x] ExperienceBundle route and Network security read-only inspection: [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673); no deployment/activation decision recorded.
+- [x] Prior synthetic purchase fixture recovery: [#42014618549](https://github.com/housieadmin/HousieSalesforce/actions/runs/42014618549), 2/2 scenarios passed.
+- [ ] Two-human paid-ticket acceptance remains open. Integrated run #42043222673 stopped before purchase at a test-helper redaction timeout. Helper fix committed; retry queued from issue #9 comment [6661443528](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6661443528).
+- PR validation [#42043742084](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043742084) passed 39/39 Apex tests and metadata validation on the prior HEAD; current HEAD requires fresh validation.
+
+
+### PR #42 latest integrated evidence — 2026-11-05
+
+- Source/org parity passed in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673): 30/30 Apex classes present; exact ticket-service source; only accepted comment-only OperationService drift; LWC/access exact.
+- The same run passed the fixed-fixture withdrawal regression (withdrawal, hold release, repurchase with a new ticket ID, final release) and read-only ExperienceBundle/Network/FlexiPage inspection.
+- The same run's two-human scenario completed both MANUAL purchases and 90-ball layout/uniqueness assertions, then failed at a post-reload account-key redaction helper that incorrectly required a label not rendered on the authenticated route. Persisted reload/ledger assertions and the full two-human withdrawal/leave lifecycle remain unaccepted until the focused rerun passes.
+- Verified Network settings are recorded in `.project/MILESTONE_1_ROUTE_SECURITY_REVIEW.md`. No Network or ExperienceBundle metadata was deployed; site remains UnderConstruction.
+- Keep broad Apex coverage uplift, historical artifact deletion and cleanup of failed/retried synthetic acceptance fixtures deferred until after Milestone 1, per user direction.
