@@ -11,7 +11,9 @@ function sfJson(args: string[]) {
     const output = execFileSync("sf", args, {
       cwd: path.resolve(process.cwd(), ".."),
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
+    timeout: 30000,
+      timeout: 30000
     });
     const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
     const start = clean.indexOf("{");
