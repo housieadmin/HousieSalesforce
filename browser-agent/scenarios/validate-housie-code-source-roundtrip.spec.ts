@@ -12,8 +12,8 @@ function filesUnder(dir: string): string[] {
   });
 }
 
-function retrieve(projectRoot: string, manifestName: string): void {
-  const manifestPath = path.join(projectRoot, "manifest", manifestName);
+function retrieve(projectRoot: string, manifestRoot: string, manifestName: string): void {
+  const manifestPath = path.join(manifestRoot, "manifest", manifestName);
   let output: string;
   try {
     output = execFileSync("sf", [
@@ -27,6 +27,7 @@ function retrieve(projectRoot: string, manifestName: string): void {
     throw new Error([
       "Salesforce metadata retrieve command failed.",
       "Manifest: " + manifestName,
+      "Manifest path: " + manifestPath,
       "Exit code: " + String(failure.code ?? "unknown"),
       "stdout: " + (stdout || "<empty>"),
       "stderr: " + (stderr || "<empty>")
@@ -50,7 +51,7 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
 }
 
 /** Isolate a retrieve from pre-existing runtime files so missing org metadata cannot false-pass. */
-function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: string,
+function retrieveAndCompare(projectRoot: string, manifestRoot: string, manifest: string, sourceRoot: string,
   runtimeRoot: string, component: string, ignore: string[] = []) {
   const target = path.join(runtimeRoot, component);
   const backupRoot = fs.mkdtempSync(path.join(os.tmpdir(), "housie-org-roundtrip-"));
@@ -58,7 +59,7 @@ function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: s
   const hadOriginal = fs.existsSync(target);
   if (hadOriginal) fs.renameSync(target, backup);
   try {
-    retrieve(projectRoot, manifest);
+    retrieve(projectRoot, manifestRoot, manifest);
     if (!fs.existsSync(target)) fs.mkdirSync(target, { recursive: true });
     return compare(path.join(sourceRoot, component), target, ignore);
   } finally {
@@ -70,20 +71,21 @@ function retrieveAndCompare(projectRoot: string, manifest: string, sourceRoot: s
 
 test("reconcile only Housie-owned Apex and LWC source against the Developer Org", async ({ housie }) => {
   const projectRoot = path.resolve(process.cwd(), "..");
-  const sourceRoot = path.resolve(projectRoot, "..", ".browser-agent-source", "force-app", "main", "default");
+  const sourceCheckoutRoot = path.resolve(projectRoot, "..", ".browser-agent-source");
+  const sourceRoot = path.join(sourceCheckoutRoot, "force-app", "main", "default");
   const runtimeRoot = path.join(projectRoot, "force-app", "main", "default");
 
-  const apex = retrieveAndCompare(projectRoot, "package-housie-apex.xml",
+  const apex = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-apex.xml",
     sourceRoot, runtimeRoot, "classes");
 
-  const lwc = retrieveAndCompare(projectRoot, "package-housie-lwc.xml",
+  const lwc = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-lwc.xml",
     sourceRoot, runtimeRoot, "lwc", ["jsconfig.json"]);
 
-  const customPermissions = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+  const customPermissions = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-access.xml",
     sourceRoot, runtimeRoot, "customPermissions");
-  const permissionSets = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+  const permissionSets = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-access.xml",
     sourceRoot, runtimeRoot, "permissionsets");
-  const tabs = retrieveAndCompare(projectRoot, "package-housie-access.xml",
+  const tabs = retrieveAndCompare(projectRoot, sourceCheckoutRoot, "package-housie-access.xml",
     sourceRoot, runtimeRoot, "tabs");
 
   housie.note(JSON.stringify({ apex, lwc, customPermissions, permissionSets, tabs }, null, 2));
