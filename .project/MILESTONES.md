@@ -20,14 +20,15 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 
 ## Milestone 1 — Reconcile the org baseline and prove pre-start setup
 
-**Status: IN PROGRESS — significant source/schema and UI configuration gaps identified**
+**Status: IN PROGRESS — schema representation understood; Experience Cloud/page setup and positive-path runtime verification remain open**
 
 **Goal:** make the GitHub source reproducible against the Developer Org, then prove that two human accounts can prepare a WAITING game with paid tickets.
 
 ### 1A. Source and org reconciliation
 
 - [x] Confirm the logical schema representation before comparing retrieve output. Main stores fields and Big Object indexes inline in each `*.object-meta.xml`; Salesforce CLI retrieve emits equivalent definitions as separate field/index files.
-- [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's index field sequence. No schema gap was established.
+- [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
+- [ ] Complete a property-level field metadata comparison for types, lengths, precision/scale, requiredness, uniqueness, defaults, relationships and picklist values before declaring full schema parity.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
 - [ ] Decide and document one canonical metadata representation. Do not convert formats or merge retrieved field files until a full source-format conversion is proven by retrieve/deploy round-trip validation.
 - [ ] Reconcile Housie Network, tabs and permission sets. [PR #33](https://github.com/housieadmin/HousieSalesforce/pull/33) and [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) are audit proposals, not merge candidates as-is.
