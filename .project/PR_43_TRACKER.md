@@ -27,3 +27,12 @@ Complete Milestone 1's core WAITING-game ticket functionality. This stacked PR i
 - Prior run [#42051842060](https://github.com/housieadmin/HousieSalesforce/actions/runs/42051842060) passed two-human board setup, both purchases and 90-ball layout checks before reload transport failed.
 - This PR removes reload transport from the critical path while retaining direct SOQL/Big Object assertions for persisted tickets, wallet holds, participants and resource transactions.
 - Current PR #42 validation [#42053135679](https://github.com/housieadmin/HousieSalesforce/actions/runs/42053135679) passed metadata dry-run and 39/39 local Apex tests.
+
+
+## Session 4 repository handoff
+
+- Predecessor PR #42 is closed as superseded (not merged). Its complete change set is included in this PR's branch.
+- PR #43 is the single active Milestone 1 delivery PR and targets `main`.
+- Functional browser run requested in issue #9 comment [6662074447](https://github.com/housieadmin/HousieSalesforce/issues/9#issuecomment-6662074447). No execution acknowledgement/result has been returned yet.
+- Existing evidence still proves the two distinct purchases and valid 90-ball layouts in [#42051842060](https://github.com/housieadmin/HousieSalesforce/actions/runs/42051842060), and fixed-fixture withdrawal/release/repurchase in [#42043222673](https://github.com/housieadmin/HousieSalesforce/actions/runs/42043222673). This PR's run must prove the combined two-human lifecycle and live ledger assertions.
+- Do not mark Milestone 1 complete until the full functional run passes.
