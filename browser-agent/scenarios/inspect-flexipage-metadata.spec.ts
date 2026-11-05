@@ -48,7 +48,7 @@ test("retrieve and inspect Housie ExperienceBundle, Network and FlexiPages", asy
   const networkXml = networkFiles.length
     ? fs.readFileSync(networkFiles[0], "utf8")
     : "";
-  const networkSetting = (name: string) => networkXml.match(new RegExp("<" + name + ">([\s\S]*?)</" + name + ">"))?.[1]?.trim() || "";
+  const networkSetting = (name: string) => networkXml.match(new RegExp("<" + name + ">([\\s\\S]*?)</" + name + ">"))?.[1]?.trim() || "";
   const siteConfigPath = path.join(experienceDir, "Housie1", "config", "housie.json");
   const siteConfig = fs.existsSync(siteConfigPath)
     ? JSON.parse(fs.readFileSync(siteConfigPath, "utf8"))
