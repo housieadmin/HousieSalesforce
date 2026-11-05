@@ -12,10 +12,19 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect(card, "The dedicated transaction regression board must already exist").toBeVisible({ timeout: 60000 });
   await expect(card, "Withdrawal is only valid while the current game is WAITING").toContainText("Game: WAITING");
 
-  const before = await card.innerText();
+  let before = await card.innerText();
+  let beforeCount = Number(before.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
+  if (beforeCount === 0) {
+    const buy = card.getByRole("button", { name: /Buy ticket/ });
+    await expect(buy, "An empty WAITING fixture must permit a seed purchase").toBeVisible();
+    await buy.click();
+    await expect.poll(async () => await card.innerText(), { timeout: 60000 })
+      .toMatch(/Active tickets:\s*[1-9]/);
+    before = await card.innerText();
+    beforeCount = Number(before.match(/Active tickets:\s*(\d+)/)?.[1] || 0);
+  }
   const beforeIds = [...before.matchAll(/(?:MANUAL|AUTO)\s*·\s*[0-9.]+\s*points\s*·\s*([a-f0-9]{32})/gi)].map(match => match[1]);
-  const beforeCount = Number(before.match(/Active tickets:\s*(\\d+)/)?.[1] || 0);
-  expect(beforeCount, "The regression fixture must have at least one active ticket to withdraw").toBeGreaterThan(0);
+  expect(beforeCount, "The regression fixture must have an active ticket before withdrawal").toBeGreaterThan(0);
 
   const withdraw = card.getByRole("button", { name: "Withdraw from waiting game", exact: true });
   await expect(withdraw).toBeVisible();
