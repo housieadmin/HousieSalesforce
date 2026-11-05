@@ -167,3 +167,11 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Withdrawal/repurchase run #41984570416 failed because org `HousieGameTicketService.completeTicketCommand()` still queries without `Mode__c` (also missing result fields `Entry_Fee__c` and `Layout__c`). The existing prepared withdrawal is unresolved. The Apex fix is in merged source but was not deployed; user authorization so far covers only the LWC bundle. Do not deploy Apex until separately authorized.
 - Main contains `HousieApp` and `HousieRouteController` but no ExperienceBundle metadata; the actual public site route/mount remains unverified. Do not deploy PR #37's raw Network/ExperienceBundle settings or activate the site.
 - Current work is consolidated on `milestone1/continuation`; next PR is the single open implementation PR for remaining Milestone 1 items. See `.project/SESSION_2026-11-05.md` and `.project/MILESTONES.md` for lane checklists.
+
+
+## Schema/access parity evidence — 2026-11-05
+
+- Object schema parity is now verified against the read-only org retrieve branch `automation/org-retrieve-41937124487`: all 249 object metadata files have identical Git blob SHAs in main and retrieve (20 object definitions, 213 field definitions, 16 Big Object indexes); zero missing, unexpected or changed files. Because the complete field XML files match, types, lengths, precision/scale, requiredness, uniqueness, defaults, relationships and picklist metadata match for this retrieved baseline.
+- Housie-owned access metadata is semantically identical to the org retrieve: 2 custom permissions, 3 permission sets, 3 tabs. The five XML byte differences (3 permission sets, 2 tabs) are formatting-only. The two Salesforce-managed `sfdcInternalInt__*` permission sets are excluded.
+- The remaining source/org functional delta is `HousieGameTicketService.completeTicketCommand()` query fields; `HousieOperationService.cls` delta is comment-only transaction-boundary documentation. Full curated Apex/LWC round-trip rerun is requested and pending.
+- Current single continuation PR: [#41](https://github.com/housieadmin/HousieSalesforce/pull/41). Public root route and curated round-trip browser requests were dispatched from `milestone1/continuation`; no result is claimed until the workflow bot reports completion and artifacts are reviewed.
