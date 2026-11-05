@@ -262,9 +262,21 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(releasedHolds, "Withdrawal must append a release row to the wallet-hold ledger").toHaveLength(2);
     expect(new Set(releasedHolds.map(row => String(row.Record_Id__c))).size).toBe(2);
   }
+  const ownerWithdrawalCommands = sfQuery<Record<string, unknown>>(
+    "SELECT Action_Type__c, Status__c FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + owner.key + "'"
+  );
+  expect(ownerWithdrawalCommands.some(command =>
+    command.Action_Type__c === "WITHDRAW" && command.Status__c === "COMMITTED"
+  )).toBe(true);
   const ownerLedgerAfterWithdrawal = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
   );
+  const memberWithdrawalCommands = sfQuery<Record<string, unknown>>(
+    "SELECT Action_Type__c, Status__c FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + member.key + "'"
+  );
+  expect(memberWithdrawalCommands.some(command =>
+    command.Action_Type__c === "WITHDRAW" && command.Status__c === "COMMITTED"
+  )).toBe(true);
   const memberLedgerAfterWithdrawal = queryBigObject<Record<string, unknown>>(
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + member.key + "'"
   );
@@ -292,6 +304,15 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
   );
   expect(ownerLedgerAfterRepurchase).toHaveLength(ownerLedgerAfterWithdrawal.length + 1);
+  const ownerCommandsAfterRepurchase = sfQuery<Record<string, unknown>>(
+    "SELECT Action_Type__c, Status__c FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + owner.key + "'"
+  );
+  expect(ownerCommandsAfterRepurchase.filter(command =>
+    command.Action_Type__c === "PURCHASE" && command.Status__c === "COMMITTED"
+  )).toHaveLength(2);
+  expect(ownerCommandsAfterRepurchase.filter(command =>
+    command.Action_Type__c === "WITHDRAW" && command.Status__c === "COMMITTED"
+  )).toHaveLength(1);
 
   // Release the replacement ticket as fixture cleanup, then prove board leave
   // is permitted only after every human ticket hold has been released.
@@ -310,6 +331,12 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + owner.key + "'"
   );
   expect(ownerLedgerAfterFinalWithdrawal).toHaveLength(ownerLedgerAfterRepurchase.length + 1);
+  const ownerCommandsAfterFinalWithdrawal = sfQuery<Record<string, unknown>>(
+    "SELECT Action_Type__c, Status__c FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + owner.key + "'"
+  );
+  expect(ownerCommandsAfterFinalWithdrawal.filter(command =>
+    command.Action_Type__c === "WITHDRAW" && command.Status__c === "COMMITTED"
+  )).toHaveLength(2);
 
   await ownerReloadedCard.getByRole("button", { name: "Leave board", exact: true }).click();
   await expect(ownerReloadedCard).toHaveCount(0, { timeout: 60000 });
