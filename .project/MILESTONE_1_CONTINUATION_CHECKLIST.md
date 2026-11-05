@@ -14,17 +14,17 @@
 ## 1. Diagnose and deploy the Apex correction
 
 - [x] Fix deployment-scenario diagnostics so non-zero Salesforce CLI exits preserve structured component, test and coverage details.
-- [ ] Re-run the targeted metadata dry-run for ApexClass:HousieGameTicketService only, with RunLocalTests.
+- [x] Re-run the targeted metadata dry-run for ApexClass:HousieGameTicketService only, with NoTestRun ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
 - [x] Identify the dry-run gate: 38 local tests ran with zero failures, but org-wide Apex class/trigger coverage is 22%, below Salesforce's 75% gate when tests run as part of deployment.
 - [x] Confirm existing RunLocalTests pass 39/39; post-test coverage is 22.43% (365/1,627 lines across 30 classes/triggers).
 - [x] Identify uncovered Housie classes/triggers. Defer broad coverage work to post-Milestone 1 hardening.
 - [ ] Post-Milestone 1: add meaningful Apex tests for uncovered services and raise org-wide coverage to at least 75%. Do not add tests that only execute lines without asserting invariants.
-- [ ] Run targeted dry-run with NoTestRun; retain dry-run and exact single-class scope.
-- [ ] Once NoTestRun dry-run passes, perform the user-authorized deployment of that one Apex class only.
-- [ ] Confirm the real deployment reports success and the Apex class is deployed. No object, permission, ExperienceBundle, Network or unrelated Apex deployment is included.
-- [ ] Run the curated source/org round-trip and confirm HousieGameTicketService.cls now matches the Developer Org. Keep any unrelated drift explicit.
+- [x] Run targeted dry-run with NoTestRun; it passed.
+- [x] Deploy only the user-authorized Apex class after the NoTestRun dry-run passed ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
+- [x] Confirm the real deployment reports Succeeded, with zero component failures and zero tests run. Only ApexClass:HousieGameTicketService was selected; no object, permission, ExperienceBundle, Network or unrelated Apex deployment was included ([#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389)).
+- [ ] Run the curated source/org round-trip and confirm HousieGameTicketService.cls matches the Developer Org. This is running in [#420118...](https://github.com/housieadmin/HousieSalesforce/actions) (record final run link after completion).
 
-**Current evidence:** [#42006260327](https://github.com/housieadmin/HousieSalesforce/actions/runs/42006260327) confirmed 38 tests passed but deployment was rejected by the 22% org-wide coverage gate. The repository already supports NoTestRun in controlled deployment workflows. This continuation uses NoTestRun for the narrow dry-run and deployment; functional behavior remains subject to browser acceptance.
+**Deployment result:** [#42011368389](https://github.com/housieadmin/HousieSalesforce/actions/runs/42011368389) passed both the NoTestRun dry-run and actual single-class deployment. CLI status 0, Salesforce status Succeeded, zero component failures, zero tests run. This is a deployment success, not an Apex test pass.
 
 ## 2. Prove two-human paid-ticket purchase
 
