@@ -223,3 +223,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Schema parity is **COMPLETE** based on PR #38's live Developer Org Metadata API retrieve/round-trip [#41944754055](https://github.com/housieadmin/HousieSalesforce/actions/runs/41944754055): 249/249 object metadata files (20 objects, 213 fields, 16 indexes), zero missing/unexpected/content differences.
 - Later REST-based `sf sobject describe` and `sf data query` calls were not valid for Big Objects; Salesforce explicitly documents REST sObject API as unsupported for Big Objects. The returned index-only fields and `INVALID_FIELD` errors were API limitations, not missing schema.
 - Big Object acceptance queries now use Bulk API 2.0 (`sf data export bulk`) through `queryBigObject()`. Signup-grant and two-human membership rerun is pending; no acceptance claim until those records are verified.
+
+
+## Big Object data-query harness status — 2026-11-05
+
+- First Bulk API 2.0 run #41993125219 failed during query-job creation with generic CLI `Error (1)` for Board_Member and Account_Resource_Transaction; no rows were returned. This is a test/API harness failure, not evidence of missing metadata.
+- `queryBigObject()` now requests structured CLI JSON and pins API v66.0. A rerun is queued (#6653196676) to capture the server-side query-job error. Signup grants and two-human membership remain unverified.
