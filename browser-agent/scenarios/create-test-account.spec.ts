@@ -1,6 +1,9 @@
 import { test, expect } from "../core";
 import { openLightningTab, redactAccountKey } from "../utilities/salesforce";
 
+// These scenarios handle bearer account keys; do not retain Playwright traces on failure.
+test.use({ trace: "off" });
+
 test("create an active Housie test account through the admin UI", async ({ page, housie }) => {
   await openLightningTab(page, "/lightning/n/Housie_Account_Admin");
   await expect(page.getByText("Housie Account Administration", { exact: true }))
