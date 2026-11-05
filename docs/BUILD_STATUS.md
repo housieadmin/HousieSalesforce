@@ -139,3 +139,12 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Curated Apex parity remains open: the branch's `HousieGameTicketService.cls` includes additional selected completion result fields not yet present in the org. This Apex change was not included in the LWC deployment. `HousieOperationService.cls` is also flagged by the byte comparator; obtain the artifact's bounded snippets/hashes and resolve the exact org drift before claiming parity. Do not loosen the parity assertions.
 - Milestone 1 remains **IN PROGRESS** and no product milestone acceptance criteria have been waived.
 - Active work queue and resumption notes remain in [the session tracker](../.project/SESSION_2026-11-05.md).
+
+
+## Latest post-deployment browser findings — 2026-11-05
+
+- Board Hub LWC-only deployment succeeded in run #41984322994. Board-create browser run [#41984566133](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984566133) then failed because the scenario clicked before the record-page `getRecord` account-context wire had resolved; the diagnostics showed the existing membership after refresh. The test now waits for that fixture membership before clicking; rerun requested. Do not mark board creation passed until the rerun verifies persistent WAITING game and BOARD_ADMIN membership.
+- Withdrawal/repurchase run [#41984570416](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984570416) failed while finalizing a prior PREPARED withdrawal because the org Apex query still omits `Housie_Ticket_Command__c.Mode__c`. The source correction is in PR #32, but was not deployed. The pending command remains; withdrawal/repurchase is not accepted. A separately scoped Apex deployment authorization is required.
+- Source parity details: the `HousieGameTicketService.cls` mismatch is functional and exact: source adds `Mode__c`, `Entry_Fee__c`, `Layout__c` to the completion query; the org has the old list. The `HousieOperationService.cls` mismatch is comment-only: source clarifies transaction semantics; org retains older transaction-boundary comments. Keep the accurate source documentation; record this as comment drift, not a functional code defect.
+- Updated board-create scenario validation [#41985178221](https://github.com/housieadmin/HousieSalesforce/actions/runs/41985178221) passed metadata validation and all 39 org-resident Apex tests. It does not validate board creation runtime or withdrawal.
+- Milestone 1 remains **IN PROGRESS**. No two-human ticket/ledger acceptance is proven.
