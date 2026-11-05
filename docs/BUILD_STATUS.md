@@ -40,7 +40,8 @@ Important implementation boundary: `HousieGameService.submitCommand()` currently
 
 - **Correction to the earlier audit:** main stores object fields and Big Object indexes inline in each `*.object-meta.xml`. Salesforce CLI retrieve emits the same definitions as separate `fields/` and `indexes/` files. The earlier claim that 213 fields and 16 indexes were missing was incorrect.
 - Compared all 20 object definitions: embedded field counts and names match the org-retrieved field files for every object. All 16 retrieved Big Object indexes match the repository's ordered index fields. A full property-by-property diff remains part of choosing a canonical representation, but no missing schema definitions have been identified.
-- [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) is closed as superseded. It adds duplicate split-form metadata alongside the existing inline definitions. Do not merge it.
+- [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) is closed as superseded. It added duplicate split-form metadata alongside the existing inline definitions. Do not merge it.
+- Draft [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) converts all 20 objects to Salesforce DX split source format: 20 object-level files, 213 field files and 16 index files copied from the org retrieve. This is a representation normalization, not a schema addition. Validation is pending; do not merge until dry-run and round-trip checks pass.
 - The repository has 20 custom objects: the 16 logical model entities (one standard custom object, `Housie_Account__c`, and 15 Big Objects) plus four technical infrastructure objects. No other custom business entities were found outside the agreed model.
 - Technical object audit:
   - `Operation_Journal__b`: keep. It provides the PENDING/COMMITTED visibility gate used by Big Object readers; removing it means redesigning all operation writes and reads.
