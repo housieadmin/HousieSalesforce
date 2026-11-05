@@ -71,5 +71,23 @@ test("new account activation is backed by all four committed signup grants", asy
   }
 
   housie.note("Signup grant audit passed: one ACTIVE account, balances match SPEC, and four distinct committed-grant records exist. Bearer account key redacted; synthetic email and key omitted from artifacts.");
-  await housie.screenshot("signup-grants-verified-redacted");
+
+  // The public app resolves its opaque invitation token from the query string.
+  // The browser-agent diagnostics redact the token query parameter; redact the
+  // rendered account-key line before taking any screenshot or artifact.
+  const publicRoot = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
+  await housie.navigate(publicRoot + "?token=" + encodeURIComponent(accountKey));
+  const app = page.locator("c-housie-app");
+  await expect(app, "The public site must mount HousieApp for an invitation token")
+    .toHaveCount(1, { timeout: 60000 });
+  await expect(app.getByText("Welcome, " + displayName, { exact: true }))
+    .toBeVisible({ timeout: 60000 });
+  const boardHub = app.locator("c-housie-board-hub");
+  await expect(boardHub, "A valid token must pass accountKey to Board Hub")
+    .toHaveCount(1, { timeout: 30000 });
+  await expect(boardHub.getByText("No boards yet. Create your first board above.", { exact: true }))
+    .toBeVisible({ timeout: 60000 });
+  await redactAccountKey(page);
+  housie.note("Public HousieApp token route resolved the newly activated account and Board Hub loaded its empty board list. Token query and rendered bearer key redacted.");
+  await housie.screenshot("signup-grants-and-public-route-verified-redacted");
 });
