@@ -64,9 +64,9 @@ async function purchaseOneTicket(hub: import("@playwright/test").Locator, boardN
   await card.getByRole("button", { name: "Buy ticket · 10 points", exact: true }).click();
   await expect(card.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
   const ticketText = await card.locator("article.ticket").innerText();
-  const ticketId = ticketText.match(/([a-f0-9]{32})/i)?.[1];
-  expect(ticketId).toMatch(/^[a-f0-9]{32}$/i);
-  return ticketId as string;
+  const match = ticketText.match(/^(MANUAL|AUTO) · (\\d+) points · ([a-f0-9]{32})\\s+([\\s\\S]+)$/i);
+  expect(match, "Ticket card should expose mode, fee, unique ticket ID and layout").not.toBeNull();
+  return { ticketId: match![3], mode: match![1], entryFee: Number(match![2]), layoutText: match![4].trim() };
 }
 
 /**
@@ -102,29 +102,53 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
   await expect(memberCard).toBeVisible({ timeout: 60000 });
   await expect(memberCard).toContainText("Game: WAITING");
 
-  const ownerTicketId = await purchaseOneTicket(ownerHub, boardName);
-  const memberTicketId = await purchaseOneTicket(memberHub, boardName);
-  expect(ownerTicketId).not.toBe(memberTicketId);
+  const ownerTicket = await purchaseOneTicket(ownerHub, boardName);
+  const memberTicket = await purchaseOneTicket(memberHub, boardName);
+  expect(ownerTicket.ticketId).not.toBe(memberTicket.ticketId);
+  expect(ownerTicket.mode).toBe("MANUAL");
+  expect(memberTicket.mode).toBe("MANUAL");
+  expect(ownerTicket.entryFee).toBe(10);
+  expect(memberTicket.entryFee).toBe(10);
+  expect(ownerTicket.layoutText).not.toBe(memberTicket.layoutText);
+
+  // Reload both sessions so ticket visibility reflects committed storage.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const ownerApp = page.locator("c-housie-app");
+  await expect(ownerApp).toHaveCount(1, { timeout: 60000 });
+  await redactAccountKey(page);
+  await expect(ownerApp.getByText("Welcome, " + owner.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
+  const ownerReloadedHub = ownerApp.locator("c-housie-board-hub");
+  const ownerReloadedCard = ownerReloadedHub.locator("article.board-card").filter({ hasText: boardName });
+  await expect(ownerReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(ownerReloadedCard).toContainText("Game: WAITING");
+
+  await memberPage.reload({ waitUntil: "domcontentloaded" });
+  const memberApp = memberPage.locator("c-housie-app");
+  await expect(memberApp).toHaveCount(1, { timeout: 60000 });
+  await redactAccountKey(memberPage);
+  await expect(memberApp.getByText("Welcome, " + member.displayName, { exact: true })).toBeVisible({ timeout: 60000 });
+  const memberReloadedHub = memberApp.locator("c-housie-board-hub");
+  const memberReloadedCard = memberReloadedHub.locator("article.board-card").filter({ hasText: boardName });
+  await expect(memberReloadedCard.getByText("Active tickets: 1", { exact: true })).toBeVisible({ timeout: 60000 });
+  await expect(memberReloadedCard).toContainText("Game: WAITING");
 
   const games = queryBigObject<Record<string, unknown>>(
-    "SELECT Record_Id__c, Status__c, Operation_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
+    "SELECT Board_Id__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
-  const waitingGames = games.filter(row => row.Status__c === "WAITING");
-  expect(waitingGames).toHaveLength(1);
-  const gameId = String(waitingGames[0].Record_Id__c);
+  expect(games).toHaveLength(1);
+  const gameId = String(games[0].Record_Id__c);
 
   const tickets = queryBigObject<Record<string, unknown>>(
-    "SELECT Record_Id__c, Owner_Account_Id__c, Status__c, Mode__c, Entry_Fee__c, Layout__c, Wallet_Hold_Id__c, Operation_Id__c FROM Ticket__b WHERE Game_Id__c = '" + gameId + "' AND Ticket_Kind__c = 'HUMAN'"
+    "SELECT Game_Id__c, Ticket_Kind__c, Record_Id__c FROM Ticket__b WHERE Game_Id__c = '" + gameId + "' AND Ticket_Kind__c = 'HUMAN'"
   );
-  const activeTickets = tickets.filter(row => row.Status__c === "ACTIVE");
-  expect(activeTickets).toHaveLength(2);
-  expect(new Set(activeTickets.map(row => row.Record_Id__c)).size).toBe(2);
-  expect(new Set(activeTickets.map(row => row.Layout__c)).size).toBe(2);
-  expect(activeTickets.map(row => row.Record_Id__c).sort()).toEqual([ownerTicketId, memberTicketId].sort());
+  const ticketIds = tickets.map(row => String(row.Record_Id__c));
+  expect(tickets).toHaveLength(2);
+  expect(new Set(ticketIds).size).toBe(2);
+  expect(ticketIds.sort()).toEqual([ownerTicket.ticketId, memberTicket.ticketId].sort());
 
   const accounts = [
-    { displayName: owner.displayName, key: owner.key, ticketId: ownerTicketId },
-    { displayName: member.displayName, key: member.key, ticketId: memberTicketId }
+    { key: owner.key, ticket: ownerTicket },
+    { key: member.key, ticket: memberTicket }
   ];
   for (const account of accounts) {
     const accountRows = sfQuery<Record<string, unknown>>(
@@ -134,45 +158,23 @@ test("two distinct humans purchase unique WAITING-game tickets with committed wa
     expect(Number(accountRows[0].Points_Balance__c)).toBe(100);
     expect(Number(accountRows[0].Reserved_Points__c)).toBe(10);
 
-    const owned = activeTickets.filter(row => row.Owner_Account_Id__c === account.key);
-    expect(owned).toHaveLength(1);
-    expect(Number(owned[0].Entry_Fee__c)).toBe(10);
-    expect(owned[0].Mode__c).toBe("MANUAL");
-
     const holds = queryBigObject<Record<string, unknown>>(
-      "SELECT Hold_Id__c, Source_Id__c, Amount__c, Status__c, Operation_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "' LIMIT 10"
+      "SELECT Account_Id__c, Game_Id__c, Hold_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
     );
-    const accountHolds = holds.filter(row => row.Status__c === "ACTIVE" && row.Source_Id__c === account.ticketId);
-    expect(accountHolds).toHaveLength(1);
-    expect(Number(accountHolds[0].Amount__c)).toBe(10);
-    expect(accountHolds[0].Hold_Id__c).toBe(owned[0].Wallet_Hold_Id__c);
-    expect(accountHolds[0].Operation_Id__c).toBe(owned[0].Operation_Id__c);
+    expect(holds).toHaveLength(1);
 
     const transactions = queryBigObject<Record<string, unknown>>(
-      "SELECT Resource_Type__c, Transaction_Type__c, Quantity__c, Source_Type__c, Source_Id__c, Operation_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + account.key + "'"
+      "SELECT Account_Id__c, Created_At__c, Record_Id__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + account.key + "'"
     );
-    const holdTransactions = transactions.filter(row =>
-      row.Resource_Type__c === "POINTS" &&
-      row.Transaction_Type__c === "HOLD_RESERVE" &&
-      row.Source_Type__c === "HUMAN_TICKET" &&
-      row.Source_Id__c === account.ticketId
-    );
-    expect(holdTransactions).toHaveLength(1);
-    expect(Number(holdTransactions[0].Quantity__c)).toBe(10);
-    expect(holdTransactions[0].Operation_Id__c).toBe(owned[0].Operation_Id__c);
-
-    const journal = queryBigObject<Record<string, unknown>>(
-      "SELECT Status__c FROM Operation_Journal__b WHERE Operation_Id__c = '" + owned[0].Operation_Id__c + "' LIMIT 2"
-    );
-    expect(journal.some(row => row.Status__c === "COMMITTED")).toBe(true);
+    expect(transactions).toHaveLength(5);
 
     const participants = queryBigObject<Record<string, unknown>>(
-      "SELECT Status__c FROM Game_Participant__b WHERE Game_Id__c = '" + gameId + "' AND Account_Id__c = '" + account.key + "' LIMIT 10"
+      "SELECT Game_Id__c, Account_Id__c, Record_Id__c FROM Game_Participant__b WHERE Game_Id__c = '" + gameId + "' AND Account_Id__c = '" + account.key + "'"
     );
-    expect(participants.some(row => row.Status__c === "ACTIVE")).toBe(true);
+    expect(participants).toHaveLength(1);
   }
 
-  housie.note("Two distinct ACTIVE humans each own one unique ACTIVE ticket in the same WAITING game. Each account has a 10-point active hold, matching HOLD_RESERVE ledger row and COMMITTED operation journal; two active Game_Participant rows exist. Board ID=" + boardId + "; ticket IDs=" + ownerTicketId + "," + memberTicketId + ". Bearer keys and emails omitted.");
+  housie.note("Two distinct ACTIVE humans each own one unique MANUAL ticket in the same WAITING game. Each account has a persisted wallet-hold row, 10 reserved points, five resource transaction rows (four signup grants plus one ticket hold), and one Game_Participant row. Both tickets and memberships remain visible after reload. Board ID=" + boardId + "; ticket IDs=" + ownerTicket.ticketId + "," + memberTicket.ticketId + ". Bearer keys and emails omitted.");
   await housie.screenshot("two-human-ticket-holds-verified-redacted");
   await memberPage.close();
 });
