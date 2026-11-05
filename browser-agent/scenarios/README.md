@@ -24,7 +24,7 @@ Never put credentials, access tokens or other secrets in scenario files.
 - `inspect-apex-coverage.spec.ts` — runs `RunLocalTests` with code coverage, then reads Tooling API aggregate coverage and maps the largest uncovered classes/triggers. It does not modify business records or metadata.
 - `two-human-ticket-purchase.spec.ts` — run only after the targeted Apex deployment succeeds. Verifies two distinct MANUAL tickets/layouts, reserved balances, wallet-hold/resource rows, participant records, withdrawal of both tickets, release ledger rows and a fresh repurchase.
 - `ticket-withdrawal-regression.spec.ts` — separate fixed-fixture regression for WAITING withdrawal and repurchase; same Apex deployment gate.
-- `suspend-milestone1-synthetic-accounts.spec.ts` — suspends only accounts created by these Milestone 1 scenarios; it never reads account keys or emails.
+- `suspend-milestone1-synthetic-accounts.spec.ts` — cleans only `M1 Purchase %` synthetic accounts; uses bearer keys only in memory to withdraw outstanding WAITING tickets, strips tokens from browser history, disables Playwright traces, and never logs/retains keys or emails.
 - `validate-housie-code-source-roundtrip.spec.ts` — read-only curated retrieve. It allows only the explicitly documented comment-only difference in `HousieOperationService.cls`; every other Apex delta remains a failure.
 
 Big Object queries must use Bulk API 2.0 and index columns only. Do not use REST `sf data query` or `sf sobject describe` for Big Objects.
