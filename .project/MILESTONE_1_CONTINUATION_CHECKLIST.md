@@ -29,7 +29,7 @@
 ## 2. Prove two-human paid-ticket purchase
 
 - [x] Run two-human-ticket-purchase.spec.ts after deployment and source/org round-trip; fix its hold query to select indexed Record_Id__c rather than unsupported Hold_Id__c before the acceptance rerun.
-- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Run #42011719670 created both tickets and passed distinct-ID, layout, WAITING-state and reserved-balance assertions, but the scenario stopped at an invalid non-index Big Object field in its hold query; rerun after the query correction.
+- [ ] Verify two distinct ACTIVE human accounts each purchase a distinct valid MANUAL ticket in the same WAITING game. Prior attempt reached account-route setup but remained unauthenticated; LWC now retains the token across repeated wire updates. Retry after the follow-up LWC deployment.
 - [ ] Verify 90-ball layout validity and no duplicate active layout within the game.
 - [ ] Reconcile each account's reserved balance, wallet-hold rows, participant rows and immutable resource-transaction ledger entries.
 - [ ] Confirm ticket count, point balances and ledger deltas after independent page reloads.
@@ -40,7 +40,7 @@
 - [ ] Verify both humans' active tickets are removed, reserved points return to zero, and Leave Board is rejected while an active human ticket remains.
 - [ ] Verify one HOLD_RELEASE resource-ledger row per withdrawn ticket and no stale active hold/command lock.
 - [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row; release that final fixture ticket before leaving the board.
-- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. The baseline now preserves 20 unrelated reserved points on other boards; only this regression board's 10-point hold/release delta is asserted. Retry queued in #42040038322.
+- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. Baseline preserves 20 unrelated reserved points on other boards. Withdrawal/release passed; repurchase receipt is app-level, not inside the board card. Test locator corrected.
 
 ## 4. Cleanup and closeout
 
