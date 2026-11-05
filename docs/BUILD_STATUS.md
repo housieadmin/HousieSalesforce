@@ -203,3 +203,9 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 - Security cleanup run [#41991490195](https://github.com/housieadmin/HousieSalesforce/actions/runs/41991490195) passed 1/1. Both synthetic accounts from failed run #41990993847 were changed to `SUSPENDED` and verified; their bearer keys are no longer accepted by Housie account resolution.
 - Original artifact `13398760836` still exists and contains the old failure snapshot. The current GitHub connector cannot delete workflow artifacts. A separate one-off workflow/process change with Actions write permission is needed to remove it; user approval is required before building that tooling.
 - Signup-grant/public token and two-human WAITING board tests were re-requested after correcting the CLI parser/diagnostics and ensuring bearer keys are redacted before retained artifacts. Result pending.
+
+
+## Ticket purchase acceptance prepared — 2026-11-05
+
+- Added `browser-agent/scenarios/two-human-ticket-purchase.spec.ts` for the first positive two-human paid-ticket path. It checks two distinct active tickets/layouts, matching active wallet holds and HOLD_RESERVE ledger rows, committed operation journals and active participant rows while the game remains WAITING.
+- The test is intentionally gated and must not run until the user authorizes the narrow `HousieGameTicketService.cls` + companion metadata deployment. The org's old `completeTicketCommand()` query can leave PREPARED commands/locks. No Apex deployment has been authorized or performed.
