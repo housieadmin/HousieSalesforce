@@ -40,7 +40,7 @@
 - [ ] Verify both humans' active tickets are removed, reserved points return to zero, and Leave Board is rejected while an active human ticket remains.
 - [ ] Verify one HOLD_RELEASE resource-ledger row per withdrawn ticket and no stale active hold/command lock.
 - [ ] Verify one human can repurchase a fresh ticket with a new ticket ID, a new hold and a matching reserve ledger row; release that final fixture ticket before leaving the board.
-- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. The baseline now preserves 20 unrelated reserved points on other boards; only this regression board's 10-point hold/release delta is asserted. Retry queued in #42040112914.
+- [ ] Run ticket-withdrawal-regression.spec.ts as a separate fixed-fixture regression and preserve the run evidence. The baseline now preserves 20 unrelated reserved points on other boards; only this regression board's 10-point hold/release delta is asserted. Retry queued in #42040038322.
 
 ## 4. Cleanup and closeout
 
