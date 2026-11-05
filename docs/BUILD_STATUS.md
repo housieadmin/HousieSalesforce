@@ -4,7 +4,7 @@ This file is the implementation inventory and verification snapshot. The ordered
 
 ## Current product position
 
-**The product is not yet end-to-end playable.** Schema parity, Housie access/LWC parity, signup grants, the public token route, and the owner-created WAITING board are verified. The second-human join is being rerun after a browser-test harness correction. Two-human paid-ticket purchase and withdrawal require the narrow `HousieGameTicketService.cls` completion-query deployment, which is not yet authorized. There is no accepted start-and-play engine or winner-settlement path on `main`.
+**The product is not yet end-to-end playable.** Schema parity, Housie access/LWC parity, signup grants, the public token route, owner board creation and second-human WAITING membership are verified. Two-human paid-ticket purchase and withdrawal require the narrow `HousieGameTicketService.cls` completion-query deployment, which is not yet authorized. There is no accepted start-and-play engine or winner-settlement path on `main`.
 
 The current Milestone 1 focus is to prove second-human membership, then deploy the narrowly scoped Apex correction only with explicit approval and verify two-human tickets, holds and ledger reconciliation. After that, implement start, runtime, claims and settlement in that order. General recovery infrastructure remains deferred until the positive business path is established.
 
