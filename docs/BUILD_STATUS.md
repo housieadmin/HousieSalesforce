@@ -129,3 +129,13 @@ The previous implementation session is closed as a work period, not as a milesto
 - Live Milestone 1 acceptance still requires the public and record-page Board Hub routes, account invitation, second human join, two-human ticket purchase, withdrawal/repurchase, and persisted hold/resource ledger reconciliation.
 
 The active execution checklist and session handoff are in [`.project/SESSION_2026-11-05.md`](../.project/SESSION_2026-11-05.md).
+
+
+## Post-deployment progress — 2026-11-05
+
+- Authorized Board Hub LWC-only deployment completed successfully in [run #41984322994](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984322994). Selected path was exactly `force-app/main/default/lwc/housieBoardHub`; dry-run and deployment succeeded; Apex test mode was none. Deployment log confirms the four bundle source files were deployed. No Apex, permission, Network or ExperienceBundle metadata was deployed.
+- PR #32 validation [run #41984302273](https://github.com/housieadmin/HousieSalesforce/actions/runs/41984302273) passed metadata validation plus all 39 org-resident Apex tests without deployment.
+- Post-deployment board-create and withdrawal/repurchase browser runs have been requested on issue #9 (comments 6651930800 and 6651931491). Their results are pending; dispatch is not acceptance evidence.
+- Curated Apex parity remains open: the branch's `HousieGameTicketService.cls` includes additional selected completion result fields not yet present in the org. This Apex change was not included in the LWC deployment. `HousieOperationService.cls` is also flagged by the byte comparator; obtain the artifact's bounded snippets/hashes and resolve the exact org drift before claiming parity. Do not loosen the parity assertions.
+- Milestone 1 remains **IN PROGRESS** and no product milestone acceptance criteria have been waived.
+- Active work queue and resumption notes remain in [the session tracker](../.project/SESSION_2026-11-05.md).
