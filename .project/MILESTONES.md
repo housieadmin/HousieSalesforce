@@ -29,7 +29,7 @@ This closes the agreed transaction-boundary defect only. It does not mean the fu
 - [x] Confirm the logical schema representation before comparing retrieve output. Main stores fields and Big Object indexes inline in each `*.object-meta.xml`; Salesforce CLI retrieve emits equivalent definitions as separate field/index files.
 - [x] Compare all 20 object definitions: field counts and names match the org retrieve for every object; all 16 retrieved Big Object indexes match the repository's ordered index fields. No schema gap was established.
 - [ ] Complete a property-level field metadata comparison for types, lengths, precision/scale, requiredness, uniqueness, defaults, relationships and picklist values before declaring full schema parity.
-- [ ] Run isolated byte-for-byte org round-trips for curated Housie Apex, LWC, custom permissions, permission sets and tabs using the scoped manifests. The browser scenario is authored; runtime utility staging was fixed in merged PR #39, but org execution is pending.
+- [ ] Complete curated Apex/LWC/access metadata reconciliation. Run #41963078143 found all files present; tab metadata matched. Real differences remain in HousieOperationService, housieBoardHub.js, custom permission descriptions and permission-set class access. Do not suppress these differences as serialization noise.
 - [x] Close [PR #35](https://github.com/housieadmin/HousieSalesforce/pull/35) as superseded. It would add duplicate split-form field/index metadata alongside the existing inline definitions. Do not merge it.
 - [x] Adopt Salesforce DX split source format. [PR #38](https://github.com/housieadmin/HousieSalesforce/pull/38) merged after metadata dry-run, 39 org-resident Apex tests and a 249-file byte-for-byte object round-trip passed. No deployment was performed.
 - [ ] Reconcile Housie Network, tabs and permission sets. [PR #37](https://github.com/housieadmin/HousieSalesforce/pull/37) remains review-only; [PR #36](https://github.com/housieadmin/HousieSalesforce/pull/36) remains audit-only and must be curated to exclude Salesforce-managed entries.
@@ -58,7 +58,7 @@ Developer Edition currently has 5 MB standard data storage and a separate 1-mill
 - [ ] A second human joins through the private invitation board ID or public-board search.
 - [ ] At least two distinct human accounts purchase valid tickets in the WAITING game. Ticket limits, mode selection, point holds and immutable resource-ledger entries reconcile.
 - [ ] Ticket layouts are valid 90-ball layouts and no active duplicate layout is issued within the game.
-- [ ] WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed.
+- [ ] WAITING-game withdrawal releases tickets and holds correctly and completes before board leave is allowed. Run #41962935952 exposed an Apex query defect in completeTicketCommand: Mode__c was read but not selected, leaving the command PREPARED and lock active. Source query fixed in PR #32; targeted deployment and browser rerun require explicit authorization.
 - [ ] Independent, reusable browser scenarios cover account creation, board creation, board join, ticket purchase and withdrawal. Scenarios verify persisted outcomes, not just successful clicks.
 - [ ] Apex tests cover business invariants; the browser journey runs against dedicated Developer Org test accounts and scenario-owned data.
 
@@ -147,3 +147,10 @@ At session start, also read [`.project/SESSION_2026-11-05.md`](SESSION_2026-11-0
 At session start, read this tracker, inspect the relevant SPEC/DATA_MODEL sections and actual source/tests, then work on the first incomplete milestone. At session end, update status/evidence and identify the next action.
 
 A milestone is complete only when its acceptance criteria pass and the evidence is recorded. Source code existing, metadata validation passing, or a button being clickable does not by itself prove a business workflow works in the Developer Org.
+
+
+### New findings — 2026-11-05
+
+- The ExperienceBundle's Housie Account Detail route explicitly binds `c:housieBoardHub` to `recordId: {!recordId}`. The record-ID architecture is intentional and must remain supported. The `HousieApp` account-key route is a separate entry path.
+- Withdrawal run #41962935952 reached the actual Apex finalization and exposed a missing selected field in `completeTicketCommand()`. The source fix is committed to this PR branch; Salesforce PR validation #41963304619 is in progress. No deployment has occurred.
+- Source/org parity run #41963078143 completed its comparison after parser correction. It found real source drift in `HousieOperationService.cls`, `housieBoardHub.js`, custom permission descriptions and permission-set class access; tab metadata matched. Keep these as explicit reconciliation items, not normalization exclusions.
