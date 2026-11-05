@@ -80,7 +80,9 @@ function compare(expectedRoot: string, actualRoot: string, ignore: string[] = []
       actualNewlines: { crlf: (actualText.match(/\r\n/g) || []).length, lf: (actualText.match(/(?<!\r)\n/g) || []).length },
       firstDifferentLine: firstDifferentLine < 0 ? null : firstDifferentLine + 1,
       expectedLine: firstDifferentLine < 0 ? null : line(expectedLines[firstDifferentLine]),
-      actualLine: firstDifferentLine < 0 ? null : line(actualLines[firstDifferentLine])
+      actualLine: firstDifferentLine < 0 ? null : line(actualLines[firstDifferentLine]),
+      expectedSnippet: expectedText.slice(0, 5000),
+      actualSnippet: actualText.slice(0, 5000)
     };
   });
   return { expected: expected.length, actual: actual.length, missing, unexpected, different, differentDetails };
