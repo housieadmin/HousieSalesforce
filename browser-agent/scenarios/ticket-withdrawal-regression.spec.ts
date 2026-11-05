@@ -3,6 +3,8 @@ import path from "node:path";
 import { test, expect } from "../core";
 import { queryBigObject } from "../utilities/salesforce";
 
+test.use({ trace: "off" });
+
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   try {
     const output = execFileSync("sf", [
@@ -121,5 +123,14 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(Number(replacementTicket![1]));
   expect(ledgerAfterRepurchase).toHaveLength(ledgerAfterWithdrawal.length + 1);
   await housie.screenshot("waiting-ticket-repurchased");
-  housie.note("Withdrawal and repurchase completed. Reserved points returned to 10; ledger has one new reserve row. Prior active ticket IDs=" + beforeIds.join(",") + "; replacement=" + newTicketId);
+  housie.note("Withdrawal and repurchase completed. Reserved points returned to 10; ledger has one new reserve row. Ticket identifiers were not retained.");
+
+  await card.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
+  await expect(card.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 60000 });
+  await expect(card.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
+  const accountAfterFinalRelease = accountSnapshot();
+  const ledgerAfterFinalRelease = resourceLedgerRows(accountKey);
+  expect(Number(accountAfterFinalRelease.Reserved_Points__c)).toBe(0);
+  expect(ledgerAfterFinalRelease).toHaveLength(ledgerAfterRepurchase.length + 1);
+  housie.note("Regression fixture cleanup: replacement ticket was withdrawn; reserved points returned to zero and the release ledger row was appended.");
 });
