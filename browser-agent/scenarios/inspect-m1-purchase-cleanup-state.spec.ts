@@ -1,22 +1,39 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
 import { queryBigObject } from "../utilities/salesforce";
 
 test.use({ trace: "off" });
 
+function safeText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+    .slice(0, 1800);
+}
+
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
-  const output = execFileSync("sf", [
+  const result = spawnSync("sf", [
     "data", "query", "--query", soql, "--target-org", "housie-browser-agent", "--json"
-  ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
-  const start = clean.indexOf("{");
-  if (start < 0) throw new Error("Salesforce query returned no JSON.");
-  const parsed = JSON.parse(clean.slice(start));
-  if (parsed.status !== 0 || !Array.isArray(parsed.result?.records)) {
-    throw new Error("Salesforce query did not return records.");
+  ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", maxBuffer: 8 * 1024 * 1024 });
+  const streams = [String(result.stdout ?? ""), String(result.stderr ?? "")];
+  for (const raw of streams) {
+    const clean = raw.replace(/\u001b\[[0-9;]*m/g, "").trim();
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start < 0 || end <= start) continue;
+    try {
+      const parsed = JSON.parse(clean.slice(start, end + 1));
+      if (parsed.status === 0 && Array.isArray(parsed.result?.records)) {
+        return parsed.result.records as T[];
+      }
+      throw new Error(safeText(parsed.message || parsed.name || "Salesforce query returned a non-zero status."));
+    } catch (error) {
+      if (error instanceof SyntaxError) continue;
+      throw new Error("Salesforce query failed. " + safeText(error));
+    }
   }
-  return parsed.result.records as T[];
+  throw new Error("Salesforce query returned no parseable JSON. " + safeText(streams.join("\n")));
 }
 
 test("inspect only M1 Purchase account financial cleanup state", async ({ housie }) => {
@@ -28,8 +45,8 @@ test("inspect only M1 Purchase account financial cleanup state", async ({ housie
   for (const account of accounts) {
     const key = String(account.Account_Key__c);
     const commands = sfQuery<Record<string, unknown>>(
-      "SELECT Action_Type__c, Entry_Fee__c, Status__c, Created_At__c, Board_Id__c, Game_Id__c " +
-      "FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + key + "' ORDER BY Created_At__c DESC LIMIT 20"
+      "SELECT Action_Type__c, Entry_Fee__c, Status__c, Board_Id__c, Game_Id__c " +
+      "FROM Housie_Ticket_Command__c WHERE Account_Key__c = '" + key + "' LIMIT 20"
     );
     const holds = queryBigObject<Record<string, unknown>>(
       "SELECT Account_Id__c, Game_Id__c, Record_Id__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + key + "'"
