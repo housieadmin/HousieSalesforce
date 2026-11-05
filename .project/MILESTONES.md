@@ -311,3 +311,12 @@ The previous Milestone 1 implementation session is closed as a work period, **no
 - Source parity passed in [#42040038322](https://github.com/housieadmin/HousieSalesforce/actions/runs/42040038322): Apex 30/30 present, only accepted OperationService comment drift, LWC/access exact.
 - Previous withdrawal regression successfully released its initial hold; the subsequent repurchase receipt assertion was targeting the wrong DOM container and is corrected.
 - Final integrated acceptance and corrected route/security inspection queued in [#42041622400](https://github.com/housieadmin/HousieSalesforce/actions/runs/42041622400).
+
+
+## Third route iteration based on browser evidence — 2026-11-05
+
+- Integrated run [#42041622400](https://github.com/housieadmin/HousieSalesforce/actions/runs/42041622400): source/org parity passed (Apex 30/30; only accepted OperationService comment drift; LWC/access exact). The Experience route inspector passed but its settings output came from the still-overescaped parser and is not authoritative.
+- Two-human route remained unauthenticated even after the second LWC deployment. Screenshot showed the public app's unauthenticated welcome state; the account creation helper had already verified the generated key against an ACTIVE persisted Housie_Account__c. The issue is route-state delivery through Experience Cloud, not account creation.
+- Added fragment-token support (`#c__token=`) to `housieApp`, preserving query/state fallback and the captured token across repeated wire updates; fragment is client-side and is removed from browser history after capture. Updated public-account browser scenarios to pass both query and fragment forms. A third narrow LWC deployment is required.
+- Fixed withdrawal regression assertion again: the app-level receipt text is not a stable locator; after repurchase, the ticket appears in the board card. The scenario now waits for a new active MANUAL/AUTOMATIC ticket card and compares its ID with the withdrawn ticket.
+- Previous regression run confirmed original ticket withdrawal, zero active tickets on the regression board, and release ledger append. Its only failure was the repurchase assertion, not the withdrawal path.
