@@ -287,3 +287,8 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 - Round-trip [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) confirms 30/30 Apex files, zero missing/unexpected; LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 all exact. The comparator accepts the explicitly documented `HousieOperationService.cls` comment-only drift. The sole unaccepted difference is `HousieGameTicketService.cls` (the completion query still lacks `Mode__c`, `Entry_Fee__c`, `Layout__c` in the org).
 - Latest PR validation [#41996672633](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996672633) passed Salesforce metadata dry-run and all local Apex tests; no deployment.
+
+
+## Synthetic-account cleanup — 2026-11-05
+
+- Cleanup run [#41996679593](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996679593) passed and verified 25 Milestone 1 synthetic browser-test accounts are SUSPENDED. No account keys or emails were queried or retained. Artifact #13398760836 remains pending deletion approval.
