@@ -285,7 +285,7 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 
 ## Apex-only parity result — 2026-11-05
 
-- Round-trip [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) confirms 30/30 Apex files, zero missing/unexpected; LWC 14/14, custom permissions 2/2, permission sets 3/3 and tabs 3/3 all exact. The comparator accepts the explicitly documented `HousieOperationService.cls` comment-only drift. The sole unaccepted difference is `HousieGameTicketService.cls` (the completion query still lacks `Mode__c`, `Entry_Fee__c`, `Layout__c` in the org).
+- Round-trip [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) completed with one failed Playwright scenario at the Apex-difference assertion. It verified 30/30 Apex files present with zero missing/unexpected; after the explicitly accepted `HousieOperationService.cls` comment-only drift, the sole unaccepted difference was `HousieGameTicketService.cls` (the Developer Org completion query still lacks `Mode__c`, `Entry_Fee__c`, `Layout__c`). The assertion stopped the scenario before LWC/access checks; their zero-difference result is from the earlier successful [#41995794186](https://github.com/housieadmin/HousieSalesforce/actions/runs/41995794186).
 - Latest PR validation [#41996672633](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996672633) passed Salesforce metadata dry-run and all local Apex tests; no deployment.
 
 
@@ -297,3 +297,13 @@ The active execution checklist and session handoff are in [`.project/SESSION_202
 ## Latest branch validation — 2026-11-05
 
 - PR validation [#41997208249](https://github.com/housieadmin/HousieSalesforce/actions/runs/41997208249) passed the curated Salesforce metadata dry-run and all local Apex tests. No deployment occurred.
+- Latest PR #41 validation [#41997545531](https://github.com/housieadmin/HousieSalesforce/actions/runs/41997545531) passed the metadata dry-run and all 39 org-resident Apex tests for head `cc0c667913ec5b5fff29c536bfdaa1c1ed456dd7`. No deployment occurred.
+
+
+## Latest verified acceptance update — 2026-11-05
+
+- Synthetic-account cleanup [#41996679593](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996679593) passed 1/1 and verified 25 Milestone 1 synthetic accounts are `SUSPENDED`. The scenario matched only its three explicit display-name prefixes and re-queried each record after any update; no account keys or email addresses were queried or retained.
+- Curated source/org round-trip [#41996528088](https://github.com/housieadmin/HousieSalesforce/actions/runs/41996528088) failed at the Apex-difference assertion: 30/30 Apex files present, no missing/unexpected paths, and only the unaccepted functional `HousieGameTicketService.cls` completion-query difference remained after allowing the comment-only `HousieOperationService.cls` drift. The test did not reach its LWC/access assertions; those are proven by #41995794186 (14/14 LWC, 2/2 custom permissions, 3/3 permission sets, 3/3 tabs, all exact).
+- Latest PR #41 validation [#41997545531](https://github.com/housieadmin/HousieSalesforce/actions/runs/41997545531) passed metadata dry-run and all 39 org-resident Apex tests. It did not deploy.
+- Milestone 1 remains **IN PROGRESS**. Paid-ticket purchase, 90-ball/duplicate-layout checks, point holds, immutable resource-ledger reconciliation and WAITING withdrawal/repurchase remain open. The old org-side completion query can leave a PREPARED command and active lock.
+- Do not deploy `HousieGameTicketService.cls` or delete artifact #13398760836 without explicit user approval. Neither action was attempted in this run.
