@@ -86,3 +86,13 @@
 **Do not clean up the synthetic accounts/boards/tickets from failed or retried two-human acceptance attempts during this milestone.** Per user direction, defer this cleanup until after Milestone 1. Historical artifact deletion and broad Apex coverage uplift are also deferred.
 
 - [ ] Complete the two-human persisted-state and lifecycle assertions. [#42051842060](https://github.com/housieadmin/HousieSalesforce/actions/runs/42051842060) proved the route, board creation, second-human join, both ticket purchases and valid 90-ball layouts; it stopped at reload before SOQL/ledger assertions. A reload helper now re-authenticates with the same key before checking persisted state.
+
+
+## Reload persistence regression — 2026-11-05
+
+- [ ] Full two-human acceptance is still blocked. Focused run [#42051842060](https://github.com/housieadmin/HousieSalesforce/actions/runs/42051842060) passed account route resolution, board creation, second-human join, both distinct MANUAL purchases and 90-ball layout/uniqueness assertions, then failed after reload because the app returned to the unauthenticated Welcome screen.
+- Root cause: the LWC held the route token only in component memory while stripping it from the URL; full reload destroys that component state.
+- Current branch now stores the captured token in the current browser history entry, preserves that state while cleaning the URL, and uses it to restore context after reload. The browser scenario asserts query/fragment bearer tokens are absent before and after reload.
+- [ ] Obtain explicit approval for a narrow NoTestRun dry-run/deployment of only `LightningComponentBundle:housieApp`. The updated LWC has not yet been deployed; do not run the focused acceptance against the old org bundle and do not deploy without approval.
+- [ ] After deployment, run the focused two-human scenario and require persisted reload state, ticket/hold/participant/resource-ledger reconciliation, Leave Board rejection while active, both withdrawals, fresh repurchase, final release and leave.
+- [ ] Re-run PR validation on the final branch HEAD after all implementation changes.
