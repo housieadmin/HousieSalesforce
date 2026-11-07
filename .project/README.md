@@ -1,76 +1,31 @@
-# Housie project context router
+# Housie project continuity
 
-This is a lightweight continuity layer for work across ChatGPT sessions. Start from the task, not from the full project history.
+Keep this directory small. Product requirements and technical design live in `docs/`; implementation details, decisions and verification evidence live in the PR that changes the code.
 
-## How to use the workstreams
+## Start a work session
 
-The four workstreams are **context groupings, not separate teams or mandatory workflow stages**. One person may use several ChatGPT Projects to keep sessions focused; the repository is the shared source of truth.
+1. Read this file and `AGENTS.md`.
+2. Check the current branch, commit and open PRs. Resume the active work package; do not create a new PR just because a chat session changed.
+3. Read the relevant sections of `docs/SPEC.md` and `docs/DATA_MODEL.md`, then inspect the affected source and callers. Read architecture/mapping/workflow docs only when the task needs them.
+4. Read `.project/DELIVERY_BACKLOG.md` only to select or scope delivery work. Read `docs/BUILD_STATUS.md` only for a quick implementation snapshot.
+5. Keep the PR title and description accurate as implementation evolves. The PR is the detailed record of scope, decisions, code changes, validation evidence, limitations and remaining gates. Do not create parallel session trackers or duplicate change logs.
 
-A session should normally stay with its task until it reaches a useful stopping point. It can investigate, implement, test, deploy when explicitly authorized, and debug iteratively—even when the work touches more than one discipline. Do not create a handoff or involve another workstream merely because the task crosses a category boundary.
+## Work-package and PR rules
 
-Use another workstream or session when it provides a concrete benefit: parallel investigation, specialist context, independent verification, or a genuinely different task. Consultation is optional, not a gate.
+- A PR represents one cohesive, user-visible capability or complete service boundary—not a chat session, file batch or arbitrary small coding step.
+- Design the service contract and end-to-end behaviour before implementation: authorization, state transitions, transaction boundaries, idempotency, concurrency, failure handling and audit/ledger effects.
+- Implement the complete coherent service in one focused coding package, including required supporting code and focused tests. Do not fragment service design across sessions.
+- Separate costly org/browser acceptance from implementation only when it is independently executable and does not require splitting the service itself.
+- Keep validation proportional to changed behaviour. Do not turn coverage uplift or browser-agent activity into a separate delivery goal.
+- A package ends when its stated acceptance outcome is implemented and the required focused validation is complete, or when a genuine external approval/dependency blocks it. Report the exact boundary.
+- Do not merge, deploy or change org/security settings without explicit authorization.
 
-## Start here
+## Durable sources
 
-1. Read this file and the repository rules in `AGENTS.md`.
-2. Verify the current branch and commit.
-3. Select the **primary context** below and read its guide.
-4. Inspect only the affected source, tests and relevant requirement sections.
-5. Add other context only when it helps solve the task.
+- `docs/SPEC.md` and `docs/DATA_MODEL.md` are authoritative product requirements and logical data model.
+- Current source and metadata define what is implemented.
+- Technical docs explain constraints; verify them against source when changing architecture.
+- GitHub PRs own implementation history and evidence. Git history preserves old session notes and trackers; do not recreate them in active project documentation.
+- `docs/BUILD_STATUS.md` is a short factual snapshot, not a change log or roadmap.
 
-## Workstream routing
-
-| Task concerns | Read |
-|---|---|
-| Product behaviour, requirements, scope, UX and logical entities | [Product](workstreams/product.md) |
-| Apex, LWC, Salesforce metadata, permissions and data access | [Salesforce development](workstreams/salesforce.md) |
-| Test strategy, browser agent, QA scenarios and regression evidence | [QA & automation](workstreams/qa.md) |
-| GitHub Actions, issue/PR commands, branching, validation and release | [Release engineering](workstreams/release-engineering.md) |
-
-For a task spanning multiple areas, start with the most useful guide and add only the context needed. Do not read all four by default.
-
-## Sources of truth
-
-- `docs/SPEC.md` — authoritative product behaviour and requirements.
-- `docs/DATA_MODEL.md` — authoritative logical entities, relationships and integrity rules.
-- Current source and metadata — authoritative implementation.
-- Technical documentation — useful context; verify it against current source.
-- GitHub issues, commits and PRs — durable record of task status, decisions and evidence.
-
-Read relevant SPEC/DATA_MODEL sections, not the entire files, unless the task is broad or cross-cutting. If sources conflict, identify the conflict instead of silently choosing one.
-
-## Project tracking and control session
-
-- `.project/MILESTONES.md` is the single delivery tracker: priority, sequence, dependencies, acceptance criteria, milestone status and evidence links.
-- `docs/BUILD_STATUS.md` is the implementation inventory: what exists in source, what is not implemented, what has been verified and the limits of that verification. It does not own roadmap order or duplicate milestone acceptance criteria.
-- Use one ongoing ChatGPT conversation named **Housie — Project Control** for periodic project-level reviews. Compare actual work against the tracker and build status, identify drift, and record the reason and approval for any change of direction. The conversation is an accountability workspace, not the source of truth; durable decisions and status changes must be committed to the repository.
-- At the start of substantial work, identify the active milestone and acceptance item. If work is outside that milestone, state the concrete reason (blocker, production defect, dependency or explicit reprioritization) and whether the roadmap changes.
-- At meaningful stopping points, update milestone evidence/status and build status only when implementation facts change. Keep implementation details and test logs in PRs, issues and workflow runs; do not create session notes for routine progress.
-- A milestone is complete only when its acceptance criteria pass and evidence (PR/commit, relevant workflow/browser run, environment and date) is linked in the tracker. Do not repeat verification absent a concrete regression, new requirement, changed environment or specific evidence gap.
-
-## Context depth
-
-- **Small/local change:** this router, one workstream guide, affected files and nearby tests.
-- **Feature/multi-file change:** also inspect relevant SPEC/DATA_MODEL sections, callers, dependencies, permissions and tests.
-- **Cross-cutting/architectural change:** expand to the relevant technical architecture docs and any additional project evidence the task requires.
-- **Unclear task:** ask one focused clarification rather than preloading the repository.
-
-
-## Working rules
-
-- Treat workstreams as optional context aids, not ownership boundaries. A session may carry a task end-to-end.
-- Keep iterative debugging in the active session; do not create formal handoffs for every change, deployment or test cycle.
-- Use QA scenarios and independent review when they add confidence. They are not mandatory approval stages for every fix.
-- Use release-engineering context when GitHub/deployment mechanics are the problem, not for every deployment performed during development.
-- Preserve useful findings in GitHub or the relevant source docs when they are durable and likely to help future sessions. Do not record every failed attempt or transient debugging detail.
-- Distinguish source implementation, automated test coverage, deployment and runtime verification. Record only the evidence needed to close the current milestone.
-- A schema, UI control, placeholder method or audit event does not prove a feature works.
-- Preserve relevant data-integrity and security constraints.
-- Never claim org-side configuration or runtime behaviour was inspected without evidence.
-- Update only continuity notes materially affected by the change. Avoid documentation churn for trivial edits.
-- Do not deploy, merge or change external systems without explicit authorization.
-- For substantial incomplete work that genuinely needs another session to continue, leave a concise handoff using `sessions/SESSION_TEMPLATE.md`.
-
-## Fresh-session prompt
-
-> Work on the specific Housie task I provide. Start with `AGENTS.md` and `.project/README.md`, select the most relevant workstream guide, verify the current branch and commit, then inspect only the necessary files and requirement sections. Stay with the task through investigation, implementation and verification where useful; bring in other workstream context only when it adds value. State evidence and verification limits clearly. Do not deploy, merge or modify external systems without explicit authorization.
+For an unfinished package that genuinely needs another session, use `.project/sessions/SESSION_TEMPLATE.md`. Otherwise leave continuity in the active PR.
