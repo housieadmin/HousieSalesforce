@@ -10,9 +10,9 @@ This backlog contains only the cohesive implementation packages required to deli
 
 ## Package 1 — Start a funded human game
 
-**Deliverable:** one cohesive Apex service/API that takes an eligible WAITING game through authorized start and funding into RUNNING, with safe, idempotent transaction semantics.
+**Deliverable:** one cohesive Apex service boundary (orchestrator plus necessary collaborators) that takes an eligible WAITING game through authorized start and funding into RUNNING, with safe, idempotent transaction semantics.
 
-Include the complete path defined by SPEC §§3.5, 3.7, 4.1, 5.1–5.4, 6.4 and 8.2–8.4:
+Include the complete path defined by SPEC §§3.3, 3.5, 4.1, 5.1–5.4, 6.4 and 8.2–8.4:
 - Eligibility and distinct-human minimums; eligible game-admin checks.
 - Start request, approvals, expiry/rejection and super-admin path.
 - Stale-state and duplicate/concurrent request protection.
