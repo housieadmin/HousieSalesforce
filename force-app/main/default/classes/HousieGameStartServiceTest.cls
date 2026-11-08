@@ -41,7 +41,7 @@ private class HousieGameStartServiceTest {
     static void rejectedOrWrongRoleDoesNotSatisfyThreshold() {
         List<Game_Action_Response__b> rows = new List<Game_Action_Response__b>{
             response('PLAYER-2', 'NON_ADMIN', 'REJECT'),
-            response('PLAYER-3', 'NON_ADMIN', 'APPROVE')
+            response('ADMIN-2', 'ADMIN', 'APPROVE')
         };
         System.assertEquals(false,
             HousieGameStartService.approvalThreshold('ADMIN-1', 'ADMIN', rows));
