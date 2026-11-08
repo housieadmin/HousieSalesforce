@@ -50,6 +50,23 @@ public without sharing class HousieGameStartService {
     }
 
     @AuraEnabled
+    public static Datetime recordPresence(String accountId) {
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        List<Housie_Account__c> rows = [
+            SELECT Id, Last_Seen_At__c, Status__c
+            FROM Housie_Account__c WHERE Id = :actor.Id LIMIT 1
+        ];
+        HousieErrors.require(!rows.isEmpty() && rows[0].Status__c == 'ACTIVE',
+            'An active Housie account is required to update presence.');
+        Datetime nowAt = System.now();
+        if (rows[0].Last_Seen_At__c == null || rows[0].Last_Seen_At__c < nowAt.addSeconds(-15)) {
+            rows[0].Last_Seen_At__c = nowAt;
+            update rows[0];
+        }
+        return nowAt;
+    }
+
+    @AuraEnabled
     public static ActionResult prepareStartRequest(String boardId, String accountId, String clientRequestId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         HousieErrors.require(String.isNotBlank(clientRequestId) && clientRequestId.length() <= 120,
@@ -62,7 +79,7 @@ public without sharing class HousieGameStartService {
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
         HousieErrors.require(participants.size() >= minimum,
             'At least ' + minimum + ' distinct human participants with paid tickets are required.');
-        String gameAdminId = findGameAdmin(participants);
+        String gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin must be available before starting.');
 
         String requesterRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, false);
@@ -212,7 +229,7 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(requestRow.Expected_Game_State__c == context.gameRow.Status__c,
             'The game state changed. This start request is stale.');
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
-        String gameAdminId = findGameAdmin(participants);
+        String gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
         HousieErrors.require(actor.Account_Key__c != requestRow.Requester_Account_Id__c,
             'The requester cannot submit a second response to their own start request.');
@@ -289,7 +306,7 @@ public without sharing class HousieGameStartService {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
-        String gameAdminId = findGameAdmin(participants);
+        String gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
         List<Game_Action_Request__b> rows = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
         rows.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
@@ -444,20 +461,20 @@ public without sharing class HousieGameStartService {
 
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
         String executorRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants,
-            findGameAdmin(participants), true);
+            findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90)), true);
         HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
             executorRole == 'ADMIN' || executorRole == 'NON_ADMIN',
             'Only a game participant, participating board admin, or platform super-admin can execute an approved start.');
         if (requesterRole != 'SUPER_ADMIN') {
             String currentRequesterRole = resolveRequesterRole(boardId, requestRow.Requester_Account_Id__c,
-                participants, findGameAdmin(participants), false);
+                participants, findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90)), false);
             HousieErrors.require(currentRequesterRole == requesterRole,
                 'The start requester no longer holds the role that was used to approve this request.');
         }
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
         HousieErrors.require(participants.size() >= minimum,
             'The game no longer meets minimum human participation.');
-        String gameAdminId = findGameAdmin(participants);
+        String gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin is not available.');
 
         Housie_Game_Command_Lock__c gate = lockGameCommandSlot(context.gameRow.Record_Id__c);
@@ -472,7 +489,7 @@ public without sharing class HousieGameStartService {
         participants = loadActiveParticipants(context.gameRow.Record_Id__c);
         HousieErrors.require(participants.size() >= minimum,
             'The game no longer meets minimum human participation.');
-        gameAdminId = findGameAdmin(participants);
+        gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin is not available.');
         executorRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
         HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
@@ -934,7 +951,7 @@ public without sharing class HousieGameStartService {
         GameContext context, Map<String,Participant> participants
     ) {
         StartFundingPlan plan = new StartFundingPlan();
-        plan.gameAdminId = findGameAdmin(participants);
+        plan.gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         HousieErrors.require(String.isNotBlank(plan.gameAdminId),
             'An eligible game admin must be available before starting.');
         List<Ticket__b> tickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
@@ -1015,12 +1032,31 @@ public without sharing class HousieGameStartService {
         return result;
     }
 
-    private static String findGameAdmin(Map<String,Participant> participants) {
-        Participant first;
-        for (Participant p : participants.values()) {
-            if (first == null || p.joinSequence < first.joinSequence) first = p;
+    private static String findAvailableGameAdmin(
+        Map<String,Participant> participants, Integer graceSeconds
+    ) {
+        if (participants.isEmpty()) return null;
+        Set<String> accountIds = participants.keySet();
+        List<Housie_Account__c> accounts = [
+            SELECT Account_Key__c, Status__c, Last_Seen_At__c
+            FROM Housie_Account__c
+            WHERE Account_Key__c IN :accountIds
+            LIMIT 2000
+        ];
+        Map<String,Housie_Account__c> byAccount = new Map<String,Housie_Account__c>();
+        for (Housie_Account__c account : accounts) byAccount.put(account.Account_Key__c, account);
+        Integer grace = graceSeconds == null || graceSeconds <= 0 ? 90 : graceSeconds;
+        Datetime cutoff = System.now().addSeconds(-grace);
+        Participant firstAvailable;
+        for (Participant participant : participants.values()) {
+            Housie_Account__c account = byAccount.get(participant.accountId);
+            if (account == null || account.Status__c != 'ACTIVE' || account.Last_Seen_At__c == null ||
+                account.Last_Seen_At__c < cutoff) continue;
+            if (firstAvailable == null || participant.joinSequence < firstAvailable.joinSequence) {
+                firstAvailable = participant;
+            }
         }
-        return first == null ? null : first.accountId;
+        return firstAvailable == null ? null : firstAvailable.accountId;
     }
 
     private static String resolveRequesterRole(String boardId, String accountId,
