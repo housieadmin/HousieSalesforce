@@ -20,6 +20,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Override with a repository variable when using a different Salesforce org alias.
+  SF_ORG_ALIAS: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
+
 concurrency:
   group: salesforce-development-deployment
   cancel-in-progress: false
@@ -72,16 +76,16 @@ jobs:
           client_id: ${{ secrets.SF_CLIENT_ID }}
           username: ${{ secrets.SF_USERNAME }}
           instance_url: ${{ vars.SF_INSTANCE_URL }}
-          alias: housie-dev
+          alias: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
 
       - name: Validate selected release (dry run)
-        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+        run: sf project deploy start --dry-run --manifest "${{ steps.manifest.outputs.path }}" --target-org "$SF_ORG_ALIAS" --test-level NoTestRun --wait 60
 
       - name: Run local Apex tests before deployment
-        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+        run: sf apex run test --target-org "$SF_ORG_ALIAS" --test-level RunLocalTests --result-format human --wait 60
 
       - name: Deploy selected metadata
-        run: sf project deploy start --manifest "${{ steps.manifest.outputs.path }}" --target-org housie-dev --test-level NoTestRun --wait 60
+        run: sf project deploy start --manifest "${{ steps.manifest.outputs.path }}" --target-org "$SF_ORG_ALIAS" --test-level NoTestRun --wait 60
 
       - name: Run local Apex tests after deployment
-        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+        run: sf apex run test --target-org "$SF_ORG_ALIAS" --test-level RunLocalTests --result-format human --wait 60
