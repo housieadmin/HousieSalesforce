@@ -86,7 +86,7 @@
                       </template>
                     </div>
                     <template if:true={request.canExecute}>
-                      <lightning-button label="Execute approved start" variant="brand"
+                      <lightning-button label={request.executeLabel} variant="brand"
                         data-board-id={board.boardId} data-request-id={request.requestId}
                         onclick={executeApprovedStart} disabled={loading}></lightning-button>
                     </template>
