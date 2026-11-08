@@ -48,6 +48,11 @@ public without sharing class HousieGameStartService {
         requireBoardMember(boardId, actor.Account_Key__c);
 
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
+        String executorRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants,
+            findGameAdmin(participants), true);
+        HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
+            executorRole == 'ADMIN' || executorRole == 'NON_ADMIN',
+            'Only a game participant, participating board admin, or platform super-admin can execute an approved start.');
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
         HousieErrors.require(participants.size() >= minimum,
             'At least ' + minimum + ' distinct human participants with paid tickets are required.');
@@ -212,7 +217,14 @@ public without sharing class HousieGameStartService {
             WHERE Request_Id__c = :requestId AND Account_Id__c = :actor.Account_Key__c
             LIMIT 20
         ];
-        HousieErrors.require(existing.isEmpty(), 'You have already responded to this start request.');
+        Set<String> existingOps = new Set<String>();
+        for (Game_Action_Response__b priorResponse : existing) existingOps.add(priorResponse.Operation_Id__c);
+        Set<String> committedExistingOps = HousieBigObjectStore.committedOperationIds(existingOps);
+        Boolean alreadyResponded = false;
+        for (Game_Action_Response__b priorResponse : existing) {
+            if (committedExistingOps.contains(priorResponse.Operation_Id__c)) alreadyResponded = true;
+        }
+        HousieErrors.require(!alreadyResponded, 'You have already responded to this start request.');
 
         String responseId = HousieIds.stableId('START_RESPONSE', requestId + ':' + actor.Account_Key__c);
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
@@ -452,7 +464,16 @@ public without sharing class HousieGameStartService {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
         Housie_Ticket_Command__c command = requireCommand(commandKey, actor.Account_Key__c, START_EXECUTION_COMMAND);
-        HousieErrors.require(command.Status__c == 'PREPARED', 'Start execution is already complete.');
+        if (command.Status__c == 'COMMITTED' || command.Status__c == 'CAPTURED') {
+            ActionResult priorResult = new ActionResult();
+            priorResult.requestId = requestId; priorResult.gameId = command.Game_Id__c;
+            priorResult.status = command.Status__c; priorResult.complete = command.Status__c == 'COMMITTED';
+            priorResult.readyToExecute = command.Status__c == 'CAPTURED';
+            priorResult.message = command.Status__c == 'COMMITTED'
+                ? 'Game start is already finalized.' : 'Funding is captured. Final game activation is pending.';
+            return priorResult;
+        }
+        HousieErrors.require(command.Status__c == 'PREPARED', 'Start execution is not in a resumable state.');
         requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
         Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
         List<Object> holds = (List<Object>)payload.get('holds');
@@ -504,7 +525,7 @@ public without sharing class HousieGameStartService {
             writes.add(writeItem('Game__b', new Map<String,Object>{
                 'Record_Id__c' => command.Game_Id__c,
                 'Board_Id__c' => command.Board_Id__c,
-                'Status__c' => 'RUNNING',
+                'Status__c' => 'WAITING',
                 'Config_Snapshot__c' => context.gameRow.Config_Snapshot__c,
                 'Event_Sequence__c' => Decimal.valueOf(String.valueOf(payload.get('eventSequence'))),
                 'Current_Admin_Account_Id__c' => String.valueOf(payload.get('currentAdmin')),
@@ -518,7 +539,7 @@ public without sharing class HousieGameStartService {
                 'Record_Id__c' => HousieIds.stableId('GAME_STARTED', command.Game_Id__c),
                 'Game_Id__c' => command.Game_Id__c,
                 'Sequence__c' => Long.valueOf(String.valueOf(payload.get('eventSequence'))),
-                'Event_Type__c' => 'GAME_STARTED',
+                'Event_Type__c' => 'GAME_START_FUNDING_CAPTURED',
                 'Actor_Account_Id__c' => actor.Account_Key__c,
                 'Payload__c' => JSON.serialize(new Map<String,Object>{
                     'requestId' => requestId,
@@ -528,21 +549,6 @@ public without sharing class HousieGameStartService {
                     'walletTotal' => total
                 }),
                 'Created_At__c' => startedAt
-            }));
-            Game_Action_Request__b requestRow = findLatestActionRequest(command.Game_Id__c, requestId);
-            HousieErrors.require(requestRow != null, 'The start request record could not be found.');
-            writes.add(writeItem('Game_Action_Request__b', new Map<String,Object>{
-                'Record_Id__c' => requestId,
-                'Game_Id__c' => command.Game_Id__c,
-                'Action_Type__c' => START_ACTION,
-                'Requester_Account_Id__c' => requestRow.Requester_Account_Id__c,
-                'Expected_Game_State__c' => 'WAITING',
-                'Required_Approval_Rules__c' => requestRow.Required_Approval_Rules__c,
-                'Status__c' => 'APPROVED',
-                'Created_At__c' => requestRow.Created_At__c,
-                'Expires_At__c' => requestRow.Expires_At__c,
-                'Closed_At__c' => startedAt,
-                'Executed_At__c' => startedAt
             }));
         }
         HousieOperationService.executeOperation('CAPTURE_GAME_START_FUNDING', writes);
@@ -591,7 +597,8 @@ public without sharing class HousieGameStartService {
         payload.put('cursor', nextCursor);
         Boolean finalBatch = nextCursor == holds.size();
         if (finalBatch) {
-            verifyRunningGame(command.Board_Id__c, command.Game_Id__c);
+            verifyPreparedGame(command.Board_Id__c, command.Game_Id__c,
+                Decimal.valueOf(String.valueOf(payload.get('eventSequence'))));
             Map<String,Object> accountPlan = (Map<String,Object>)payload.get('accounts');
             Set<String> accountIds = accountPlan.keySet();
             List<Housie_Account__c> accounts = [
@@ -616,9 +623,7 @@ public without sharing class HousieGameStartService {
                 HousieDomainRules.assertWalletInvariant(account);
             }
             update accounts;
-            command.Status__c = 'COMMITTED';
-            command.Committed_At__c = System.now();
-            releaseGameCommandLock(command.Game_Id__c, command.Request_Key__c);
+            command.Status__c = 'CAPTURED';
         }
         command.Payload__c = JSON.serialize(payload);
         command.Updated_At__c = System.now();
@@ -627,12 +632,124 @@ public without sharing class HousieGameStartService {
         ActionResult result = new ActionResult();
         result.requestId = requestId;
         result.gameId = command.Game_Id__c;
-        result.status = finalBatch ? 'COMMITTED' : 'PREPARED';
+        result.status = finalBatch ? 'CAPTURED' : 'PREPARED';
         result.nextCursor = nextCursor;
-        result.complete = finalBatch;
+        result.complete = false;
+        result.readyToExecute = finalBatch;
         result.message = finalBatch
-            ? 'Game started. All ticket holds were captured into the Game Wallet.'
+            ? 'All ticket holds and account balances are captured. Final game activation is the next step.'
             : 'Funding batch finalized. Continue with the next capture batch.';
+        return result;
+    }
+
+    @AuraEnabled
+    public static ActionResult commitStartActivation(String requestId, String accountId) {
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
+        Housie_Ticket_Command__c command = requireCommand(commandKey, actor.Account_Key__c, START_EXECUTION_COMMAND);
+        HousieErrors.require(command.Status__c == 'CAPTURED' || command.Status__c == 'COMMITTED',
+            'Wallet capture must be finalized before activating the game.');
+        if (command.Status__c == 'COMMITTED') return commandResult(command);
+        requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
+        Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
+        GameContext context = loadCurrentGame(command.Board_Id__c);
+        Decimal fundedSequence = Decimal.valueOf(String.valueOf(payload.get('eventSequence')));
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING' &&
+            context.gameRow.Event_Sequence__c == fundedSequence,
+            'The funded waiting-game state changed before activation.');
+        Datetime startedAt = System.now();
+        Decimal runningSequence = fundedSequence + 1;
+        Decimal total = Decimal.valueOf(String.valueOf(payload.get('total')));
+        String adminId = String.valueOf(payload.get('currentAdmin'));
+        Game_Action_Request__b requestRow = findLatestActionRequest(command.Game_Id__c, requestId);
+        HousieErrors.require(requestRow != null && requestRow.Status__c == 'OPEN',
+            'The approved start request is missing or no longer open.');
+        List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
+        writes.add(writeItem('Game__b', new Map<String,Object>{
+            'Record_Id__c' => command.Game_Id__c,
+            'Board_Id__c' => command.Board_Id__c,
+            'Status__c' => 'RUNNING',
+            'Config_Snapshot__c' => context.gameRow.Config_Snapshot__c,
+            'Event_Sequence__c' => runningSequence,
+            'Current_Admin_Account_Id__c' => adminId,
+            'Wallet_Total__c' => total,
+            'Wallet_Obligations__c' => 0,
+            'Wallet_Available__c' => total,
+            'Created_At__c' => context.gameRow.Created_At__c,
+            'Started_At__c' => startedAt
+        }));
+        writes.add(writeItem('Game_Event__b', new Map<String,Object>{
+            'Record_Id__c' => HousieIds.stableId('GAME_STARTED', command.Game_Id__c),
+            'Game_Id__c' => command.Game_Id__c,
+            'Sequence__c' => runningSequence,
+            'Event_Type__c' => 'GAME_STARTED',
+            'Actor_Account_Id__c' => actor.Account_Key__c,
+            'Payload__c' => JSON.serialize(new Map<String,Object>{
+                'requestId' => requestId, 'adminAccountId' => adminId,
+                'walletTotal' => total, 'ticketCount' => ((List<Object>)payload.get('holds')).size()
+            }),
+            'Created_At__c' => startedAt
+        }));
+        writes.add(writeItem('Game_Action_Request__b', new Map<String,Object>{
+            'Record_Id__c' => requestId,
+            'Game_Id__c' => command.Game_Id__c,
+            'Action_Type__c' => START_ACTION,
+            'Requester_Account_Id__c' => requestRow.Requester_Account_Id__c,
+            'Expected_Game_State__c' => 'WAITING',
+            'Required_Approval_Rules__c' => requestRow.Required_Approval_Rules__c,
+            'Status__c' => 'APPROVED',
+            'Created_At__c' => requestRow.Created_At__c,
+            'Expires_At__c' => requestRow.Expires_At__c,
+            'Closed_At__c' => startedAt,
+            'Executed_At__c' => startedAt
+        }));
+        HousieOperationService.executeOperation('ACTIVATE_FUNDED_HOUSIE_GAME', writes);
+        ActionResult result = new ActionResult();
+        result.requestId = requestId; result.gameId = command.Game_Id__c;
+        result.status = 'PERSISTED'; result.message = 'RUNNING game state persisted. Finalize the start command.';
+        return result;
+    }
+
+    @AuraEnabled
+    public static ActionResult completeStartActivation(String requestId, String accountId) {
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
+        List<Housie_Ticket_Command__c> commands = [
+            SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
+                   Action_Type__c, Payload__c, Status__c
+            FROM Housie_Ticket_Command__c
+            WHERE Request_Key__c = :commandKey AND Account_Key__c = :actor.Account_Key__c
+            LIMIT 1 FOR UPDATE
+        ];
+        HousieErrors.require(!commands.isEmpty(), 'Prepared start execution not found.');
+        Housie_Ticket_Command__c command = commands[0];
+        if (command.Status__c == 'COMMITTED') return commandResult(command);
+        HousieErrors.require(command.Status__c == 'CAPTURED',
+            'Wallet capture must be finalized before completing game activation.');
+        requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
+        List<Game__b> games = [
+            SELECT Record_Id__c, Operation_Id__c, Status__c
+            FROM Game__b WHERE Board_Id__c = :command.Board_Id__c AND Status__c = 'RUNNING' LIMIT 200
+        ];
+        Set<String> gameOps = new Set<String>();
+        for (Game__b game : games) if (game.Record_Id__c == command.Game_Id__c) gameOps.add(game.Operation_Id__c);
+        Set<String> committedGameOps = HousieBigObjectStore.committedOperationIds(gameOps);
+        Boolean running = false;
+        for (Game__b game : games) if (game.Record_Id__c == command.Game_Id__c &&
+            committedGameOps.contains(game.Operation_Id__c)) running = true;
+        HousieErrors.require(running, 'The RUNNING game operation is not committed yet. Retry activation finalization.');
+        Game_Action_Request__b requestRow = findLatestActionRequest(command.Game_Id__c, requestId);
+        HousieErrors.require(requestRow != null && requestRow.Status__c == 'APPROVED' &&
+            requestRow.Executed_At__c != null, 'The approved and executed request record is not committed yet.');
+        command.Status__c = 'COMMITTED';
+        command.Committed_At__c = System.now();
+        command.Updated_At__c = command.Committed_At__c;
+        releaseGameCommandLock(command.Game_Id__c, command.Request_Key__c);
+        update command;
+        ActionResult result = new ActionResult();
+        result.requestId = requestId; result.gameId = command.Game_Id__c;
+        result.status = 'COMMITTED'; result.complete = true;
+        result.message = 'Game started successfully. Funding is captured and the Game Wallet is active.';
         return result;
     }
 
@@ -859,17 +976,23 @@ public without sharing class HousieGameStartService {
         }
     }
 
-    private static void verifyRunningGame(String boardId, String gameId) {
+    private static void verifyPreparedGame(String boardId, String gameId, Decimal expectedSequence) {
         List<Game__b> rows = [
-            SELECT Record_Id__c, Operation_Id__c, Status__c
-            FROM Game__b WHERE Board_Id__c = :boardId AND Status__c = 'RUNNING' LIMIT 200
+            SELECT Record_Id__c, Operation_Id__c, Event_Sequence__c, Status__c
+            FROM Game__b WHERE Board_Id__c = :boardId AND Status__c = 'WAITING' LIMIT 200
         ];
         Set<String> operations = new Set<String>();
-        for (Game__b row : rows) if (row.Record_Id__c == gameId) operations.add(row.Operation_Id__c);
+        for (Game__b row : rows) {
+            if (row.Record_Id__c == gameId && row.Event_Sequence__c == expectedSequence)
+                operations.add(row.Operation_Id__c);
+        }
         Set<String> committed = HousieBigObjectStore.committedOperationIds(operations);
         Boolean found = false;
-        for (Game__b row : rows) if (row.Record_Id__c == gameId && committed.contains(row.Operation_Id__c)) found = true;
-        HousieErrors.require(found, 'The RUNNING game record is not committed yet. Retry finalization.');
+        for (Game__b row : rows) {
+            if (row.Record_Id__c == gameId && row.Event_Sequence__c == expectedSequence &&
+                committed.contains(row.Operation_Id__c)) found = true;
+        }
+        HousieErrors.require(found, 'The funded waiting-game record is not committed yet. Retry finalization.');
     }
 
     private static Housie_Game_Command_Lock__c lockGameCommandSlot(String gameId) {
