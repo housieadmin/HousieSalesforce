@@ -345,6 +345,17 @@ public without sharing class HousieGameStartService {
             }
         }
         if (requestIds.isEmpty()) return result;
+        Set<String> requestsWithPendingExecution = new Set<String>();
+        for (Housie_Ticket_Command__c command : [
+            SELECT Ticket_Id__c
+            FROM Housie_Ticket_Command__c
+            WHERE Game_Id__c = :context.gameRow.Record_Id__c
+              AND Action_Type__c = :START_EXECUTION_COMMAND
+              AND Status__c IN ('PREPARED','CAPTURED')
+            LIMIT 100
+        ]) {
+            requestsWithPendingExecution.add(command.Ticket_Id__c);
+        }
         List<Game_Action_Response__b> responseRows = new List<Game_Action_Response__b>();
         for (String openRequestId : requestIds) {
             responseRows.addAll([
@@ -383,9 +394,10 @@ public without sharing class HousieGameStartService {
             view.status = row.Status__c;
             view.requesterRole = requesterRole;
             view.canApprove = row.Status__c == 'OPEN' && (role == 'ADMIN' || role == 'NON_ADMIN');
-            view.canExecute = ready && (requesterRole == 'SUPER_ADMIN'
-                ? HousieSecurity.isSuperAdmin(actor)
-                : (HousieSecurity.isSuperAdmin(actor) || role == 'ADMIN' || role == 'NON_ADMIN'));
+            view.canExecute = ready && !requestsWithPendingExecution.contains(row.Record_Id__c) &&
+                (requesterRole == 'SUPER_ADMIN'
+                    ? HousieSecurity.isSuperAdmin(actor)
+                    : (HousieSecurity.isSuperAdmin(actor) || role == 'ADMIN' || role == 'NON_ADMIN'));
             view.readyToExecute = ready;
             view.approvedCount = countRequiredApprovals(row.Requester_Account_Id__c, requesterRole, responses);
             for (Game_Action_Response__b responseRow : responses) {
