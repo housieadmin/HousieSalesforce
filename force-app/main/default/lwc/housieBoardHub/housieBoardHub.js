@@ -381,7 +381,7 @@ export default class HousieBoardHub extends LightningElement {
     if (state.status === 'COMMITTED') return state;
     if (state.status !== 'CAPTURED') {
       let captured = false;
-      for (let batch = 0; batch < 120; batch += 1) {
+      for (let batch = 0; batch < 180; batch += 1) {
         const persisted = await commitStartExecutionBatch({
           requestId, accountId: this.accountKey
         });
