@@ -646,7 +646,7 @@ public without sharing class HousieGameStartService {
             writes.add(writeItem('Game_Event__b', new Map<String,Object>{
                 'Record_Id__c' => HousieIds.stableId('GAME_START_FUNDING_CAPTURED', command.Game_Id__c),
                 'Game_Id__c' => command.Game_Id__c,
-                'Sequence__c' => fundedSequence,
+                'Sequence__c' => fundingCapturedAt.getTime(),
                 'Event_Type__c' => 'GAME_START_FUNDING_CAPTURED',
                 'Actor_Account_Id__c' => actor.Account_Key__c,
                 'Payload__c' => JSON.serialize(new Map<String,Object>{
@@ -816,7 +816,7 @@ public without sharing class HousieGameStartService {
         writes.add(writeItem('Game_Event__b', new Map<String,Object>{
             'Record_Id__c' => HousieIds.stableId('GAME_STARTED', command.Game_Id__c),
             'Game_Id__c' => command.Game_Id__c,
-            'Sequence__c' => runningSequence,
+            'Sequence__c' => startedAt.getTime(),
             'Event_Type__c' => 'GAME_STARTED',
             'Actor_Account_Id__c' => actor.Account_Key__c,
             'Payload__c' => JSON.serialize(new Map<String,Object>{
@@ -828,7 +828,7 @@ public without sharing class HousieGameStartService {
         writes.add(writeItem('Game_Event__b', new Map<String,Object>{
             'Record_Id__c' => HousieIds.stableId('GAME_ADMIN_ASSIGNED', command.Game_Id__c + ':' + adminId),
             'Game_Id__c' => command.Game_Id__c,
-            'Sequence__c' => runningSequence,
+            'Sequence__c' => startedAt.getTime(),
             'Event_Type__c' => 'GAME_ADMIN_ASSIGNED',
             'Actor_Account_Id__c' => actor.Account_Key__c,
             'Payload__c' => JSON.serialize(new Map<String,Object>{
