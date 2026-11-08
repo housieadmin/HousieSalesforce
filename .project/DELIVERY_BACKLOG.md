@@ -11,7 +11,7 @@ This backlog contains only the cohesive implementation packages required to deli
 
 ## Package 1 — Start and fund a human-only game
 
-<badge color="success">Ready to begin</badge>
+**Status: READY TO BEGIN**
 
 **Deliverable:** one cohesive start-service capability, including the Apex service boundary, the minimum Board Hub integration and focused tests. It must take a valid WAITING game through request/approval, ticket freeze and human-hold capture into RUNNING exactly once.
 
