@@ -64,14 +64,6 @@ public without sharing class HousieGameStartService {
             'Only an authorized board admin or game participant can request a start.');
         if (HousieSecurity.isSuperAdmin(actor)) requesterRole = 'SUPER_ADMIN';
 
-        List<Game_Action_Request__b> openRequests = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
-        for (Game_Action_Request__b openRequest : openRequests) {
-            if (openRequest.Action_Type__c == START_ACTION &&
-                openRequest.Expires_At__c != null && openRequest.Expires_At__c > System.now()) {
-                HousieErrors.require(false, 'A start request is already open for this game.');
-            }
-        }
-
         String requestId = HousieIds.stableId('START_REQUEST',
             context.gameRow.Record_Id__c + ':' + actor.Account_Key__c + ':' + clientRequestId);
         String commandKey = HousieIds.stableId('START_COMMAND', requestId);
@@ -81,6 +73,13 @@ public without sharing class HousieGameStartService {
         Housie_Game_Command_Lock__c gate = lockGameCommandSlot(context.gameRow.Record_Id__c);
         HousieErrors.require(gate == null || gate.Status__c != 'PROCESSING',
             'Another game command is being finalized. Retry shortly.');
+        List<Game_Action_Request__b> openRequests = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
+        for (Game_Action_Request__b openRequest : openRequests) {
+            if (openRequest.Action_Type__c == START_ACTION &&
+                openRequest.Expires_At__c != null && openRequest.Expires_At__c > System.now()) {
+                HousieErrors.require(false, 'A start request is already open for this game.');
+            }
+        }
 
         Datetime nowAt = System.now();
         Integer expirySeconds = integerConfig(context.config, 'startPauseResumeRequestExpirySeconds', 60);
@@ -208,6 +207,8 @@ public without sharing class HousieGameStartService {
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
         String gameAdminId = findGameAdmin(participants);
         String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
+        HousieErrors.require(actor.Account_Key__c != requestRow.Requester_Account_Id__c,
+            'The requester cannot submit a second response to their own start request.');
         HousieErrors.require(role == 'ADMIN' || role == 'NON_ADMIN',
             'You are not eligible to review this start request.');
 
@@ -324,7 +325,7 @@ public without sharing class HousieGameStartService {
             view.status = row.Status__c;
             view.requesterRole = requesterRole;
             view.canApprove = role == 'ADMIN' || role == 'NON_ADMIN';
-            view.approvedCount = 0;
+            view.approvedCount = requesterRole == 'INITIATOR_ONLY' ? 0 : 1;
             for (Game_Action_Response__b responseRow : responses) {
                 if (responseRow.Account_Id__c == actor.Account_Key__c) view.currentUserResponse = responseRow.Response__c;
                 if (responseRow.Response__c == 'APPROVE') view.approvedCount++;
