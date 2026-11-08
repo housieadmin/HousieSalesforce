@@ -527,8 +527,16 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(command.Status__c == 'PREPARED', 'Start execution is not in a resumable state.');
         requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
         Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
-        List<Object> holds = (List<Object>)payload.get('holds');
         Integer cursor = Integer.valueOf(String.valueOf(payload.get('cursor')));
+        GameContext context = loadCurrentGame(command.Board_Id__c);
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'The game is no longer waiting. Start execution cannot continue.');
+        Map<String,Participant> participants = loadActiveParticipants(command.Game_Id__c);
+        StartFundingPlan plan = buildStartFundingPlan(context, participants);
+        List<Object> holds = plan.holds;
+        HousieErrors.require(holds.size() == Integer.valueOf(String.valueOf(payload.get('ticketCount'))) &&
+            plan.total == command.Entry_Fee__c,
+            'The committed funding plan changed. Stop and review the pending start command.');
         Integer nextCursor = Math.min(cursor + BATCH_SIZE, holds.size());
         Boolean finalBatch = nextCursor == holds.size();
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
@@ -582,18 +590,21 @@ public without sharing class HousieGameStartService {
             }));
         }
         if (finalBatch) {
-            GameContext context = loadCurrentGame(command.Board_Id__c);
-            HousieErrors.require(context.gameRow.Status__c == 'WAITING',
-                'The game is no longer waiting. Start execution cannot continue.');
+            Decimal fundedSequence = Decimal.valueOf(String.valueOf(payload.get('eventSequence')));
+            HousieErrors.require(context.gameRow.Event_Sequence__c == null ||
+                context.gameRow.Event_Sequence__c == fundedSequence - 1 ||
+                context.gameRow.Event_Sequence__c == fundedSequence,
+                'The game event sequence changed during funding capture.');
             Datetime startedAt = (Datetime)JSON.deserialize(JSON.serialize(payload.get('startedAt')), Datetime.class);
             Decimal total = Decimal.valueOf(String.valueOf(payload.get('total')));
+            String adminId = String.valueOf(payload.get('currentAdmin'));
             writes.add(writeItem('Game__b', new Map<String,Object>{
                 'Record_Id__c' => command.Game_Id__c,
                 'Board_Id__c' => command.Board_Id__c,
                 'Status__c' => 'WAITING',
                 'Config_Snapshot__c' => context.gameRow.Config_Snapshot__c,
-                'Event_Sequence__c' => Decimal.valueOf(String.valueOf(payload.get('eventSequence'))),
-                'Current_Admin_Account_Id__c' => String.valueOf(payload.get('currentAdmin')),
+                'Event_Sequence__c' => fundedSequence,
+                'Current_Admin_Account_Id__c' => adminId,
                 'Wallet_Total__c' => total,
                 'Wallet_Obligations__c' => 0,
                 'Wallet_Available__c' => total,
@@ -603,26 +614,32 @@ public without sharing class HousieGameStartService {
             writes.add(writeItem('Game_Event__b', new Map<String,Object>{
                 'Record_Id__c' => HousieIds.stableId('GAME_STARTED', command.Game_Id__c),
                 'Game_Id__c' => command.Game_Id__c,
-                'Sequence__c' => Long.valueOf(String.valueOf(payload.get('eventSequence'))),
+                'Sequence__c' => fundedSequence,
                 'Event_Type__c' => 'GAME_START_FUNDING_CAPTURED',
                 'Actor_Account_Id__c' => actor.Account_Key__c,
                 'Payload__c' => JSON.serialize(new Map<String,Object>{
-                    'requestId' => requestId,
-                    'adminAccountId' => String.valueOf(payload.get('currentAdmin')),
-                    'participantCount' => ((Map<String,Object>)payload.get('accounts')).size(),
-                    'ticketCount' => holds.size(),
-                    'walletTotal' => total
+                    'requestId' => requestId, 'adminAccountId' => adminId,
+                    'participantCount' => plan.accountTotals.size(),
+                    'ticketCount' => holds.size(), 'walletTotal' => total
+                }),
+                'Created_At__c' => startedAt
+            }));
+            writes.add(writeItem('Game_Event__b', new Map<String,Object>{
+                'Record_Id__c' => HousieIds.stableId('GAME_ADMIN_ASSIGNED', command.Game_Id__c + ':' + adminId),
+                'Game_Id__c' => command.Game_Id__c,
+                'Sequence__c' => fundedSequence,
+                'Event_Type__c' => 'GAME_ADMIN_ASSIGNED',
+                'Actor_Account_Id__c' => actor.Account_Key__c,
+                'Payload__c' => JSON.serialize(new Map<String,Object>{
+                    'adminAccountId' => adminId, 'reason' => 'START_TIME_ELIGIBLE_PARTICIPANT'
                 }),
                 'Created_At__c' => startedAt
             }));
         }
         HousieOperationService.executeOperation('CAPTURE_GAME_START_FUNDING', writes);
-
         ActionResult result = new ActionResult();
-        result.requestId = requestId;
-        result.gameId = command.Game_Id__c;
-        result.status = 'PERSISTED';
-        result.nextCursor = nextCursor;
+        result.requestId = requestId; result.gameId = command.Game_Id__c;
+        result.status = 'PERSISTED'; result.nextCursor = nextCursor;
         result.complete = finalBatch;
         result.message = finalBatch
             ? 'All ticket hold capture records are persisted. Finalize the account wallet capture.'
@@ -654,14 +671,19 @@ public without sharing class HousieGameStartService {
         }
         requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
         Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
-        List<Object> holds = (List<Object>)payload.get('holds');
         Integer cursor = Integer.valueOf(String.valueOf(payload.get('cursor')));
+        GameContext context = loadCurrentGame(command.Board_Id__c);
+        Map<String,Participant> participants = loadActiveParticipants(command.Game_Id__c);
+        StartFundingPlan plan = buildStartFundingPlan(context, participants);
+        List<Object> holds = plan.holds;
+        HousieErrors.require(holds.size() == Integer.valueOf(String.valueOf(payload.get('ticketCount'))) &&
+            plan.total == command.Entry_Fee__c,
+            'The committed funding plan changed. Stop and review the pending start command.');
         Integer expectedNext = Math.min(cursor + BATCH_SIZE, holds.size());
         if (nextCursor != null && nextCursor == cursor) {
             ActionResult alreadyApplied = new ActionResult();
             alreadyApplied.requestId = requestId; alreadyApplied.gameId = command.Game_Id__c;
             alreadyApplied.status = command.Status__c; alreadyApplied.nextCursor = cursor;
-            alreadyApplied.readyToExecute = command.Status__c == 'CAPTURED';
             alreadyApplied.message = 'This funding batch was already finalized.';
             return alreadyApplied;
         }
@@ -674,8 +696,7 @@ public without sharing class HousieGameStartService {
         if (finalBatch) {
             verifyPreparedGame(command.Board_Id__c, command.Game_Id__c,
                 Decimal.valueOf(String.valueOf(payload.get('eventSequence'))));
-            Map<String,Object> accountPlan = (Map<String,Object>)payload.get('accounts');
-            Set<String> accountIds = accountPlan.keySet();
+            Set<String> accountIds = plan.accountTotals.keySet();
             List<Housie_Account__c> accounts = [
                 SELECT Id, Account_Key__c, Points_Balance__c, Reserved_Points__c
                 FROM Housie_Account__c
@@ -688,7 +709,7 @@ public without sharing class HousieGameStartService {
                 HousieErrors.require(byKey.containsKey(accountIdKey),
                     'A participant account is missing during wallet capture.');
                 Housie_Account__c account = byKey.get(accountIdKey);
-                Decimal amount = Decimal.valueOf(String.valueOf(accountPlan.get(accountIdKey)));
+                Decimal amount = plan.accountTotals.get(accountIdKey);
                 HousieErrors.require(account.Reserved_Points__c != null && account.Reserved_Points__c >= amount,
                     'Reserved points are insufficient to capture the game funding.');
                 HousieErrors.require(account.Points_Balance__c != null && account.Points_Balance__c >= amount,
@@ -705,11 +726,9 @@ public without sharing class HousieGameStartService {
         update command;
 
         ActionResult result = new ActionResult();
-        result.requestId = requestId;
-        result.gameId = command.Game_Id__c;
+        result.requestId = requestId; result.gameId = command.Game_Id__c;
         result.status = finalBatch ? 'CAPTURED' : 'PREPARED';
-        result.nextCursor = nextCursor;
-        result.complete = false;
+        result.nextCursor = nextCursor; result.complete = false;
         result.readyToExecute = finalBatch;
         result.message = finalBatch
             ? 'All ticket holds and account balances are captured. Final game activation is the next step.'
