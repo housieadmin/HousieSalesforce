@@ -22,7 +22,7 @@ The generic runner does not assume a particular Salesforce domain, org alias, lo
 
 ## Create scenarios and workflows
 
-A scenario exports `defineScenario({ id, run })`. It receives `page`, `config`, `navigate()`, `screenshot()`, `log()` and `note()`. It may perform one action, navigate, inspect, capture evidence or throw on a failed condition. Assertions are optional; a scenario that completes without throwing is recorded as passed.
+A scenario exports `defineScenario({ id, run })`. It receives `page`, `config`, `navigate()`, `screenshot()`, `log()` and `note()`. It may perform one action, navigate, inspect, capture evidence or throw on a failed condition. Assertions are optional; a scenario that completes without throwing is recorded as completed; this is not an assertion-based pass.
 
 ```ts
 import { defineScenario } from "../framework/scenario";

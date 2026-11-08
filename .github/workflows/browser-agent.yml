@@ -319,21 +319,21 @@ jobs:
           const failed = tests.filter(t => t.results.some(r => ['failed', 'timedOut'].includes(r.status)));
           const passed = tests.filter(t => t.results.some(r => r.status === 'passed'));
           const frameworkFailed = frameworkResults.filter(r => r.status === 'failed').length;
-          const frameworkPassed = frameworkResults.filter(r => r.status === 'passed').length;
+          const frameworkCompleted = frameworkResults.filter(r => r.status === 'completed').length;
           fs.writeFileSync(path.join(dir, 'summary.md'), [
             '# Browser execution summary', '',
             '- Playwright tests observed: ' + tests.length,
             '- Playwright passed: ' + passed.length,
             '- Playwright failed/timed out: ' + failed.length,
             '- Framework scenarios/workflows: ' + frameworkResults.length,
-            '- Framework passed: ' + frameworkPassed,
+            '- Framework completed: ' + frameworkCompleted,
             '- Framework failed: ' + frameworkFailed,
             '- Combined execution exit code: ' + process.env.TEST_EXIT,
             '', 'This report records browser observations; it does not certify feature completeness.', ''
           ].join('\n'));
           fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({
             total: tests.length + frameworkResults.length,
-            passed: passed.length + frameworkPassed,
+            passed: passed.length,\n            completed: frameworkCompleted,
             failed: failed.length + frameworkFailed,
             failedTests: failed,
             frameworkResults

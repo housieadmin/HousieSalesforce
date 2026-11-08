@@ -37,7 +37,7 @@ async function executeDefinition(definition: Runnable, context: ScenarioContext,
   }
 }
 
-export async function runDefinition(definition: Runnable, config: BrowserAgentConfig): Promise<{ status: "passed" | "failed"; artifactDir: string }> {
+export async function runDefinition(definition: Runnable, config: BrowserAgentConfig): Promise<{ status: "completed" | "failed"; artifactDir: string }> {
   const runDir = path.join(config.artifactsDir, safeName(definition.id) + "-" + new Date().toISOString().replace(/[:.]/g, "-"));
   const screenshotsDir = path.join(runDir, "screenshots");
   await fs.mkdir(screenshotsDir, { recursive: true });
@@ -122,7 +122,7 @@ export async function runDefinition(definition: Runnable, config: BrowserAgentCo
     await fs.writeFile(path.join(runDir, "result.json"), JSON.stringify({
       id: definition.id,
       kind: definition.kind,
-      status: failure ? "failed" : "passed",
+      status: failure ? "failed" : "completed",
       description: definition.description,
       startedAt: events[0]?.at,
       finishedAt: new Date().toISOString(),
@@ -130,5 +130,5 @@ export async function runDefinition(definition: Runnable, config: BrowserAgentCo
     }, null, 2));
   }
 
-  return { status: failure ? "failed" : "passed", artifactDir: runDir };
+  return { status: failure ? "failed" : "completed", artifactDir: runDir };
 }
