@@ -88,6 +88,31 @@ private class HousieGameStartServiceTest {
     }
 
     @IsTest
+    static void approvalCountIncludesOnlyTheRequiredRole() {
+        List<Game_Action_Response__b> rows = new List<Game_Action_Response__b>{
+            response('ADMIN-2', 'ADMIN', 'APPROVE'),
+            response('PLAYER-3', 'NON_ADMIN', 'REJECT')
+        };
+        System.assertEquals(1,
+            HousieGameStartService.countRequiredApprovals('ADMIN-1', 'ADMIN', rows));
+        rows.add(response('PLAYER-4', 'NON_ADMIN', 'APPROVE'));
+        System.assertEquals(2,
+            HousieGameStartService.countRequiredApprovals('ADMIN-1', 'ADMIN', rows));
+    }
+
+    @IsTest
+    static void nonParticipatingBoardAdminNeedsBothApprovalCounts() {
+        List<Game_Action_Response__b> rows = new List<Game_Action_Response__b>{
+            response('ADMIN-2', 'ADMIN', 'APPROVE')
+        };
+        System.assertEquals(1,
+            HousieGameStartService.countRequiredApprovals('BOARD-OWNER', 'INITIATOR_ONLY', rows));
+        rows.add(response('PLAYER-3', 'NON_ADMIN', 'APPROVE'));
+        System.assertEquals(2,
+            HousieGameStartService.countRequiredApprovals('BOARD-OWNER', 'INITIATOR_ONLY', rows));
+    }
+
+    @IsTest
     static void platformSuperAdminBypassesApprovals() {
         System.assertEquals(true,
             HousieGameStartService.approvalThreshold('ROOT', 'SUPER_ADMIN', new List<Game_Action_Response__b>()));
