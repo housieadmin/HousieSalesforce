@@ -61,7 +61,9 @@ export function loadConfig(configPath = process.env.BROWSER_AGENT_CONFIG || "bro
   return {
     baseUrl,
     startUrl,
-    headless: process.env.BROWSER_AGENT_HEADLESS !== "false" && browser.headless !== false,
+    headless: process.env.BROWSER_AGENT_HEADLESS === undefined
+      ? browser.headless !== false
+      : process.env.BROWSER_AGENT_HEADLESS.toLowerCase() !== "false",
     slowMo: numberFromEnv("BROWSER_AGENT_SLOW_MO", Number(browser.slowMo ?? 0)),
     navigationTimeoutMs: numberFromEnv("BROWSER_AGENT_NAVIGATION_TIMEOUT_MS", Number(browser.navigationTimeoutMs ?? 45000)),
     actionTimeoutMs: numberFromEnv("BROWSER_AGENT_ACTION_TIMEOUT_MS", Number(browser.actionTimeoutMs ?? 20000)),
