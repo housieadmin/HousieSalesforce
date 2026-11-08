@@ -1,55 +1,80 @@
-# Housie Browser Agent
+# Salesforce Browser Agent
 
-This is a browser execution framework, not a QA suite or autonomous testing agent. AI coding sessions author Playwright scenario files. The framework launches Chromium, authenticates to the configured Salesforce org, executes selected files, and publishes evidence.
+A reusable Playwright-based browser execution framework with a compatibility layer for existing Housie tests. The generic framework is project-independent; org URLs, authentication and project behavior are supplied at runtime.
 
-## Repository conventions
-- core/: stable shared Playwright fixture and framework-wide diagnostics.
-- utilities/: small reusable modules that accept Playwright objects and expose explicit functions.
-- scenarios/: independently runnable setup, inspection and regression specs.
-- artifacts/: local-only output. Never commit generated execution artifacts.
+## Architecture
 
-Prefer a utility when two or more scenarios share a real operation. Keep utilities focused and explicit: document arguments, side effects, credential handling and example usage. Do not hide test assertions or product decisions inside generic helpers.
+- `framework/`: generic scenario contract, sequential workflow composition, configuration loader and standalone runner. No Housie URLs, selectors, credentials or product assumptions.
+- `scenarios/`: scenario modules. Existing `.spec.ts` files remain supported by Playwright; new `.scenario.ts` and `.workflow.ts` modules use the lightweight framework.
+- `projects/<project>/`: project-specific configuration examples and extensions.
+- `core/` and `utilities/`: legacy Housie Playwright fixture and helpers, retained so existing workflows remain usable.
+- `artifacts/`: local-only execution output; never commit generated evidence.
 
-## Reusable Salesforce utilities
-Import `openLightningTab(page, path, targetOrg?)` from `../utilities/salesforce` to open a Lightning route through an authenticated Salesforce CLI frontdoor session. Import `redactAccountKey(page)` immediately after account creation; the account key is a bearer route credential and must be redacted before assertions, screenshots, traces or failure artifacts.
+## Configure another Salesforce project
 
-## Writing scenarios
-Import test and expect from ../core in files directly under scenarios/. Use a deeper relative import for nested folders.
+1. Copy `config.example.json` to `browser-agent.config.json` (keep the copied file out of Git).
+2. Supply `BROWSER_AGENT_BASE_URL` and, when an initial landing page is useful, `BROWSER_AGENT_START_URL`. Values can also be written as `${ENV_VAR}` references in the JSON config.
+3. Authenticate outside generic framework code. For local use, authenticate with Salesforce CLI or another approved method, then supply a session/frontdoor start URL through the environment. In CI, use the project's existing secure authentication workflow and mask sensitive URLs.
+4. Put org-specific routes, selectors, test data and behavior in project config or project scenario modules. Keep credentials in environment secrets; never commit them.
+5. Install dependencies with `npm install` and run the commands below from `browser-agent/`.
 
-Each test receives:
-- page: normal Playwright page.
-- housie.login(): opens the authenticated Salesforce frontdoor session.
-- housie.navigate(pathOrUrl): navigates to an absolute URL or a path relative to the configured org.
-- housie.screenshot(name): saves and attaches a full-page screenshot.
-- housie.note(message): adds context to browser diagnostics.
+The generic runner does not assume a particular Salesforce domain, org alias, login flow, object model or application.
 
-Use standard Playwright APIs for all other interactions. A scenario can contain multiple test blocks. One workflow run can execute up to 10 scenario files.
+## Create scenarios and workflows
 
-## Trigger from an AI session
-Post a comment on this dedicated execution issue: https://github.com/housieadmin/HousieSalesforce/issues/9
+A scenario exports `defineScenario({ id, run })`. It receives `page`, `config`, `navigate()`, `screenshot()`, `log()` and `note()`. It may perform one action, navigate, inspect, capture evidence or throw on a failed condition. Assertions are optional; a scenario that completes without throwing is recorded as passed.
 
-Use this format:
+```ts
+import { defineScenario } from "../framework/scenario";
 
-/browser-agent run
-ref: feature/my-change
-scenarios:
-- browser-agent/scenarios/account-flow.spec.ts
-- browser-agent/scenarios/callout-check.spec.ts
-description: Observe account creation after the callout fix
+export default defineScenario({
+  id: "capture-home",
+  async run({ page, screenshot, log }) {
+    log("Current page", { title: await page.title(), url: page.url() });
+    await screenshot("home");
+  }
+});
+```
 
-The ref must already be pushed. Scenario paths must be committed on that ref and live under browser-agent/scenarios/. Only repository owners, members and collaborators can trigger runs.
+Run one scenario independently:
 
-The ref selects scenario source code. It does not deploy that ref to Salesforce. The browser always operates against the org configured in the GitHub development environment. The workflow definition itself is loaded from the default branch.
+```bash
+npm run browser:scenario -- scenarios/capture-org-home.scenario.ts
+```
 
-## Evidence
-One GitHub Actions artifact is uploaded per execution, containing the Playwright JSON report and Markdown summary, screenshots, failure traces and videos, console errors, page errors, failed requests, HTTP error responses, run metadata and scenario notes. Artifacts are not committed to Git; retention is 14 days.
+Compose scenarios without copying their logic:
 
-## Authentication and setup
-The workflow reuses the Salesforce JWT configuration used by the deployment workflows: SF_JWT_KEY, SF_CLIENT_ID, SF_USERNAME and SF_INSTANCE_URL. These must be available as repository-level GitHub Actions secrets and variables, matching the scope used by the existing Salesforce AI iteration deployment workflow. Salesforce CLI JWT login generates a temporary frontdoor URL; it is masked and kept only in the runner environment. The browser workflow intentionally does not depend on an environment approval gate.
+```ts
+import { defineWorkflow } from "../framework/scenario";
+import captureHome from "./capture-org-home.scenario";
+import inspectHome from "./inspect-home.scenario";
 
-The workflow has contents:read and issues:write permissions. The browser runner does not have repository write permission.
+export default defineWorkflow({
+  id: "home-inspection",
+  scenarios: [captureHome, inspectHome]
+});
+```
 
-## Safety
-Scenario files are executable code. Only trusted repository collaborators may request execution, and only trusted code should be placed on an execution ref. Never include secrets in scenario source, screenshots, console output or notes. The runner does not commit generated files.
+Run one or more scenario/workflow modules in order:
 
-The browser observes the live org, not the checked-out source tree. Record the deployed commit or deployment run in the execution description when relevant.
+```bash
+npm run browser:scenario -- scenarios/capture-org-home.scenario.ts scenarios/home-inspection.workflow.ts
+```
+
+Relative navigation uses `baseUrl`; absolute URLs work without it. The runner starts at `startUrl` when configured. Each input file receives a fresh browser context. Scenarios inside one workflow share that workflow's page/session and execute sequentially.
+
+## Legacy Playwright scenarios
+
+Existing `*.spec.ts` files continue to run through `npm run browser:run -- scenarios/<name>.spec.ts`. They use the Housie compatibility fixture from `core/`; this is not the recommended contract for new reusable tasks. Existing Housie-specific utilities and selectors remain outside generic framework code.
+
+## Configuration
+
+Supported environment overrides: `BROWSER_AGENT_CONFIG`, `BROWSER_AGENT_BASE_URL`, `BROWSER_AGENT_START_URL`, `BROWSER_AGENT_HEADLESS`, `BROWSER_AGENT_SLOW_MO`, `BROWSER_AGENT_NAVIGATION_TIMEOUT_MS`, `BROWSER_AGENT_ACTION_TIMEOUT_MS`, and `BROWSER_AGENT_ARTIFACT_DIR`. Defaults are generic Chromium settings. No Salesforce credentials are read by the framework.
+
+## Evidence and diagnostics
+
+Each execution creates a unique artifact directory containing `result.json`, `events.json`, screenshots and (on failure) a Playwright trace. Console errors, page errors, failed requests and HTTP error responses are recorded with URL/token redaction. Evidence capture is available directly from any scenario and is not coupled to assertions or full workflows.
+
+## CI execution and security
+
+The repository's trusted browser workflow can execute legacy specs and new framework scenario/workflow modules from a selected trusted ref. The selected source ref supplies scenario code only; authentication and the target org remain controlled by CI configuration. Scenario files are executable code: only trusted collaborators should trigger runs. Do not log secrets or bearer credentials.
