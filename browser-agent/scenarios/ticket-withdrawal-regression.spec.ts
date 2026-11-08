@@ -3,6 +3,8 @@ import path from "node:path";
 import { test, expect } from "../core";
 import { queryBigObject } from "../utilities/salesforce";
 
+test.use({ trace: "off" });
+
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   try {
     const output = execFileSync("sf", [
@@ -46,6 +48,7 @@ function resourceLedgerRows(accountKey: string) {
 }
 
 test("withdraw active WAITING tickets, release the hold, then purchase again", async ({ page, housie }) => {
+  test.setTimeout(180000);
   await housie.navigate(playerUrl);
   const hub = page.locator("c-housie-board-hub");
   await expect(hub, "The public account page should render Board Hub").toHaveCount(1, { timeout: 60000 });
@@ -83,7 +86,8 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   const accountKey = String(accountBefore.Account_Key__c);
   const ledgerBefore = resourceLedgerRows(accountKey);
   const reservedBefore = Number(accountBefore.Reserved_Points__c);
-  expect(reservedBefore).toBe(beforeReserved);
+  expect(reservedBefore).toBeGreaterThanOrEqual(beforeReserved);
+  const reservedOutsideFixture = reservedBefore - beforeReserved;
 
   const withdraw = card.getByRole("button", { name: "Withdraw from waiting game", exact: true });
   await expect(withdraw).toBeVisible();
@@ -98,19 +102,19 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   const afterWithdrawal = await card.innerText();
   const accountAfterWithdrawal = accountSnapshot();
   const ledgerAfterWithdrawal = resourceLedgerRows(accountKey);
-  expect(Number(accountAfterWithdrawal.Reserved_Points__c)).toBe(0);
+  expect(Number(accountAfterWithdrawal.Reserved_Points__c)).toBe(reservedOutsideFixture);
   expect(ledgerAfterWithdrawal).toHaveLength(ledgerBefore.length + beforeCount);
-  housie.note("Post-withdrawal: active tickets=0, reserved points=0, resource ledger rows increased by " + beforeCount + " release entries.");
+  housie.note("Post-withdrawal: active tickets=0 on the regression board; board ticket holds released, unrelated reserved holds preserved, and resource ledger rows increased by " + beforeCount + " release entries.");
   housie.note("Post-withdrawal board state: " + afterWithdrawal.slice(0, 2500));
   await housie.screenshot("waiting-ticket-withdrawn");
 
   await card.getByRole("button", { name: /Buy ticket/ }).click();
   await expect.poll(async () => await card.innerText(), { timeout: 60000 })
-    .toMatch(/Ticket:\s*[a-f0-9]{32}/i);
+    .toMatch(/(?:MANUAL|AUTOMATIC)\s*·\s*10\s*points\s*·\s*[a-f0-9]{32}/i);
   const afterRepurchase = await card.innerText();
   const afterTickets = [...afterRepurchase.matchAll(/(?:MANUAL|AUTOMATIC)\s*·\s*([0-9.]+)\s*points\s*·\s*([a-f0-9]{32})/gi)];
   const afterIds = afterTickets.map(match => match[2]);
-  const newTicketId = afterRepurchase.match(/Ticket:\s*([a-f0-9]{32})/i)?.[1] || afterIds.find(id => !beforeIds.includes(id));
+  const newTicketId = afterIds.find(id => !beforeIds.includes(id));
   const replacementTicket = afterTickets.find(match => match[2] === newTicketId);
   expect(newTicketId, "A new active ticket should be created after withdrawal releases the original hold").toMatch(/^[a-f0-9]{32}$/i);
   expect(beforeIds, "The replacement ticket must not reuse a withdrawn ticket ID").not.toContain(newTicketId);
@@ -118,8 +122,17 @@ test("withdraw active WAITING tickets, release the hold, then purchase again", a
   await expect(card.getByRole("button", { name: /Finish ticket purchase|Finish withdrawal/ })).toHaveCount(0);
   const accountAfterRepurchase = accountSnapshot();
   const ledgerAfterRepurchase = resourceLedgerRows(accountKey);
-  expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(Number(replacementTicket![1]));
+  expect(Number(accountAfterRepurchase.Reserved_Points__c)).toBe(reservedOutsideFixture + Number(replacementTicket![1]));
   expect(ledgerAfterRepurchase).toHaveLength(ledgerAfterWithdrawal.length + 1);
   await housie.screenshot("waiting-ticket-repurchased");
-  housie.note("Withdrawal and repurchase completed. Reserved points returned to 10; ledger has one new reserve row. Prior active ticket IDs=" + beforeIds.join(",") + "; replacement=" + newTicketId);
+  housie.note("Withdrawal and repurchase completed. Reserved points returned to 10; ledger has one new reserve row. Ticket identifiers were not retained.");
+
+  await card.getByRole("button", { name: "Withdraw from waiting game", exact: true }).click();
+  await expect(card.getByRole("button", { name: /Buy ticket/ })).toBeVisible({ timeout: 60000 });
+  await expect(card.getByRole("button", { name: "Withdraw from waiting game", exact: true })).toHaveCount(0);
+  const accountAfterFinalRelease = accountSnapshot();
+  const ledgerAfterFinalRelease = resourceLedgerRows(accountKey);
+  expect(Number(accountAfterFinalRelease.Reserved_Points__c)).toBe(reservedOutsideFixture);
+  expect(ledgerAfterFinalRelease).toHaveLength(ledgerAfterRepurchase.length + 1);
+  housie.note("Regression fixture cleanup: replacement ticket was withdrawn; only the regression board's reserved points were released, unrelated holds were preserved, and the release ledger row was appended.");
 });

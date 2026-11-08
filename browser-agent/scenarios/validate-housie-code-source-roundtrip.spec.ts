@@ -20,7 +20,7 @@ function retrieve(projectRoot: string, manifestRoot: string, manifestName: strin
     output = execFileSync("sf", [
       "project", "retrieve", "start", "--manifest", manifestPath,
       "--target-org", "housie-browser-agent", "--wait", "60", "--json"
-    ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    ], { cwd: projectRoot, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 180000 });
   } catch (error) {
     const failure = error as NodeJS.ErrnoException & { stdout?: string | Buffer; stderr?: string | Buffer };
     const stdout = String(failure.stdout ?? "").replace(/\u001b\[[0-9;]*m/g, "").trim();
@@ -30,8 +30,8 @@ function retrieve(projectRoot: string, manifestRoot: string, manifestName: strin
       "Manifest: " + manifestName,
       "Manifest path: " + manifestPath,
       "Exit code: " + String(failure.code ?? "unknown"),
-      "stdout: " + (stdout || "<empty>"),
-      "stderr: " + (stderr || "<empty>")
+      "stdout: " + (stdout || "<empty>").replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]").slice(-1200),
+      "stderr: " + (stderr || "<empty>").replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]").slice(-1200)
     ].join("\n"));
   }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
@@ -129,19 +129,14 @@ test("reconcile only Housie-owned Apex and LWC source against the Developer Org"
   housie.note(JSON.stringify({ apex, lwc, customPermissions, permissionSets, tabs }, null, 2));
   expect(apex.missing, "Org should contain every curated Housie Apex source file").toEqual([]);
   expect(apex.unexpected, "Curated Apex retrieve should not include unrelated classes").toEqual([]);
-  // The Developer Org still lacks the three command-result fields in the
-  // completion query. Assert the exact known functional drift, but continue
-  // the read-only retrieve so LWC/access parity is checked in the same run.
-  const ticketCommandDrift = apex.differentDetails.find(
+  // The targeted NoTestRun deployment must bring the ticket completion
+  // query into exact source parity. The only accepted remaining Apex delta
+  // is the previously reviewed documentation-only operation-service drift.
+  expect(apex.different).not.toContain("HousieGameTicketService.cls");
+  const ticketCommand = apex.differentDetails.find(
     detail => detail.file === "HousieGameTicketService.cls"
   );
-  expect(apex.different).toContain("HousieGameTicketService.cls");
-  expect(ticketCommandDrift?.expectedLine).toContain(
-    "Action_Type__c, Ticket_Id__c, Mode__c, Entry_Fee__c, Layout__c"
-  );
-  expect(ticketCommandDrift?.actualLine).toContain(
-    "Action_Type__c, Ticket_Id__c, Payload__c, Status__c, Updated_At__c"
-  );
+  expect(ticketCommand, "Ticket completion query must match the deployed source").toBeUndefined();
 
   // The following difference is documentation-only. Assert its exact text
   // instead of treating arbitrary changes in this class as acceptable.
