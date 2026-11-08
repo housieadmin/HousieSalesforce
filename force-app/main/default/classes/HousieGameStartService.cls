@@ -335,6 +335,29 @@ public without sharing class HousieGameStartService {
     }
 
     @AuraEnabled
+    public static List<StartRequestView> listPendingStartRequests(String accountId) {
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        List<Housie_Ticket_Command__c> commands = [
+            SELECT Ticket_Id__c, Board_Id__c, Game_Id__c, Status__c
+            FROM Housie_Ticket_Command__c
+            WHERE Account_Key__c = :actor.Account_Key__c
+              AND Action_Type__c = :START_REQUEST_COMMAND
+              AND Status__c = 'PREPARED'
+            ORDER BY Created_At__c ASC LIMIT 100
+        ];
+        List<StartRequestView> result = new List<StartRequestView>();
+        for (Housie_Ticket_Command__c command : commands) {
+            StartRequestView view = new StartRequestView();
+            view.requestId = command.Ticket_Id__c;
+            view.gameId = command.Game_Id__c;
+            view.boardId = command.Board_Id__c;
+            view.status = command.Status__c;
+            result.add(view);
+        }
+        return result;
+    }
+
+    @AuraEnabled
     public static List<StartRequestView> listPendingStartExecutions(String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         List<Housie_Ticket_Command__c> commands = [
