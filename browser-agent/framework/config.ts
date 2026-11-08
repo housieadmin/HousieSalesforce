@@ -8,6 +8,7 @@ export interface BrowserAgentConfig {
   slowMo: number;
   navigationTimeoutMs: number;
   actionTimeoutMs: number;
+  traceOnFailure: boolean;
   artifactsDir: string;
   viewport: { width: number; height: number };
   project: Record<string, unknown>;
@@ -64,6 +65,7 @@ export function loadConfig(configPath = process.env.BROWSER_AGENT_CONFIG || "bro
     slowMo: numberFromEnv("BROWSER_AGENT_SLOW_MO", Number(browser.slowMo ?? 0)),
     navigationTimeoutMs: numberFromEnv("BROWSER_AGENT_NAVIGATION_TIMEOUT_MS", Number(browser.navigationTimeoutMs ?? 45000)),
     actionTimeoutMs: numberFromEnv("BROWSER_AGENT_ACTION_TIMEOUT_MS", Number(browser.actionTimeoutMs ?? 20000)),
+    traceOnFailure: browser.traceOnFailure === true,
     artifactsDir: path.resolve(process.env.BROWSER_AGENT_ARTIFACT_DIR || String(source.artifactsDir || "artifacts/local-run")),
     viewport: {
       width: Number(viewport.width ?? 1440),

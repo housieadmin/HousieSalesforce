@@ -73,7 +73,7 @@ Supported environment overrides: `BROWSER_AGENT_CONFIG`, `BROWSER_AGENT_BASE_URL
 
 ## Evidence and diagnostics
 
-Each execution creates a unique artifact directory containing `result.json`, `events.json`, screenshots and (on failure) a Playwright trace. Console errors, page errors, failed requests and HTTP error responses are recorded with URL/token redaction. Evidence capture is available directly from any scenario and is not coupled to assertions or full workflows.
+Each execution creates a unique artifact directory containing `result.json`, `events.json`, screenshots and, when explicitly enabled with `browser.traceOnFailure: true`, a Playwright trace on failure. Traces can contain page data and should be enabled only when the target data is safe to retain. Console errors, page errors, failed requests and HTTP error responses are recorded with URL/token redaction. Evidence capture is available directly from any scenario and is not coupled to assertions or full workflows.
 
 ## CI execution and security
 

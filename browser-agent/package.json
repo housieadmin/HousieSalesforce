@@ -5,7 +5,7 @@
   "scripts": {
     "browser:run": "playwright test",
     "browser:scenario": "tsx framework/cli.ts",
-    "test:framework": "tsx --test framework/*.test.ts"
+    "test:framework": "node --import tsx --test framework/*.test.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

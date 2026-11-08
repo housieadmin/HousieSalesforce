@@ -21,6 +21,13 @@ function redact(value: string): string {
     .replace(/\b[a-f0-9]{32,}\b/gi, "[REDACTED_TOKEN]");
 }
 
+function redactDetails(value: unknown): unknown {
+  if (typeof value === "string") return redact(value);
+  if (Array.isArray(value)) return value.map(redactDetails);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactDetails(item)]));
+  return value;
+}
+
 async function executeDefinition(definition: Runnable, context: ScenarioContext, events: EventRecord[]) {
   const steps = definition.kind === "workflow" ? definition.scenarios : [definition];
   for (const step of steps) {
@@ -41,14 +48,16 @@ export async function runDefinition(definition: Runnable, config: BrowserAgentCo
   let failure: string | undefined;
   let traceStarted = false;
   const record = (level: string, message: string, details?: Record<string, unknown>) => {
-    events.push({ at: new Date().toISOString(), level, message: redact(message), ...(details ? { details } : {}) });
+    events.push({ at: new Date().toISOString(), level, message: redact(message), ...(details ? { details: redactDetails(details) as Record<string, unknown> } : {}) });
   };
 
   try {
     browser = await chromium.launch({ headless: config.headless, slowMo: config.slowMo });
     browserContext = await browser.newContext({ viewport: config.viewport });
-    await browserContext.tracing.start({ screenshots: true, snapshots: true, sources: true });
-    traceStarted = true;
+    if (config.traceOnFailure) {
+      await browserContext.tracing.start({ screenshots: true, snapshots: true, sources: true });
+      traceStarted = true;
+    }
     page = await browserContext.newPage();
     page.setDefaultNavigationTimeout(config.navigationTimeoutMs);
     page.setDefaultTimeout(config.actionTimeoutMs);
