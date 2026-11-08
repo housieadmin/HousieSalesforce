@@ -465,9 +465,7 @@ public without sharing class HousieGameStartService {
         String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
         Housie_Ticket_Command__c prior = findCommand(commandKey);
         if (prior != null) {
-            HousieErrors.require(prior.Account_Key__c == actor.Account_Key__c &&
-                prior.Action_Type__c == START_EXECUTION_COMMAND,
-                'A start execution command exists for a different account.');
+            requireStartExecutionAccess(prior, actor);
             return commandResult(prior);
         }
         GameContext context = loadCurrentGame(boardId);
@@ -587,7 +585,10 @@ public without sharing class HousieGameStartService {
     public static ActionResult commitStartExecutionBatch(String requestId, String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
-        Housie_Ticket_Command__c command = requireCommand(commandKey, actor.Account_Key__c, START_EXECUTION_COMMAND);
+        Housie_Ticket_Command__c command = findCommand(commandKey);
+        HousieErrors.require(command != null && command.Action_Type__c == START_EXECUTION_COMMAND,
+            'Prepared start execution not found.');
+        requireStartExecutionAccess(command, actor);
         if (command.Status__c == 'COMMITTED' || command.Status__c == 'CAPTURED') {
             ActionResult priorResult = new ActionResult();
             priorResult.requestId = requestId; priorResult.gameId = command.Game_Id__c;
@@ -718,11 +719,13 @@ public without sharing class HousieGameStartService {
             SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
                    Action_Type__c, Payload__c, Status__c, Entry_Fee__c
             FROM Housie_Ticket_Command__c
-            WHERE Request_Key__c = :commandKey AND Account_Key__c = :actor.Account_Key__c
+            WHERE Request_Key__c = :commandKey
             LIMIT 1 FOR UPDATE
         ];
-        HousieErrors.require(!commands.isEmpty(), 'Prepared start execution not found.');
+        HousieErrors.require(!commands.isEmpty() && commands[0].Action_Type__c == START_EXECUTION_COMMAND,
+            'Prepared start execution not found.');
         Housie_Ticket_Command__c command = commands[0];
+        requireStartExecutionAccess(command, actor);
         if (command.Status__c == 'COMMITTED' || command.Status__c == 'CAPTURED') {
             ActionResult done = new ActionResult();
             done.requestId = requestId; done.gameId = command.Game_Id__c;
@@ -804,7 +807,10 @@ public without sharing class HousieGameStartService {
     public static ActionResult commitStartActivation(String requestId, String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
-        Housie_Ticket_Command__c command = requireCommand(commandKey, actor.Account_Key__c, START_EXECUTION_COMMAND);
+        Housie_Ticket_Command__c command = findCommand(commandKey);
+        HousieErrors.require(command != null && command.Action_Type__c == START_EXECUTION_COMMAND,
+            'Prepared start execution not found.');
+        requireStartExecutionAccess(command, actor);
         HousieErrors.require(command.Status__c == 'CAPTURED' || command.Status__c == 'COMMITTED',
             'Wallet capture must be finalized before activating the game.');
         if (command.Status__c == 'COMMITTED') return commandResult(command);
@@ -899,11 +905,13 @@ public without sharing class HousieGameStartService {
             SELECT Id, Request_Key__c, Account_Key__c, Board_Id__c, Game_Id__c,
                    Action_Type__c, Payload__c, Status__c
             FROM Housie_Ticket_Command__c
-            WHERE Request_Key__c = :commandKey AND Account_Key__c = :actor.Account_Key__c
+            WHERE Request_Key__c = :commandKey
             LIMIT 1 FOR UPDATE
         ];
-        HousieErrors.require(!commands.isEmpty(), 'Prepared start execution not found.');
+        HousieErrors.require(!commands.isEmpty() && commands[0].Action_Type__c == START_EXECUTION_COMMAND,
+            'Prepared start execution not found.');
         Housie_Ticket_Command__c command = commands[0];
+        requireStartExecutionAccess(command, actor);
         if (command.Status__c == 'COMMITTED') return commandResult(command);
         HousieErrors.require(command.Status__c == 'CAPTURED',
             'Wallet capture must be finalized before completing game activation.');
@@ -1349,6 +1357,28 @@ public without sharing class HousieGameStartService {
         ];
         return rows.isEmpty() ? null : rows[0];
     }
+    private static Boolean hasStartExecutionAccess(
+        Housie_Ticket_Command__c command, Housie_Account__c actor
+    ) {
+        if (HousieSecurity.isSuperAdmin(actor)) return true;
+        GameContext context = loadCurrentGame(command.Board_Id__c);
+        if (context.gameRow.Record_Id__c != command.Game_Id__c) return false;
+        Map<String,Participant> participants = loadActiveParticipants(command.Game_Id__c);
+        String adminId = findAvailableGameAdmin(participants,
+            integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
+        String role = resolveRequesterRole(command.Board_Id__c, actor.Account_Key__c,
+            participants, adminId, true);
+        return role == 'ADMIN' || role == 'NON_ADMIN';
+    }
+
+    private static void requireStartExecutionAccess(
+        Housie_Ticket_Command__c command, Housie_Account__c actor
+    ) {
+        HousieErrors.require(command != null && command.Action_Type__c == START_EXECUTION_COMMAND &&
+            hasStartExecutionAccess(command, actor),
+            'Only an active participant, participating board admin or platform super-admin can resume game start.');
+    }
+
     private static Housie_Ticket_Command__c requireCommand(
         String requestKey, String accountId, String actionType) {
         Housie_Ticket_Command__c command = findCommand(requestKey);
