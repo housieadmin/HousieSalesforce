@@ -349,6 +349,17 @@ public without sharing class HousieGameStartService {
         String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
         List<Game_Action_Request__b> rows = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
         rows.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
+        Map<String,Game_Action_Request__b> latestRequestById = new Map<String,Game_Action_Request__b>();
+        for (Game_Action_Request__b candidate : rows) {
+            Game_Action_Request__b prior = latestRequestById.get(candidate.Record_Id__c);
+            Datetime candidateAt = candidate.Closed_At__c == null ? candidate.Created_At__c : candidate.Closed_At__c;
+            Datetime priorAt = prior == null ? null :
+                (prior.Closed_At__c == null ? prior.Created_At__c : prior.Closed_At__c);
+            if (prior == null || (candidateAt != null && (priorAt == null || candidateAt > priorAt))) {
+                latestRequestById.put(candidate.Record_Id__c, candidate);
+            }
+        }
+        rows = latestRequestById.values();
         List<StartRequestView> result = new List<StartRequestView>();
         Set<String> requestIds = new Set<String>();
         for (Game_Action_Request__b row : rows) {
