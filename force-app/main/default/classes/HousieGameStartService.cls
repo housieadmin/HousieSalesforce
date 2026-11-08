@@ -641,7 +641,7 @@ public without sharing class HousieGameStartService {
                 'Started_At__c' => null
             }));
             writes.add(writeItem('Game_Event__b', new Map<String,Object>{
-                'Record_Id__c' => HousieIds.stableId('GAME_STARTED', command.Game_Id__c),
+                'Record_Id__c' => HousieIds.stableId('GAME_START_FUNDING_CAPTURED', command.Game_Id__c),
                 'Game_Id__c' => command.Game_Id__c,
                 'Sequence__c' => fundedSequence,
                 'Event_Type__c' => 'GAME_START_FUNDING_CAPTURED',
