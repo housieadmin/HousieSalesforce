@@ -103,8 +103,13 @@ test("two-human start requires the second role and captures both ticket holds be
     .toBeVisible({ timeout: 60000 });
   await ownerCard.getByRole("button", { name: "Request game start", exact: true }).click();
 
+  const initialGames = queryBigObject<Record<string, unknown>>(
+    "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
+  );
+  expect(initialGames).toHaveLength(1);
+  const gameId = String(initialGames[0].Record_Id__c);
   const openRequests = queryBigObject<Record<string, unknown>>(
-    "SELECT Game_Id__c, Status__c, Record_Id__c, Requester_Account_Id__c FROM Game_Action_Request__b WHERE Game_Id__c IN (SELECT Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "')"
+    "SELECT Game_Id__c, Status__c, Record_Id__c, Requester_Account_Id__c FROM Game_Action_Request__b WHERE Game_Id__c = '" + gameId + "' AND Status__c = 'OPEN'"
   );
   const requestRow = openRequests.find(row => row.Status__c === "OPEN" && row.Requester_Account_Id__c === owner.key);
   expect(requestRow, "Owner should persist an OPEN start request").toBeTruthy();
