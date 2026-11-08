@@ -502,7 +502,6 @@ public without sharing class HousieGameStartService {
                 'The start requester no longer holds the role that was used to approve this request.');
         }
         StartFundingPlan fundingPlan = buildStartFundingPlan(context, participants);
-        Datetime startedAt = System.now();
         Decimal nextEventSequence = (context.gameRow.Event_Sequence__c == null
             ? 0 : context.gameRow.Event_Sequence__c) + 1;
         Map<String,Object> payload = new Map<String,Object>{
@@ -511,8 +510,7 @@ public without sharing class HousieGameStartService {
             'ticketCount' => fundingPlan.holds.size(),
             'total' => fundingPlan.total,
             'currentAdmin' => fundingPlan.gameAdminId,
-            'eventSequence' => nextEventSequence,
-            'startedAt' => startedAt
+            'eventSequence' => nextEventSequence
         };
         Datetime nowAt = System.now();
         activateGameCommandLock(gate, context.gameRow.Record_Id__c, commandKey);
@@ -626,7 +624,7 @@ public without sharing class HousieGameStartService {
                 context.gameRow.Event_Sequence__c == fundedSequence - 1 ||
                 context.gameRow.Event_Sequence__c == fundedSequence,
                 'The game event sequence changed during funding capture.');
-            Datetime startedAt = (Datetime)JSON.deserialize(JSON.serialize(payload.get('startedAt')), Datetime.class);
+            Datetime fundingCapturedAt = System.now();
             Decimal total = Decimal.valueOf(String.valueOf(payload.get('total')));
             String adminId = String.valueOf(payload.get('currentAdmin'));
             writes.add(writeItem('Game__b', new Map<String,Object>{
@@ -640,7 +638,7 @@ public without sharing class HousieGameStartService {
                 'Wallet_Obligations__c' => 0,
                 'Wallet_Available__c' => total,
                 'Created_At__c' => context.gameRow.Created_At__c,
-                'Started_At__c' => startedAt
+                'Started_At__c' => null
             }));
             writes.add(writeItem('Game_Event__b', new Map<String,Object>{
                 'Record_Id__c' => HousieIds.stableId('GAME_STARTED', command.Game_Id__c),
@@ -653,7 +651,7 @@ public without sharing class HousieGameStartService {
                     'participantCount' => plan.accountTotals.size(),
                     'ticketCount' => holds.size(), 'walletTotal' => total
                 }),
-                'Created_At__c' => startedAt
+                'Created_At__c' => fundingCapturedAt
             }));
         }
         HousieOperationService.executeOperation('CAPTURE_GAME_START_FUNDING', writes);
