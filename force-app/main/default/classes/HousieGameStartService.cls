@@ -649,20 +649,9 @@ public without sharing class HousieGameStartService {
                 'Event_Type__c' => 'GAME_START_FUNDING_CAPTURED',
                 'Actor_Account_Id__c' => actor.Account_Key__c,
                 'Payload__c' => JSON.serialize(new Map<String,Object>{
-                    'requestId' => requestId, 'adminAccountId' => adminId,
+                    'requestId' => requestId, 'adminCandidateAtPrepare' => adminId,
                     'participantCount' => plan.accountTotals.size(),
                     'ticketCount' => holds.size(), 'walletTotal' => total
-                }),
-                'Created_At__c' => startedAt
-            }));
-            writes.add(writeItem('Game_Event__b', new Map<String,Object>{
-                'Record_Id__c' => HousieIds.stableId('GAME_ADMIN_ASSIGNED', command.Game_Id__c + ':' + adminId),
-                'Game_Id__c' => command.Game_Id__c,
-                'Sequence__c' => fundedSequence,
-                'Event_Type__c' => 'GAME_ADMIN_ASSIGNED',
-                'Actor_Account_Id__c' => actor.Account_Key__c,
-                'Payload__c' => JSON.serialize(new Map<String,Object>{
-                    'adminAccountId' => adminId, 'reason' => 'START_TIME_ELIGIBLE_PARTICIPANT'
                 }),
                 'Created_At__c' => startedAt
             }));
@@ -790,13 +779,25 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(context.gameRow.Status__c == 'WAITING' &&
             context.gameRow.Event_Sequence__c == fundedSequence,
             'The funded waiting-game state changed before activation.');
-        Datetime startedAt = System.now();
-        Decimal runningSequence = fundedSequence + 1;
-        Decimal total = Decimal.valueOf(String.valueOf(payload.get('total')));
-        String adminId = String.valueOf(payload.get('currentAdmin'));
         Game_Action_Request__b requestRow = findLatestActionRequest(command.Game_Id__c, requestId);
         HousieErrors.require(requestRow != null && requestRow.Status__c == 'OPEN',
             'The approved start request is missing or no longer open.');
+        Map<String,Participant> participants = loadActiveParticipants(command.Game_Id__c);
+        String adminId = findAvailableGameAdmin(participants,
+            integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
+        HousieErrors.require(String.isNotBlank(adminId),
+            'No eligible game admin is currently online. The game cannot start yet.');
+        Map<String,Object> requestRules = (Map<String,Object>)JSON.deserializeUntyped(requestRow.Required_Approval_Rules__c);
+        String requesterRole = String.valueOf(requestRules.get('requesterRole'));
+        if (requesterRole != 'SUPER_ADMIN') {
+            String currentRequesterRole = resolveRequesterRole(command.Board_Id__c,
+                requestRow.Requester_Account_Id__c, participants, adminId, false);
+            HousieErrors.require(currentRequesterRole == requesterRole,
+                'The start requester no longer holds the role that was used to approve this request.');
+        }
+        Datetime startedAt = System.now();
+        Decimal runningSequence = fundedSequence + 1;
+        Decimal total = Decimal.valueOf(String.valueOf(payload.get('total')));
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
         writes.add(writeItem('Game__b', new Map<String,Object>{
             'Record_Id__c' => command.Game_Id__c,
@@ -820,6 +821,17 @@ public without sharing class HousieGameStartService {
             'Payload__c' => JSON.serialize(new Map<String,Object>{
                 'requestId' => requestId, 'adminAccountId' => adminId,
                 'walletTotal' => total, 'ticketCount' => Integer.valueOf(String.valueOf(payload.get('ticketCount')))
+            }),
+            'Created_At__c' => startedAt
+        }));
+        writes.add(writeItem('Game_Event__b', new Map<String,Object>{
+            'Record_Id__c' => HousieIds.stableId('GAME_ADMIN_ASSIGNED', command.Game_Id__c + ':' + adminId),
+            'Game_Id__c' => command.Game_Id__c,
+            'Sequence__c' => runningSequence,
+            'Event_Type__c' => 'GAME_ADMIN_ASSIGNED',
+            'Actor_Account_Id__c' => actor.Account_Key__c,
+            'Payload__c' => JSON.serialize(new Map<String,Object>{
+                'adminAccountId' => adminId, 'reason' => 'START_TIME_ONLINE_PARTICIPANT'
             }),
             'Created_At__c' => startedAt
         }));
