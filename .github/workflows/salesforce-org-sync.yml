@@ -30,6 +30,10 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  # Override with a repository variable when using a different Salesforce org alias.
+  SF_ORG_ALIAS: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
+
 concurrency:
   group: salesforce-org-sync
   cancel-in-progress: false
@@ -97,7 +101,7 @@ jobs:
           client_id: ${{ secrets.SF_CLIENT_ID }}
           username: ${{ secrets.SF_USERNAME }}
           instance_url: ${{ vars.SF_INSTANCE_URL }}
-          alias: housie-dev
+          alias: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
 
       - name: Retrieve selected metadata from org
         env:
@@ -108,12 +112,12 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$RETRIEVE_MODE" == "manifest" ]]; then
-            sf project retrieve start --manifest "$RETRIEVE_MANIFEST" --target-org housie-dev --wait 60
+            sf project retrieve start --manifest "$RETRIEVE_MANIFEST" --target-org "$SF_ORG_ALIAS" --wait 60
           else
             mapfile -t paths < <(jq -r '.[]' <<< "$RETRIEVE_PATHS_JSON")
             declare -a args=()
             for path in "${paths[@]}"; do args+=(--source-dir "$path"); done
-            sf project retrieve start "${args[@]}" --target-org housie-dev --wait 60
+            sf project retrieve start "${args[@]}" --target-org "$SF_ORG_ALIAS" --wait 60
           fi
 
       - name: Report retrieved metadata changes
