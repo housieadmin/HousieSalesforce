@@ -146,7 +146,8 @@ export default class HousieBoardHub extends LightningElement {
         const startRequestsForBoard = startRequests.map(request => ({
           ...request,
           canRespond: request.canApprove && request.requesterAccountId !== this.accountKey && !request.currentUserResponse,
-          canExecute: request.canExecute && request.readyToExecute
+          canExecute: request.canExecute && request.readyToExecute,
+          executeLabel: request.hasPendingExecution ? 'Resume game start' : 'Execute game start'
         }));
         const pendingStartRequest = pendingStartRequestByBoard[board.boardId];
         const pendingStartExecution = pendingStartExecutionByBoard[board.boardId];
