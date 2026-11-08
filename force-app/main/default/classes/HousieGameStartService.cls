@@ -329,22 +329,6 @@ public without sharing class HousieGameStartService {
     public static List<StartRequestView> listOpenStartRequests(String boardId, String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
-        if (context.gameRow.Status__c != 'WAITING') return new List<StartRequestView>();
-        Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
-        String gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
-        String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
-        List<Game_Action_Request__b> rows = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
-        rows.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
-        List<StartRequestView> result = new List<StartRequestView>();
-        Set<String> requestIds = new Set<String>();
-        for (Game_Action_Request__b row : rows) {
-            if (row.Action_Type__c == START_ACTION && row.Expected_Game_State__c == 'WAITING' &&
-                row.Expires_At__c != null && row.Expires_At__c > System.now() &&
-                (row.Status__c == 'OPEN' || (row.Status__c == 'APPROVED' && row.Executed_At__c == null))) {
-                requestIds.add(row.Record_Id__c);
-            }
-        }
-        if (requestIds.isEmpty()) return result;
         Set<String> requestsWithPendingExecution = new Set<String>();
         for (Housie_Ticket_Command__c command : [
             SELECT Ticket_Id__c
@@ -356,6 +340,28 @@ public without sharing class HousieGameStartService {
         ]) {
             requestsWithPendingExecution.add(command.Ticket_Id__c);
         }
+        if (context.gameRow.Status__c != 'WAITING' && requestsWithPendingExecution.isEmpty()) {
+            return new List<StartRequestView>();
+        }
+        Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
+        String gameAdminId = findAvailableGameAdmin(participants,
+            integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
+        String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
+        List<Game_Action_Request__b> rows = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
+        rows.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
+        List<StartRequestView> result = new List<StartRequestView>();
+        Set<String> requestIds = new Set<String>();
+        for (Game_Action_Request__b row : rows) {
+            Boolean pendingExecution = requestsWithPendingExecution.contains(row.Record_Id__c);
+            Boolean unexpired = row.Expires_At__c != null && row.Expires_At__c > System.now();
+            Boolean actionableStatus = row.Status__c == 'OPEN' ||
+                (row.Status__c == 'APPROVED' && (row.Executed_At__c == null || pendingExecution));
+            if (row.Action_Type__c == START_ACTION && row.Expected_Game_State__c == 'WAITING' &&
+                (unexpired || pendingExecution) && actionableStatus) {
+                requestIds.add(row.Record_Id__c);
+            }
+        }
+        if (requestIds.isEmpty()) return result;
         List<Game_Action_Response__b> responseRows = new List<Game_Action_Response__b>();
         for (String openRequestId : requestIds) {
             responseRows.addAll([
