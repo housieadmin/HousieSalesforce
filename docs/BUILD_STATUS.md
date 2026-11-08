@@ -19,7 +19,7 @@ This is a concise snapshot of implementation, not a roadmap or activity log. Det
 
 ## Not implemented on main
 
-- Complete authorized start/approval/funding transition to RUNNING.
+- Complete authorized start/approval/funding transition to RUNNING, including initial game-admin assignment and an explicit start-time availability check (the Game admin field exists but the current ticket path does not populate it; no persisted presence signal exists).
 - Authoritative number-calling runtime, game-admin succession, pause/resume and missed-call handling.
 - Manual/automatic ticket marking.
 - Claim validation, prize payout, refund and exactly-once settlement.
