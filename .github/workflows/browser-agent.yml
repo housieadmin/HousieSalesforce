@@ -129,6 +129,26 @@ jobs:
             fs.copyFileSync(real, target);
           }
           NODE
+          # Copy importable framework scenario modules; selected entrypoints alone are executed.
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const sourceRoot = path.resolve('.browser-agent-source/browser-agent/scenarios');
+          const runtimeRoot = path.resolve('.browser-agent-runtime/browser-agent/scenarios');
+          const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+            const full = path.join(dir, entry.name);
+            if (entry.isSymbolicLink()) throw new Error('Symlinks are not allowed in scenario modules: ' + full);
+            if (entry.isDirectory()) return walk(full);
+            return entry.isFile() && /\\.(scenario|workflow)\\.ts$/.test(entry.name) ? [full] : [];
+          });
+          for (const source of walk(sourceRoot)) {
+            const rel = path.relative(sourceRoot, fs.realpathSync(source));
+            if (!rel || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) throw new Error('Scenario module escaped source root: ' + source);
+            const target = path.join(runtimeRoot, rel);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(source, target);
+          }
+          NODE
           # Stage only reusable browser utility modules; never import arbitrary source-branch code
           # into the trusted runtime. Keep the path and extension allowlist deliberately narrow.
           node <<'NODE'
@@ -205,20 +225,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BROWSER_AGENT_SF_ORG_ALIAS="${BROWSER_AGENT_SF_ORG_ALIAS:-browser-agent-org}"
           echo "APEX_DEBUG_ENABLED=false" >> "$GITHUB_ENV"
-          user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org housie-browser-agent --json)"
+          user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json)"
           user_id="$(jq -r '(.result | if type == "array" then .[0].Id else .records[0].Id end) // empty' <<< "$user_json")"
           if [[ -z "$user_id" ]]; then
             echo "Could not resolve the authenticated Salesforce user ID for Apex tracing." >&2
             exit 1
           fi
 
-          trace_json="$(sf apex trace list --target-org housie-browser-agent --json)"
+          trace_json="$(sf apex trace list --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json)"
           trace_id="$(jq -r --arg user "$user_id" '(.result | if type == "array" then . else (.records // []) end)[]? | select((.tracedEntityId // .TracedEntityId) == $user) | (.id // .Id)' <<< "$trace_json" | head -n 1)"
           if [[ -n "$trace_id" ]]; then
-            sf apex trace delete --trace-flag-id "$trace_id" --target-org housie-browser-agent --json >/dev/null
+            sf apex trace delete --trace-flag-id "$trace_id" --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json >/dev/null
           fi
-          sf apex trace create --traced-entity-id "$user_id" --debug-level SFDC_DevConsole --duration 45 --target-org housie-browser-agent --json >/dev/null
+          sf apex trace create --traced-entity-id "$user_id" --debug-level SFDC_DevConsole --duration 45 --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json >/dev/null
           echo "APEX_DEBUG_ENABLED=true" >> "$GITHUB_ENV"
           echo "Apex debug trace enabled for the browser integration user."
 
@@ -312,7 +333,7 @@ jobs:
           set +e
           log_dir="$BROWSER_AGENT_ARTIFACT_DIR/apex-logs"
           mkdir -p "$log_dir"
-          sf apex log get --number 20 --output-dir "$log_dir" --target-org housie-browser-agent > "$log_dir/fetch-output.txt" 2>&1
+          sf apex log get --number 20 --output-dir "$log_dir" --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" > "$log_dir/fetch-output.txt" 2>&1
           status=$?
           if [[ $status -ne 0 ]]; then
             echo "Apex log retrieval failed with exit code $status" >> "$log_dir/collection-error.txt"
