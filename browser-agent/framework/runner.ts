@@ -12,10 +12,13 @@ const safeName = (value: string) =>
 
 function redact(value: string): string {
   let output = value;
-  for (const name of ["SF_JWT_KEY", "SF_CLIENT_ID", "SF_USERNAME", "BROWSER_AGENT_START_URL"]) {
-    const secret = process.env[name];
-    if (secret && secret.length > 5) output = output.split(secret).join("[REDACTED]");
+  for (const [name, secret] of Object.entries(process.env)) {
+    if (secret && secret.length > 5 && /(?:SECRET|TOKEN|KEY|PASSWORD|CLIENT_ID|USERNAME)/i.test(name)) {
+      output = output.split(secret).join("[REDACTED]");
+    }
   }
+  const startUrl = process.env.BROWSER_AGENT_START_URL;
+  if (startUrl && startUrl.length > 5) output = output.split(startUrl).join("[REDACTED]");
   return output
     .replace(/([?&](?:sid|session|access_token|refresh_token|token|code|frontdoor)=)[^&#\s]*/gi, "$1[REDACTED]")
     .replace(/\b[a-f0-9]{32,}\b/gi, "[REDACTED_TOKEN]");
