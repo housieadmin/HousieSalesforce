@@ -54,7 +54,7 @@ async function createAccount(page: import("@playwright/test").Page, stamp: numbe
   const keyLine = page.getByText(/Account key:/);
   await expect(keyLine).toBeVisible({ timeout: 60000 });
   const key = (await keyLine.innerText()).match(/Account key:\s*([a-f0-9]{32})/i)?.[1];
-  expect(key).toMatch(/^[a-f0-9]{32}$/i);
+  expect(/^[a-f0-9]{32}$/i.test(key || "")).toBe(true);
   await redactAccountKey(page);
   await expect(page.getByText("Status: ACTIVE", { exact: true })).toBeVisible({ timeout: 60000 });
   return { key: key as string, displayName };
@@ -129,7 +129,7 @@ test("two-human start requires the second role and captures both ticket holds be
   const ownerCard = ownerSession.hub.locator("article.board-card").filter({ hasText: boardName });
   await expect(ownerCard).toContainText("Game: WAITING", { timeout: 60000 });
   const boardId = (await ownerCard.innerText()).match(/Board ID:\s*([a-f0-9]{32})/i)?.[1];
-  expect(boardId).toMatch(/^[a-f0-9]{32}$/i);
+  expect(/^[a-f0-9]{32}$/i.test(boardId || "")).toBe(true);
 
   const memberPage = await page.context().newPage();
   const memberSession = await openAccount(memberPage, member.key, member.displayName, housie);
@@ -180,7 +180,7 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(runningGames).toHaveLength(1);
   const game = runningGames[0];
   expect(String(game.Record_Id__c)).toBe(gameId);
-  expect(game.Current_Admin_Account_Id__c).toBe(owner.key);
+  expect(game.Current_Admin_Account_Id__c === owner.key).toBe(true);
   expect(Number(game.Wallet_Total__c)).toBe(20);
   expect(Number(game.Wallet_Obligations__c)).toBe(0);
   expect(Number(game.Wallet_Available__c)).toBe(20);
@@ -196,7 +196,7 @@ test("two-human start requires the second role and captures both ticket holds be
     "SELECT Request_Id__c, Account_Id__c, Response__c, Eligibility_Role__c FROM Game_Action_Response__b WHERE Request_Id__c = '" + requestId + "'"
   );
   expect(approvals).toHaveLength(1);
-  expect(approvals[0].Account_Id__c).toBe(member.key);
+  expect(approvals[0].Account_Id__c === member.key).toBe(true);
   expect(approvals[0].Response__c).toBe("APPROVE");
   expect(approvals[0].Eligibility_Role__c).toBe("NON_ADMIN");
 
