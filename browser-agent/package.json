@@ -1,1 +1,16 @@
-{"name":"housie-browser-agent","private":true,"version":"1.0.0","scripts":{"browser:run":"playwright test"},"devDependencies":{"@playwright/test":"^1.56.1","@types/node":"^22.18.0","typescript":"^5.9.3"}}
+{
+  "name": "salesforce-browser-agent",
+  "private": true,
+  "version": "2.0.0",
+  "scripts": {
+    "browser:run": "playwright test",
+    "browser:scenario": "tsx framework/cli.ts",
+    "test:framework": "node --import tsx --test framework/*.test.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "baseUrl": "${BROWSER_AGENT_BASE_URL}",
+  "startUrl": "${BROWSER_AGENT_START_URL}",
+  "artifactsDir": "artifacts/local-run",
+  "browser": {
+    "headless": true,
+    "slowMo": 0,
+    "navigationTimeoutMs": 45000,
+    "actionTimeoutMs": 20000,
+    "traceOnFailure": false,
+    "viewport": { "width": 1440, "height": 1000 }
+  },
+  "project": {}
+}

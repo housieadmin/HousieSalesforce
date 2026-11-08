@@ -1,5 +1,5 @@
 // Regression coverage for failed run:
- // https://github.com/housieadmin/HousieSalesforce/actions/runs/41622056652
+// https://github.com/housieadmin/HousieSalesforce/actions/runs/41622056652
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRequest } from './parse-request.mjs';
@@ -17,6 +17,15 @@ test('parses CRLF-delimited issue comments', () => {
   const result = parseRequest(valid.replace(/\n/g, '\r\n'));
   assert.equal(result.ref, 'test/account-record-browser-check-2');
   assert.equal(result.scenarios.length, 1);
+});
+
+test('accepts independent framework scenarios and workflows', () => {
+  const request = valid.replace('inspect-housie-account.spec.ts', 'capture-org-home.scenario.ts')
+    .replace('description: inspect account', '- browser-agent/scenarios/org-inspection.workflow.ts\ndescription: inspect account');
+  assert.deepEqual(parseRequest(request).scenarios, [
+    'browser-agent/scenarios/capture-org-home.scenario.ts',
+    'browser-agent/scenarios/org-inspection.workflow.ts'
+  ]);
 });
 
 test('rejects invalid command', () => {

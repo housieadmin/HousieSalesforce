@@ -2,3 +2,5 @@ artifacts/
 node_modules/
 playwright-report/
 test-results/
+browser-agent.config.json
+*.local.json

@@ -13,6 +13,10 @@ on:
     paths:
       - '.github/workflows/browser-agent.yml'
       - 'browser-agent/scripts/**'
+      - 'browser-agent/framework/**'
+      - 'browser-agent/scenarios/**'
+      - 'browser-agent/package.json'
+      - 'browser-agent/tsconfig.json'
 
 permissions:
   contents: read
@@ -50,6 +54,20 @@ jobs:
       - name: Run parser regression tests
         if: github.event_name == 'pull_request'
         run: node --test browser-agent/scripts/*.test.mjs
+      - name: Install framework dependencies
+        if: github.event_name == 'pull_request'
+        working-directory: browser-agent
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium for framework smoke test
+        if: github.event_name == 'pull_request'
+        working-directory: browser-agent
+        run: npx playwright install --with-deps chromium
+      - name: Run framework unit tests and TypeScript checks
+        if: github.event_name == 'pull_request'
+        working-directory: browser-agent
+        run: |
+          npm run test:framework
+          npx tsc --noEmit -p tsconfig.json
 
       - name: Check out trusted browser-agent runtime and tooling
         if: github.event_name == 'issue_comment' || inputs.source_ref != ''
@@ -78,7 +96,7 @@ jobs:
           RUN_DESCRIPTION: ${{ inputs.run_description }}
         run: |
           set -euo pipefail
-          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!x.startsWith("browser-agent/scenarios/")||!x.endsWith(".spec.ts")||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); const nl=String.fromCharCode(10); fs.appendFileSync(process.env.GITHUB_OUTPUT,["ref="+process.env.REQUESTED_REF,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300),"scenarios="+JSON.stringify(a)].join(nl)+nl);'
+          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!x.startsWith("browser-agent/scenarios/")||!/\.(?:spec|scenario|workflow)\.ts$/.test(x)||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); const nl=String.fromCharCode(10); fs.appendFileSync(process.env.GITHUB_OUTPUT,["ref="+process.env.REQUESTED_REF,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300),"scenarios="+JSON.stringify(a)].join(nl)+nl);'
           cp .browser-agent-runtime/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
       - name: Check out requested ref
@@ -105,7 +123,7 @@ jobs:
           const files = JSON.parse(process.env.SCENARIOS_JSON || '[]');
           if (!Array.isArray(files) || files.length < 1 || files.length > 10) throw new Error('Invalid scenario list');
           for (const file of files) {
-            if (typeof file !== 'string' || !/^[A-Za-z0-9._\/-]+$/.test(file) || !file.startsWith('browser-agent/scenarios/') || !file.endsWith('.spec.ts') || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
+            if (typeof file !== 'string' || !/^[A-Za-z0-9._\/-]+$/.test(file) || !file.startsWith('browser-agent/scenarios/') || !/\.(?:spec|scenario|workflow)\.ts$/.test(file) || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
             const source = path.resolve('.browser-agent-source', file);
             const real = fs.realpathSync(source);
             const rel = path.relative(sourceRoot, real);
@@ -113,6 +131,26 @@ jobs:
             const target = path.join(runtimeRoot, rel);
             fs.mkdirSync(path.dirname(target), { recursive: true });
             fs.copyFileSync(real, target);
+          }
+          NODE
+          # Copy importable framework scenario modules; selected entrypoints alone are executed.
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const sourceRoot = path.resolve('.browser-agent-source/browser-agent/scenarios');
+          const runtimeRoot = path.resolve('.browser-agent-runtime/browser-agent/scenarios');
+          const walk = dir => fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+            const full = path.join(dir, entry.name);
+            if (entry.isSymbolicLink()) throw new Error('Symlinks are not allowed in scenario modules: ' + full);
+            if (entry.isDirectory()) return walk(full);
+            return entry.isFile() && /\.(scenario|workflow)\.ts$/.test(entry.name) ? [full] : [];
+          });
+          for (const source of walk(sourceRoot)) {
+            const rel = path.relative(sourceRoot, fs.realpathSync(source));
+            if (!rel || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)) throw new Error('Scenario module escaped source root: ' + source);
+            const target = path.join(runtimeRoot, rel);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(source, target);
           }
           NODE
           # Stage only reusable browser utility modules; never import arbitrary source-branch code
@@ -164,6 +202,7 @@ jobs:
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
           SF_USERNAME: ${{ secrets.SF_USERNAME }}
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+          BROWSER_AGENT_SF_ORG_ALIAS: ${{ vars.BROWSER_AGENT_SF_ORG_ALIAS || 'browser-agent-org' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -171,11 +210,15 @@ jobs:
           npm install --global @salesforce/cli
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/browser-agent-server.key"
           chmod 600 "$RUNNER_TEMP/browser-agent-server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default >/dev/null
-          sf org open --url-only --target-org housie-browser-agent --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
+          ORG_ALIAS="${BROWSER_AGENT_SF_ORG_ALIAS:-browser-agent-org}"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias "$ORG_ALIAS" --set-default >/dev/null
+          sf org open --url-only --target-org "$ORG_ALIAS" --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
           FRONTDOOR_URL="$(node "$RUNNER_TEMP/extract-frontdoor-url.mjs" "$RUNNER_TEMP/browser-agent-frontdoor.json")"
           echo "::add-mask::$FRONTDOOR_URL"
-          echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
+          echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV" # Legacy fixture compatibility.
+          echo "BROWSER_AGENT_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
+          echo "BROWSER_AGENT_BASE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
+          echo "BROWSER_AGENT_SF_ORG_ALIAS=$ORG_ALIAS" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
 
       - name: Enable Apex debug logging for the browser transaction
@@ -186,20 +229,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BROWSER_AGENT_SF_ORG_ALIAS="${BROWSER_AGENT_SF_ORG_ALIAS:-browser-agent-org}"
           echo "APEX_DEBUG_ENABLED=false" >> "$GITHUB_ENV"
-          user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org housie-browser-agent --json)"
+          user_json="$(sf data query --query "SELECT Id FROM User WHERE Username = '$SF_USERNAME' LIMIT 1" --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json)"
           user_id="$(jq -r '(.result | if type == "array" then .[0].Id else .records[0].Id end) // empty' <<< "$user_json")"
           if [[ -z "$user_id" ]]; then
             echo "Could not resolve the authenticated Salesforce user ID for Apex tracing." >&2
             exit 1
           fi
 
-          trace_json="$(sf apex trace list --target-org housie-browser-agent --json)"
+          trace_json="$(sf apex trace list --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json)"
           trace_id="$(jq -r --arg user "$user_id" '(.result | if type == "array" then . else (.records // []) end)[]? | select((.tracedEntityId // .TracedEntityId) == $user) | (.id // .Id)' <<< "$trace_json" | head -n 1)"
           if [[ -n "$trace_id" ]]; then
-            sf apex trace delete --trace-flag-id "$trace_id" --target-org housie-browser-agent --json >/dev/null
+            sf apex trace delete --trace-flag-id "$trace_id" --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json >/dev/null
           fi
-          sf apex trace create --traced-entity-id "$user_id" --debug-level SFDC_DevConsole --duration 45 --target-org housie-browser-agent --json >/dev/null
+          sf apex trace create --traced-entity-id "$user_id" --debug-level SFDC_DevConsole --duration 45 --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" --json >/dev/null
           echo "APEX_DEBUG_ENABLED=true" >> "$GITHUB_ENV"
           echo "Apex debug trace enabled for the browser integration user."
 
@@ -238,9 +282,19 @@ jobs:
             scenarios: files,
             description: process.env.RUN_DESCRIPTION
           }, null, 2));
-          const args = ['node_modules/@playwright/test/cli.js', 'test', ...files.map(f => path.relative(process.cwd(), path.resolve('scenarios', path.relative('browser-agent/scenarios', f))))];
-          const result = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
-          process.exit(result.status === null ? 1 : result.status);
+          const legacy = files.filter(f => f.endsWith('.spec.ts'));
+          const framework = files.filter(f => /\.(scenario|workflow)\.ts$/.test(f));
+          const relative = list => list.map(f => path.relative(process.cwd(), path.resolve('scenarios', path.relative('browser-agent/scenarios', f))));
+          let exitCode = 0;
+          if (legacy.length) {
+            const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...relative(legacy)], { stdio: 'inherit', env: process.env });
+            if (result.status !== 0) exitCode = result.status === null ? 1 : result.status;
+          }
+          if (framework.length) {
+            const result = spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'framework/cli.ts', ...relative(framework)], { stdio: 'inherit', env: process.env });
+            if (result.status !== 0) exitCode = result.status === null ? 1 : result.status;
+          }
+          process.exit(exitCode);
           NODE
           TEST_EXIT=$?
           export TEST_EXIT
@@ -259,17 +313,36 @@ jobs:
             return out;
           };
           const tests = flatten(report && report.suites);
+          const walk = dirPath => fs.readdirSync(dirPath, { withFileTypes: true }).flatMap(entry => {
+            const full = path.join(dirPath, entry.name);
+            return entry.isDirectory() ? walk(full) : entry.isFile() && entry.name === 'result.json' ? [full] : [];
+          });
+          const frameworkResults = walk(dir).map(file => {
+            try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+          }).filter(Boolean);
           const failed = tests.filter(t => t.results.some(r => ['failed', 'timedOut'].includes(r.status)));
           const passed = tests.filter(t => t.results.some(r => r.status === 'passed'));
+          const frameworkFailed = frameworkResults.filter(r => r.status === 'failed').length;
+          const frameworkCompleted = frameworkResults.filter(r => r.status === 'completed').length;
           fs.writeFileSync(path.join(dir, 'summary.md'), [
             '# Browser execution summary', '',
-            '- Tests observed: ' + tests.length,
-            '- Passed: ' + passed.length,
-            '- Failed/timed out: ' + failed.length,
-            '- Playwright exit code: ' + process.env.TEST_EXIT,
+            '- Playwright tests observed: ' + tests.length,
+            '- Playwright passed: ' + passed.length,
+            '- Playwright failed/timed out: ' + failed.length,
+            '- Framework scenarios/workflows: ' + frameworkResults.length,
+            '- Framework completed: ' + frameworkCompleted,
+            '- Framework failed: ' + frameworkFailed,
+            '- Combined execution exit code: ' + process.env.TEST_EXIT,
             '', 'This report records browser observations; it does not certify feature completeness.', ''
           ].join('\n'));
-          fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({ total: tests.length, passed: passed.length, failed: failed.length, failedTests: failed }, null, 2));
+          fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({
+            total: tests.length + frameworkResults.length,
+            passed: passed.length,
+            completed: frameworkCompleted,
+            failed: failed.length + frameworkFailed,
+            failedTests: failed,
+            frameworkResults
+          }, null, 2));
           NODE
           exit "$TEST_EXIT"
 
@@ -283,7 +356,7 @@ jobs:
           set +e
           log_dir="$BROWSER_AGENT_ARTIFACT_DIR/apex-logs"
           mkdir -p "$log_dir"
-          sf apex log get --number 20 --output-dir "$log_dir" --target-org housie-browser-agent > "$log_dir/fetch-output.txt" 2>&1
+          sf apex log get --number 20 --output-dir "$log_dir" --target-org "$BROWSER_AGENT_SF_ORG_ALIAS" > "$log_dir/fetch-output.txt" 2>&1
           status=$?
           if [[ $status -ne 0 ]]; then
             echo "Apex log retrieval failed with exit code $status" >> "$log_dir/collection-error.txt"

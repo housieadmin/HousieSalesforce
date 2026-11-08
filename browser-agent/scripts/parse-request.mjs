@@ -22,7 +22,7 @@ export function parseRequest(body) {
     if (!line) continue;
     if (!line.startsWith('- ')) break;
     const file = line.slice(2).trim();
-    if (!/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(file) || file.includes('..') || file.includes('//')) {
+    if (!/^browser-agent\/scenarios\/[A-Za-z0-9._/-]+\.(?:spec|scenario|workflow)\.ts$/.test(file) || file.includes('..') || file.includes('//')) {
       throw new Error('Invalid scenario path: ' + file);
     }
     scenarios.push(file);
