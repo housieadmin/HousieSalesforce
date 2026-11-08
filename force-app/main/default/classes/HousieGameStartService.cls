@@ -966,33 +966,13 @@ public without sharing class HousieGameStartService {
             'An eligible game admin must be available before starting.');
         List<Ticket__b> tickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
         Set<String> withdrawnTickets = withdrawnTicketIds(context.gameRow.Record_Id__c);
-        Set<String> participantIds = participants.keySet();
-        List<Wallet_Hold__b> holdRows = [
-            SELECT Record_Id__c, Operation_Id__c, Hold_Id__c, Account_Id__c, Amount__c,
-                   Status__c, Created_At__c, Updated_At__c
-            FROM Wallet_Hold__b
-            WHERE Account_Id__c IN :participantIds AND Game_Id__c = :context.gameRow.Record_Id__c
-            LIMIT 2000
-        ];
-        Set<String> holdOperations = new Set<String>();
-        for (Wallet_Hold__b hold : holdRows) holdOperations.add(hold.Operation_Id__c);
-        Set<String> committedHoldOperations = HousieBigObjectStore.committedOperationIds(holdOperations);
-        Map<String,Wallet_Hold__b> latestHolds = new Map<String,Wallet_Hold__b>();
-        for (Wallet_Hold__b hold : holdRows) {
-            if (!committedHoldOperations.contains(hold.Operation_Id__c)) continue;
-            Wallet_Hold__b prior = latestHolds.get(hold.Hold_Id__c);
-            if (prior == null || (hold.Updated_At__c != null &&
-                (prior.Updated_At__c == null || hold.Updated_At__c > prior.Updated_At__c))) {
-                latestHolds.put(hold.Hold_Id__c, hold);
-            }
-        }
         for (Ticket__b ticket : tickets) {
             if (ticket.Status__c != 'ACTIVE' || withdrawnTickets.contains(ticket.Record_Id__c) ||
                 !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
-            Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
-            HousieErrors.require(hold != null && new Set<String>{'ACTIVE','CAPTURED'}.contains(hold.Status__c),
-                'An active human ticket does not have an active or captured committed wallet hold.');
-            Decimal amount = hold.Amount__c == null ? 0 : hold.Amount__c;
+            HousieErrors.require(String.isNotBlank(ticket.Wallet_Hold_Id__c) &&
+                ticket.Entry_Fee__c != null && ticket.Entry_Fee__c > 0,
+                'An active human ticket is missing its committed wallet hold reference or entry fee.');
+            Decimal amount = ticket.Entry_Fee__c;
             plan.total += amount;
             plan.accountTotals.put(ticket.Owner_Account_Id__c,
                 (plan.accountTotals.containsKey(ticket.Owner_Account_Id__c)
@@ -1000,9 +980,9 @@ public without sharing class HousieGameStartService {
             plan.holds.add(new Map<String,Object>{
                 'accountId' => ticket.Owner_Account_Id__c,
                 'ticketId' => ticket.Record_Id__c,
-                'holdId' => hold.Hold_Id__c,
+                'holdId' => ticket.Wallet_Hold_Id__c,
                 'amount' => amount,
-                'createdAt' => hold.Created_At__c
+                'createdAt' => ticket.Purchased_At__c == null ? ticket.Created_At__c : ticket.Purchased_At__c
             });
         }
         HousieErrors.require(!plan.holds.isEmpty(),
@@ -1145,7 +1125,7 @@ public without sharing class HousieGameStartService {
     private static List<Ticket__b> loadCommittedHumanTickets(String gameId) {
         List<Ticket__b> rows = [
             SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Status__c,
-                   Entry_Fee__c, Wallet_Hold_Id__c
+                   Entry_Fee__c, Wallet_Hold_Id__c, Created_At__c, Purchased_At__c
             FROM Ticket__b
             WHERE Game_Id__c = :gameId AND Ticket_Kind__c = 'HUMAN'
             ORDER BY Record_Id__c ASC LIMIT 2000
