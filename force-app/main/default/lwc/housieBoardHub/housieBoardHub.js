@@ -25,6 +25,7 @@ import commitStartExecutionBatch from '@salesforce/apex/HousieGameStartService.c
 import completeStartExecutionBatch from '@salesforce/apex/HousieGameStartService.completeStartExecutionBatch';
 import commitStartActivation from '@salesforce/apex/HousieGameStartService.commitStartActivation';
 import completeStartActivation from '@salesforce/apex/HousieGameStartService.completeStartActivation';
+import recordPresence from '@salesforce/apex/HousieGameStartService.recordPresence';
 
 export default class HousieBoardHub extends LightningElement {
   @api recordId;
@@ -35,6 +36,7 @@ export default class HousieBoardHub extends LightningElement {
     this._accountKey = value;
     if (changed && this.isConnected) {
       this.boards = [];
+      this.sendPresenceHeartbeat();
       this.refresh();
     }
   }
@@ -47,6 +49,7 @@ export default class HousieBoardHub extends LightningElement {
   loading = false;
   error;
   success;
+  _presenceTimer;
 
   @wire(getRecord, { recordId: '$recordId', fields: [ACCOUNT_KEY_FIELD] })
   wiredAccount({ data, error }) {
@@ -70,9 +73,28 @@ export default class HousieBoardHub extends LightningElement {
   ];
 
   connectedCallback() {
-    // The public HousieApp supplies the resolved account key directly.
-    // Record-page usage can still resolve it later through the record wire below.
-    if (this.accountKey) this.refresh();
+    // Presence is account-scoped: multiple open tabs/devices refresh one timestamp.
+    if (this.accountKey) {
+      this.sendPresenceHeartbeat();
+      this.refresh();
+    }
+    this._presenceTimer = window.setInterval(() => this.sendPresenceHeartbeat(), 30000);
+  }
+
+  disconnectedCallback() {
+    if (this._presenceTimer) {
+      window.clearInterval(this._presenceTimer);
+      this._presenceTimer = undefined;
+    }
+  }
+
+  async sendPresenceHeartbeat() {
+    if (!this.accountKey) return;
+    try {
+      await recordPresence({ accountId: this.accountKey });
+    } catch (e) {
+      // A failed heartbeat is intentionally not treated as online by the server.
+    }
   }
 
   get hasBoards() { return this.boards.length > 0; }
