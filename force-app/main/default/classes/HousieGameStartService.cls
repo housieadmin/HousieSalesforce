@@ -56,7 +56,7 @@ public without sharing class HousieGameStartService {
 
         String requesterRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, false);
         HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
-            requesterRole == 'ADMIN' || requesterRole == 'NON_ADMIN',
+            requesterRole == 'ADMIN' || requesterRole == 'NON_ADMIN' || requesterRole == 'INITIATOR_ONLY',
             'Only an authorized board admin or game participant can request a start.');
         if (HousieSecurity.isSuperAdmin(actor)) requesterRole = 'SUPER_ADMIN';
 
@@ -778,16 +778,23 @@ public without sharing class HousieGameStartService {
     static Boolean approvalThreshold(String requesterId, String requesterRole,
         List<Game_Action_Response__b> responses) {
         if (requesterRole == 'SUPER_ADMIN') return true;
-        String requiredRole = requesterRole == 'ADMIN' ? 'NON_ADMIN' : 'ADMIN';
-        Set<String> approvedAccounts = new Set<String>();
+        Set<String> adminApprovers = new Set<String>();
+        Set<String> nonAdminApprovers = new Set<String>();
         for (Game_Action_Response__b responseRow : responses) {
-            if (responseRow.Response__c == 'APPROVE' &&
-                responseRow.Account_Id__c != requesterId &&
-                responseRow.Eligibility_Role__c == requiredRole) {
-                approvedAccounts.add(responseRow.Account_Id__c);
+            if (responseRow.Response__c != 'APPROVE' || responseRow.Account_Id__c == requesterId) continue;
+            if (responseRow.Eligibility_Role__c == 'ADMIN') adminApprovers.add(responseRow.Account_Id__c);
+            if (responseRow.Eligibility_Role__c == 'NON_ADMIN') nonAdminApprovers.add(responseRow.Account_Id__c);
+        }
+        if (requesterRole == 'ADMIN') return !nonAdminApprovers.isEmpty();
+        if (requesterRole == 'NON_ADMIN') return !adminApprovers.isEmpty();
+        if (requesterRole == 'INITIATOR_ONLY') {
+            for (String adminId : adminApprovers) {
+                for (String nonAdminId : nonAdminApprovers) {
+                    if (adminId != nonAdminId) return true;
+                }
             }
         }
-        return !approvedAccounts.isEmpty();
+        return false;
     }
 
     private static GameContext loadCurrentGame(String boardId) {
@@ -873,7 +880,8 @@ public without sharing class HousieGameStartService {
         Boolean isParticipant = participants.containsKey(accountId);
         Boolean isBoardAdmin = isBoardAdmin(boardId, accountId);
         if (accountId == gameAdminId) return 'ADMIN';
-        if (isBoardAdmin && (!requireParticipantForBoardAdmin || isParticipant)) return 'ADMIN';
+        if (isBoardAdmin && isParticipant) return 'ADMIN';
+        if (isBoardAdmin && !isParticipant && !requireParticipantForBoardAdmin) return 'INITIATOR_ONLY';
         if (isParticipant) return 'NON_ADMIN';
         return null;
     }
