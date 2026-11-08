@@ -338,10 +338,12 @@ public without sharing class HousieGameStartService {
             view.status = row.Status__c;
             view.requesterRole = requesterRole;
             view.canApprove = row.Status__c == 'OPEN' && (role == 'ADMIN' || role == 'NON_ADMIN');
-            view.canExecute = ready && (HousieSecurity.isSuperAdmin(actor) ||
-                role == 'ADMIN' || role == 'NON_ADMIN');
+            view.canExecute = ready && (requesterRole == 'SUPER_ADMIN'
+                ? HousieSecurity.isSuperAdmin(actor)
+                : (HousieSecurity.isSuperAdmin(actor) || role == 'ADMIN' || role == 'NON_ADMIN'));
             view.readyToExecute = ready;
-            view.approvedCount = requesterRole == 'INITIATOR_ONLY' ? 0 : 1;
+            view.approvedCount = requesterRole == 'SUPER_ADMIN' ? 2 :
+                (requesterRole == 'INITIATOR_ONLY' ? 0 : 1);
             for (Game_Action_Response__b responseRow : responses) {
                 if (responseRow.Account_Id__c == actor.Account_Key__c) view.currentUserResponse = responseRow.Response__c;
                 if (responseRow.Response__c == 'APPROVE') view.approvedCount++;
@@ -434,6 +436,8 @@ public without sharing class HousieGameStartService {
         for (Game_Action_Response__b responseRow : responses) {
             if (committedOps.contains(responseRow.Operation_Id__c)) committedResponses.add(responseRow);
         }
+        HousieErrors.require(requesterRole != 'SUPER_ADMIN' || HousieSecurity.isSuperAdmin(actor),
+            'Only a platform super-admin can execute a platform super-admin start request.');
         HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
             approvalThreshold(requestRow.Requester_Account_Id__c, requesterRole, committedResponses),
             'The start request does not yet have the two required distinct approvals.');
