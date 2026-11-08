@@ -167,7 +167,7 @@ test("two-human start requires the second role and captures both ticket holds be
   );
   expect(runningGames).toHaveLength(1);
   const game = runningGames[0];
-  const gameId = String(game.Record_Id__c);
+  expect(String(game.Record_Id__c)).toBe(gameId);
   expect(game.Current_Admin_Account_Id__c).toBe(owner.key);
   expect(Number(game.Wallet_Total__c)).toBe(20);
   expect(Number(game.Wallet_Obligations__c)).toBe(0);
