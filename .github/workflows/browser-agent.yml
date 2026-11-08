@@ -333,7 +333,8 @@ jobs:
           ].join('\n'));
           fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({
             total: tests.length + frameworkResults.length,
-            passed: passed.length,\n            completed: frameworkCompleted,
+            passed: passed.length,
+            completed: frameworkCompleted,
             failed: failed.length + frameworkFailed,
             failedTests: failed,
             frameworkResults
