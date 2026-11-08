@@ -816,14 +816,6 @@ public without sharing class HousieGameStartService {
             integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         HousieErrors.require(String.isNotBlank(adminId),
             'No eligible game admin is currently online. The game cannot start yet.');
-        Map<String,Object> requestRules = (Map<String,Object>)JSON.deserializeUntyped(requestRow.Required_Approval_Rules__c);
-        String requesterRole = String.valueOf(requestRules.get('requesterRole'));
-        if (requesterRole != 'SUPER_ADMIN') {
-            String currentRequesterRole = resolveRequesterRole(command.Board_Id__c,
-                requestRow.Requester_Account_Id__c, participants, adminId, false);
-            HousieErrors.require(currentRequesterRole == requesterRole,
-                'The start requester no longer holds the role that was used to approve this request.');
-        }
         Datetime startedAt = System.now();
         Decimal runningSequence = fundedSequence + 1;
         Decimal total = Decimal.valueOf(String.valueOf(payload.get('total')));
