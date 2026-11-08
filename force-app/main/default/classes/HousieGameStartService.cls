@@ -48,11 +48,6 @@ public without sharing class HousieGameStartService {
         requireBoardMember(boardId, actor.Account_Key__c);
 
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
-        String executorRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants,
-            findGameAdmin(participants), true);
-        HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
-            executorRole == 'ADMIN' || executorRole == 'NON_ADMIN',
-            'Only a game participant, participating board admin, or platform super-admin can execute an approved start.');
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
         HousieErrors.require(participants.size() >= minimum,
             'At least ' + minimum + ' distinct human participants with paid tickets are required.');
@@ -362,6 +357,11 @@ public without sharing class HousieGameStartService {
             'The start request does not yet have the two required distinct approvals.');
 
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
+        String executorRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants,
+            findGameAdmin(participants), true);
+        HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
+            executorRole == 'ADMIN' || executorRole == 'NON_ADMIN',
+            'Only a game participant, participating board admin, or platform super-admin can execute an approved start.');
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
         HousieErrors.require(participants.size() >= minimum,
             'The game no longer meets minimum human participation.');
