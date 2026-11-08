@@ -285,15 +285,14 @@ public without sharing class HousieGameStartService {
         String requesterRole = String.valueOf(rules.get('requesterRole'));
         Boolean ready = requesterRole == 'SUPER_ADMIN' || approvalThreshold(requestRow.Requester_Account_Id__c,
             requesterRole, committedResponses);
-        Integer approved = 0;
-        for (Game_Action_Response__b item : committedResponses) if (item.Response__c == 'APPROVE') approved++;
+        Integer approved = countRequiredApprovals(requestRow.Requester_Account_Id__c, requesterRole, committedResponses);
 
         ActionResult result = new ActionResult();
         result.requestId = requestId;
         result.gameId = context.gameRow.Record_Id__c;
         result.status = ready ? 'READY_TO_EXECUTE' : 'OPEN';
         result.approvalRole = role;
-        result.approvedCount = approved + (requesterRole == 'INITIATOR_ONLY' ? 0 : 1);
+        result.approvedCount = approved;
         result.readyToExecute = ready;
         result.message = ready
             ? 'The two distinct approval roles are satisfied. The start can now be executed.'
@@ -362,11 +361,9 @@ public without sharing class HousieGameStartService {
                 ? HousieSecurity.isSuperAdmin(actor)
                 : (HousieSecurity.isSuperAdmin(actor) || role == 'ADMIN' || role == 'NON_ADMIN'));
             view.readyToExecute = ready;
-            view.approvedCount = requesterRole == 'SUPER_ADMIN' ? 2 :
-                (requesterRole == 'INITIATOR_ONLY' ? 0 : 1);
+            view.approvedCount = countRequiredApprovals(row.Requester_Account_Id__c, requesterRole, responses);
             for (Game_Action_Response__b responseRow : responses) {
                 if (responseRow.Account_Id__c == actor.Account_Key__c) view.currentUserResponse = responseRow.Response__c;
-                if (responseRow.Response__c == 'APPROVE') view.approvedCount++;
             }
             result.add(view);
         }
@@ -897,6 +894,28 @@ public without sharing class HousieGameStartService {
         result.status = 'COMMITTED'; result.complete = true;
         result.message = 'Game started successfully. Funding is captured and the Game Wallet is active.';
         return result;
+    }
+
+    @TestVisible
+    static Integer countRequiredApprovals(
+        String requesterId, String requesterRole, List<Game_Action_Response__b> responses
+    ) {
+        if (requesterRole == 'SUPER_ADMIN') return 2;
+        Set<String> adminApprovers = new Set<String>();
+        Set<String> nonAdminApprovers = new Set<String>();
+        for (Game_Action_Response__b responseRow : responses) {
+            if (responseRow.Response__c != 'APPROVE' || responseRow.Account_Id__c == requesterId) continue;
+            if (responseRow.Eligibility_Role__c == 'ADMIN') adminApprovers.add(responseRow.Account_Id__c);
+            if (responseRow.Eligibility_Role__c == 'NON_ADMIN') nonAdminApprovers.add(responseRow.Account_Id__c);
+        }
+        if (requesterRole == 'ADMIN') return Math.min(2, 1 + nonAdminApprovers.size());
+        if (requesterRole == 'NON_ADMIN') return Math.min(2, 1 + adminApprovers.size());
+        if (requesterRole == 'INITIATOR_ONLY') {
+            Integer adminCount = Math.min(1, adminApprovers.size());
+            Integer nonAdminCount = Math.min(1, nonAdminApprovers.size());
+            return adminCount + nonAdminCount;
+        }
+        return 0;
     }
 
     @TestVisible
