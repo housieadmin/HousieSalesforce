@@ -114,6 +114,7 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
             requesterRole == 'ADMIN' || requesterRole == 'NON_ADMIN' || requesterRole == 'INITIATOR_ONLY',
             'Only a participant or board admin can request a game start.');
+        if (HousieSecurity.isSuperAdmin(actor)) requesterRole = 'SUPER_ADMIN';
         List<Game_Action_Request__b> openRequests = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
         openRequests.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
         for (Game_Action_Request__b openRequest : openRequests) {
