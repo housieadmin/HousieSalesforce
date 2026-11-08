@@ -29,6 +29,7 @@ public without sharing class HousieGameStartService {
         @AuraEnabled public String requesterRole;
         @AuraEnabled public Boolean canApprove;
         @AuraEnabled public Boolean canExecute;
+        @AuraEnabled public Boolean hasPendingExecution;
         @AuraEnabled public String currentUserResponse;
         @AuraEnabled public Integer approvedCount;
     }
