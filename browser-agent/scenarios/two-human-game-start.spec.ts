@@ -203,6 +203,5 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(startCommands.some(row => row.Action_Type__c === "START_EXECUTION" && row.Status__c === "COMMITTED")).toBe(true);
 
   housie.note("Two-human Package 1 acceptance passed: the first participant requested start, the second participant supplied the non-admin approval, both ticket holds were captured, both account balances moved from 100/10 reserved to 90/0 reserved, Game Wallet totals 20, and the game reached RUNNING. No bearer keys, emails, board IDs, game IDs or ticket IDs are retained.");
-  await housie.screenshot("two-human-game-start-funded-running-redacted");
   await memberPage.close();
 });
