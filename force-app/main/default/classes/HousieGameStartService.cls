@@ -597,7 +597,8 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(holds.size() == Integer.valueOf(String.valueOf(payload.get('ticketCount'))) &&
             plan.total == command.Entry_Fee__c,
             'The committed funding plan changed. Stop and review the pending start command.');
-        Integer nextCursor = Math.min(cursor + BATCH_SIZE, holds.size());
+        Integer nextCursor = cursor + BATCH_SIZE;
+        if (nextCursor > holds.size()) nextCursor = holds.size();
         Boolean finalBatch = nextCursor == holds.size();
         List<HousieOperationService.WriteItem> writes = new List<HousieOperationService.WriteItem>();
         for (Integer i = cursor; i < nextCursor; i++) {
@@ -728,7 +729,8 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(holds.size() == Integer.valueOf(String.valueOf(payload.get('ticketCount'))) &&
             plan.total == command.Entry_Fee__c,
             'The committed funding plan changed. Stop and review the pending start command.');
-        Integer expectedNext = Math.min(cursor + BATCH_SIZE, holds.size());
+        Integer expectedNext = cursor + BATCH_SIZE;
+        if (expectedNext > holds.size()) expectedNext = holds.size();
         if (nextCursor != null && nextCursor == cursor) {
             ActionResult alreadyApplied = new ActionResult();
             alreadyApplied.requestId = requestId; alreadyApplied.gameId = command.Game_Id__c;
@@ -931,11 +933,11 @@ public without sharing class HousieGameStartService {
             if (responseRow.Eligibility_Role__c == 'ADMIN') adminApprovers.add(responseRow.Account_Id__c);
             if (responseRow.Eligibility_Role__c == 'NON_ADMIN') nonAdminApprovers.add(responseRow.Account_Id__c);
         }
-        if (requesterRole == 'ADMIN') return Math.min(2, 1 + nonAdminApprovers.size());
-        if (requesterRole == 'NON_ADMIN') return Math.min(2, 1 + adminApprovers.size());
+        if (requesterRole == 'ADMIN') return nonAdminApprovers.isEmpty() ? 1 : 2;
+        if (requesterRole == 'NON_ADMIN') return adminApprovers.isEmpty() ? 1 : 2;
         if (requesterRole == 'INITIATOR_ONLY') {
-            Integer adminCount = Math.min(1, adminApprovers.size());
-            Integer nonAdminCount = Math.min(1, nonAdminApprovers.size());
+            Integer adminCount = adminApprovers.isEmpty() ? 0 : 1;
+            Integer nonAdminCount = nonAdminApprovers.isEmpty() ? 0 : 1;
             return adminCount + nonAdminCount;
         }
         return 0;
