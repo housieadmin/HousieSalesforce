@@ -123,7 +123,8 @@ export default class HousieBoardHub extends LightningElement {
         const pending = pendingByBoard[board.boardId] || [];
         const startRequestsForBoard = startRequests.map(request => ({
           ...request,
-          canRespond: request.canApprove && request.requesterAccountId !== this.accountKey && !request.currentUserResponse
+          canRespond: request.canApprove && request.requesterAccountId !== this.accountKey && !request.currentUserResponse,
+          canExecute: request.canExecute && request.readyToExecute
         }));
         const pendingStartRequest = pendingStartRequestByBoard[board.boardId];
         const pendingStartExecution = pendingStartExecutionByBoard[board.boardId];
@@ -309,6 +310,24 @@ export default class HousieBoardHub extends LightningElement {
       await this.refresh();
     } catch (e) {
       const message = e?.body?.message || e?.message || 'Unable to record the start response.';
+      this.loading = false;
+      await this.refresh();
+      this.error = message;
+    }
+  }
+
+  async executeApprovedStart(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    const requestId = event.currentTarget.dataset.requestId;
+    this.loading = true;
+    try {
+      const result = await this.runStartExecution(boardId, requestId);
+      this.success = result.message;
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      const message = e?.body?.message || e?.message || 'The approved game start could not be executed.';
       this.loading = false;
       await this.refresh();
       this.error = message;
