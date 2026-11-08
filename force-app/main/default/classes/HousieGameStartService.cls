@@ -98,10 +98,15 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(gate == null || gate.Status__c != 'PROCESSING',
             'Another game command is being finalized. Retry shortly.');
         List<Game_Action_Request__b> openRequests = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
+        openRequests.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
         for (Game_Action_Request__b openRequest : openRequests) {
+            Boolean pendingApproval = openRequest.Status__c == 'OPEN';
+            Boolean pendingSuperAdminExecution = openRequest.Status__c == 'APPROVED' &&
+                openRequest.Executed_At__c == null;
             if (openRequest.Action_Type__c == START_ACTION &&
+                (pendingApproval || pendingSuperAdminExecution) &&
                 openRequest.Expires_At__c != null && openRequest.Expires_At__c > System.now()) {
-                HousieErrors.require(false, 'A start request is already open for this game.');
+                HousieErrors.require(false, 'A start request is already open or approved for this game.');
             }
         }
 
