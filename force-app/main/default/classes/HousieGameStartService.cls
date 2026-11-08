@@ -1,5 +1,5 @@
 public without sharing class HousieGameStartService {
-    private static final Integer BATCH_SIZE = 18;
+    private static final Integer BATCH_SIZE = 12;
     private static final String START_ACTION = 'START';
     private static final String START_REQUEST_COMMAND = 'START_REQUEST';
     private static final String START_EXECUTION_COMMAND = 'START_EXECUTION';
@@ -269,7 +269,7 @@ public without sharing class HousieGameStartService {
         result.gameId = context.gameRow.Record_Id__c;
         result.status = ready ? 'READY_TO_EXECUTE' : 'OPEN';
         result.approvalRole = role;
-        result.approvedCount = approved;
+        result.approvedCount = approved + (requesterRole == 'INITIATOR_ONLY' ? 0 : 1);
         result.readyToExecute = ready;
         result.message = ready
             ? 'The two distinct approval roles are satisfied. The start can now be executed.'
@@ -428,6 +428,12 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
             executorRole == 'ADMIN' || executorRole == 'NON_ADMIN',
             'Only a game participant, participating board admin, or platform super-admin can execute an approved start.');
+        if (requesterRole != 'SUPER_ADMIN') {
+            String currentRequesterRole = resolveRequesterRole(boardId, requestRow.Requester_Account_Id__c,
+                participants, findGameAdmin(participants), false);
+            HousieErrors.require(currentRequesterRole == requesterRole,
+                'The start requester no longer holds the role that was used to approve this request.');
+        }
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
         HousieErrors.require(participants.size() >= minimum,
             'The game no longer meets minimum human participation.');
@@ -577,6 +583,20 @@ public without sharing class HousieGameStartService {
                 'Idempotency_Key__c' => HousieIds.stableId('GAME_CAPTURE', holdId),
                 'Created_At__c' => System.now(),
                 'Metadata__c' => '{}'
+            }));
+            writes.add(writeItem('Account_Resource_Transaction__b', new Map<String,Object>{
+                'Record_Id__c' => HousieIds.stableId('RESOURCE_TX', 'TICKET_HOLD_CAPTURE:' + holdId),
+                'Account_Id__c' => account,
+                'Resource_Type__c' => 'POINTS',
+                'Transaction_Type__c' => 'HOLD_CAPTURE',
+                'Quantity__c' => -amount,
+                'Source_Type__c' => 'HUMAN_TICKET',
+                'Source_Id__c' => ticketId,
+                'Idempotency_Key__c' => HousieIds.stableId('RESOURCE_TX', 'TICKET_HOLD_CAPTURE:' + holdId),
+                'Created_At__c' => System.now(),
+                'Metadata__c' => JSON.serialize(new Map<String,Object>{
+                    'gameId' => command.Game_Id__c, 'holdId' => holdId
+                })
             }));
         }
         if (finalBatch) {
