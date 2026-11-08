@@ -139,7 +139,7 @@ jobs:
             const full = path.join(dir, entry.name);
             if (entry.isSymbolicLink()) throw new Error('Symlinks are not allowed in scenario modules: ' + full);
             if (entry.isDirectory()) return walk(full);
-            return entry.isFile() && /\\.(scenario|workflow)\\.ts$/.test(entry.name) ? [full] : [];
+            return entry.isFile() && /\.(scenario|workflow)\.ts$/.test(entry.name) ? [full] : [];
           });
           for (const source of walk(sourceRoot)) {
             const rel = path.relative(sourceRoot, fs.realpathSync(source));
@@ -309,17 +309,35 @@ jobs:
             return out;
           };
           const tests = flatten(report && report.suites);
+          const walk = dirPath => fs.readdirSync(dirPath, { withFileTypes: true }).flatMap(entry => {
+            const full = path.join(dirPath, entry.name);
+            return entry.isDirectory() ? walk(full) : entry.isFile() && entry.name === 'result.json' ? [full] : [];
+          });
+          const frameworkResults = walk(dir).map(file => {
+            try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+          }).filter(Boolean);
           const failed = tests.filter(t => t.results.some(r => ['failed', 'timedOut'].includes(r.status)));
           const passed = tests.filter(t => t.results.some(r => r.status === 'passed'));
+          const frameworkFailed = frameworkResults.filter(r => r.status === 'failed').length;
+          const frameworkPassed = frameworkResults.filter(r => r.status === 'passed').length;
           fs.writeFileSync(path.join(dir, 'summary.md'), [
             '# Browser execution summary', '',
-            '- Tests observed: ' + tests.length,
-            '- Passed: ' + passed.length,
-            '- Failed/timed out: ' + failed.length,
-            '- Playwright exit code: ' + process.env.TEST_EXIT,
+            '- Playwright tests observed: ' + tests.length,
+            '- Playwright passed: ' + passed.length,
+            '- Playwright failed/timed out: ' + failed.length,
+            '- Framework scenarios/workflows: ' + frameworkResults.length,
+            '- Framework passed: ' + frameworkPassed,
+            '- Framework failed: ' + frameworkFailed,
+            '- Combined execution exit code: ' + process.env.TEST_EXIT,
             '', 'This report records browser observations; it does not certify feature completeness.', ''
           ].join('\n'));
-          fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({ total: tests.length, passed: passed.length, failed: failed.length, failedTests: failed }, null, 2));
+          fs.writeFileSync(path.join(dir, 'execution-summary.json'), JSON.stringify({
+            total: tests.length + frameworkResults.length,
+            passed: passed.length + frameworkPassed,
+            failed: failed.length + frameworkFailed,
+            failedTests: failed,
+            frameworkResults
+          }, null, 2));
           NODE
           exit "$TEST_EXIT"
 
