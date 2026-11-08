@@ -226,6 +226,8 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(new Set<String>{'APPROVE','REJECT'}.contains(safeResponse),
             'Response must be APPROVE or REJECT.');
         GameContext context = loadCurrentGame(boardId);
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'Start approvals are only accepted while the game is waiting.');
         Game_Action_Request__b requestRow = findLatestActionRequest(context.gameRow.Record_Id__c, requestId);
         HousieErrors.require(requestRow != null && requestRow.Status__c == 'OPEN',
             'This start request is no longer open.');
@@ -309,6 +311,7 @@ public without sharing class HousieGameStartService {
     public static List<StartRequestView> listOpenStartRequests(String boardId, String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
         GameContext context = loadCurrentGame(boardId);
+        if (context.gameRow.Status__c != 'WAITING') return new List<StartRequestView>();
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
         String gameAdminId = findAvailableGameAdmin(participants, integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
         String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
