@@ -788,7 +788,7 @@ public without sharing class HousieGameStartService {
             'Actor_Account_Id__c' => actor.Account_Key__c,
             'Payload__c' => JSON.serialize(new Map<String,Object>{
                 'requestId' => requestId, 'adminAccountId' => adminId,
-                'walletTotal' => total, 'ticketCount' => ((List<Object>)payload.get('holds')).size()
+                'walletTotal' => total, 'ticketCount' => Integer.valueOf(String.valueOf(payload.get('ticketCount')))
             }),
             'Created_At__c' => startedAt
         }));
