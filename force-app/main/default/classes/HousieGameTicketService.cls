@@ -755,20 +755,27 @@ public without sharing class HousieGameTicketService {
             'Board creation is not committed.');
 
         List<Game__b> games = [
-            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c, Config_Snapshot__c
+            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c, Config_Snapshot__c,
+                   Event_Sequence__c, Created_At__c, Started_At__c, Current_Admin_Account_Id__c,
+                   Wallet_Total__c, Wallet_Obligations__c, Wallet_Available__c
             FROM Game__b
             WHERE Board_Id__c = :boardId
             LIMIT 200
         ];
         Set<String> gameOperationIds = new Set<String>();
         for (Game__b game : games) {
-            if (String.isNotBlank(game.Operation_Id__c)) gameOperationIds.add(game.Operation_Id__c);
+            if (game.Record_Id__c == boards[0].Current_Game_Id__c &&
+                String.isNotBlank(game.Operation_Id__c)) gameOperationIds.add(game.Operation_Id__c);
         }
         Set<String> committed = HousieBigObjectStore.committedOperationIds(gameOperationIds);
         Game__b currentGame;
         for (Game__b game : games) {
             if (game.Record_Id__c == boards[0].Current_Game_Id__c &&
-                committed.contains(game.Operation_Id__c)) currentGame = game;
+                committed.contains(game.Operation_Id__c) &&
+                (currentGame == null || (game.Event_Sequence__c != null &&
+                 (currentGame.Event_Sequence__c == null || game.Event_Sequence__c > currentGame.Event_Sequence__c)))) {
+                currentGame = game;
+            }
         }
         HousieErrors.require(currentGame != null, 'The current game could not be found.');
         GameContext context = new GameContext();
