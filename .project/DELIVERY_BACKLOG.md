@@ -2,26 +2,54 @@
 
 This backlog contains only the cohesive implementation packages required to deliver one complete human-playable Housie game. Product rules remain in `docs/SPEC.md`; this file defines implementation order and package boundaries, not duplicate business rules.
 
-## Current closeout — WAITING-game paid-ticket setup
+## Pre-start setup baseline
 
-- [PR #42](https://github.com/housieadmin/HousieSalesforce/pull/42): board-leave guard and invitation-context handling, with remaining deployment/runtime acceptance gates.
-- [PR #43](https://github.com/housieadmin/HousieSalesforce/pull/43): focused two-human acceptance-harness adjustment; based on #42.
-- Close these based on their actual scope and evidence. Do not rewrite them or hold later service design hostage to a browser check isolated to deployed invitation-context verification.
+- [PR #42](https://github.com/housieadmin/HousieSalesforce/pull/42) is merged. It contains the board-leave safeguard, invitation-context handling and revised two-human ticket acceptance scenario.
+- PR #43 was closed without merge because its only useful scenario change was incorporated into #42. Its session-only tracker changes were discarded.
+- Source for the newer history-state invitation reload handling is on `main`, but that LWC change has not been deployed or verified after reload. The revised two-human combined browser lifecycle has also not passed yet. These are recorded accurately in PR #42 and do not block implementation of the independent start service.
+- Do not claim the entire WAITING-game browser lifecycle is accepted. Keep the remaining browser/deployment verification as a follow-up, without reopening a session-only PR.
 
-## Package 1 — Start a funded human game
+## Package 1 — Start and fund a human-only game
 
-**Deliverable:** one cohesive Apex service boundary (orchestrator plus necessary collaborators) that takes an eligible WAITING game through authorized start and funding into RUNNING, with safe, idempotent transaction semantics.
+<badge color="success">Ready to begin</badge>
 
-Include the complete path defined by SPEC §§3.3, 3.5, 4.1, 5.1–5.4, 6.4 and 8.2–8.4:
-- Eligibility and distinct-human minimums; eligible game-admin checks.
-- Start request, approvals, expiry/rejection and super-admin path.
-- Stale-state and duplicate/concurrent request protection.
-- Freeze participation and ticket state.
-- Capture every eligible human ticket hold into the Game Wallet exactly once.
-- Append immutable account/game ledger evidence and reconcile balances.
-- Transition to RUNNING only after required operations commit; handle partial failure safely and idempotently.
+**Deliverable:** one cohesive start-service capability, including the Apex service boundary, the minimum Board Hub integration and focused tests. It must take a valid WAITING game through request/approval, ticket freeze and human-hold capture into RUNNING exactly once.
 
-**Acceptance:** focused Apex tests for eligibility, role/approval combinations, expiry/staleness, duplicate/concurrent starts and financial reconciliation. One org/browser scenario verifies a real two-human start after implementation. Do not split service implementation into session-sized fragments.
+### Required behaviour
+
+Implement the complete ordinary and super-admin start paths in SPEC §§3.3–3.5, 4.1, 5.1–5.4, 6.4 and 8.2–8.4:
+
+- A start may be requested by an authorized game participant or board administrator. Enforce the platform role and board/game membership rules server-side.
+- Validate that the game is WAITING, the minimum number of distinct human accounts each own at least one committed active paid human ticket, and an eligible game admin is available. Multiple tickets from one account count once.
+- Ordinary start requires two distinct role approvals: one eligible admin (current game admin or participating board admin) and one different non-admin human participant. A requester may count for their own role category, but one account cannot satisfy both.
+- A participating board admin may provide the admin approval. A non-participating board admin may initiate but cannot count as a participating approver.
+- A platform super-admin may execute start immediately and must produce the required audit record.
+- Persist open requests and actual responses; do not pre-create response rows. Record rejection without prematurely vetoing a request while the required approval threshold remains achievable.
+- Enforce the configured request expiry (default 60 seconds), and revalidate expected game state and reviewer eligibility at execution time. Expired or stale requests must never start a game.
+- On approval, freeze active human participation, ticket layouts and ticket modes. For this first human-only slice, do not fund bot tickets or contributions; reject or safely prevent start if unsupported active bot commitments are present rather than silently ignoring them.
+- Capture every eligible active human ticket hold exactly once. Update account balance and reserved balance, append immutable account resource transactions and Game Ledger capture entries, and reconcile Game Wallet totals/obligations.
+- Transition the game to RUNNING only after all required captures and ledger writes are committed. Append the authoritative game events and make post-start ticket withdrawal impossible.
+- Expose the minimum Board Hub experience to request start, review/approve/reject an open request, and see the resulting game state. Do not build unrelated game-admin runtime or notification infrastructure here.
+
+### Design and implementation constraints
+
+Before coding, inspect the current source and metadata and settle the service contract and transaction protocol in the PR:
+
+- Prefer a dedicated `HousieGameStartService` boundary (request, response and execution/query operations) over expanding the current `HousieGameService.submitCommand()`, which only appends `COMMAND_RECEIVED`.
+- Preserve the existing Big Object `PENDING/COMMITTED` journal semantics. `HousieOperationService.executeOperation()` journals a Big Object batch but does not provide cross-request serialization or business idempotency.
+- Big Object `insertImmediate()` writes are not atomic with standard-object DML. Do not claim a native cross-store transaction. Define a durable per-game command/coordinator protocol with deterministic idempotency keys, explicit prepared/committed/finalized states, safe retry behaviour and a clear response to partial failure.
+- Do not reuse the ticket-specific `Housie_Ticket_Command__c` outbox for start commands without proving its schema and lifecycle safely support them. Reuse or extend the per-game lock only if its semantics are appropriate; otherwise add the narrowest required coordinator metadata.
+- Protect concurrent starts and ticket purchases/withdrawals with a consistent per-game serialization rule. Lock account projections in a deterministic order when multiple accounts are captured.
+- Handle record-count/batch limits without exposing a partially RUNNING game. Replays must not double-capture a hold, double-write a financial transaction or duplicate the start event.
+- Keep financial source-of-truth in immutable holds/transactions/ledger records; cached account and Game Wallet fields are projections that must reconcile.
+- Do not introduce a general recovery scheduler or broad recovery framework as part of this package.
+
+### Acceptance and stop condition
+
+- Focused Apex tests cover distinct-human minimum boundaries, duplicate tickets from one account, requester/approver role combinations, board-admin edge cases, super-admin bypass/audit, expiry, stale state, duplicate/concurrent requests, partial failures/retries and exact wallet/account ledger reconciliation.
+- The implementation is complete when the service and minimum UI flow are present, focused tests pass, and no invalid path can transition the game to RUNNING or duplicate a capture.
+- Run one org/browser acceptance after implementation to prove two humans can approve a real start and the persisted game, holds, account balances and Game Ledger reconcile. This verification can be a follow-up execution against the completed service; do not split the service implementation across sessions.
+- Stop this package after implementation and focused validation. Do not start number calling in the same PR/session.
 
 ## Package 2 — Authoritative number-calling runtime and game administration
 
