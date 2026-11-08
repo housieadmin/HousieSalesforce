@@ -33,6 +33,18 @@ function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
   return parsed.result.records as T[];
 }
 
+function safeBigQuery<T extends Record<string, unknown>>(soql: string): T[] {
+  try {
+    return queryBigObject<T>(soql);
+  } catch (error) {
+    const detail = String(error)
+      .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+      .slice(0, 1200);
+    throw new Error("Big Object query failed. " + detail);
+  }
+}
+
 async function createAccount(page: import("@playwright/test").Page, stamp: number, suffix: string) {
   const email = "housie.m1.start." + stamp + "." + suffix + "@housie.test";
   const displayName = "M1 Start " + stamp + " " + suffix;
@@ -140,12 +152,12 @@ test("two-human start requires the second role and captures both ticket holds be
     .toBeVisible({ timeout: 60000 });
   await ownerCard.getByRole("button", { name: "Request game start", exact: true }).click();
 
-  const initialGames = queryBigObject<Record<string, unknown>>(
+  const initialGames = safeBigQuery<Record<string, unknown>>(
     "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   expect(initialGames).toHaveLength(1);
   const gameId = String(initialGames[0].Record_Id__c);
-  const openRequests = queryBigObject<Record<string, unknown>>(
+  const openRequests = safeBigQuery<Record<string, unknown>>(
     "SELECT Game_Id__c, Status__c, Record_Id__c, Requester_Account_Id__c FROM Game_Action_Request__b WHERE Game_Id__c = '" + gameId + "' AND Status__c = 'OPEN'"
   );
   const requestRow = openRequests.find(row => row.Status__c === "OPEN" && row.Requester_Account_Id__c === owner.key);
@@ -162,7 +174,7 @@ test("two-human start requires the second role and captures both ticket holds be
   await ownerSession.hub.getByRole("button", { name: "Refresh boards" }).click();
   await expect(ownerCard).toContainText("Game: RUNNING", { timeout: 60000 });
 
-  const runningGames = queryBigObject<Record<string, unknown>>(
+  const runningGames = safeBigQuery<Record<string, unknown>>(
     "SELECT Board_Id__c, Status__c, Record_Id__c, Current_Admin_Account_Id__c, Wallet_Total__c, Wallet_Obligations__c, Wallet_Available__c, Started_At__c, Event_Sequence__c FROM Game__b WHERE Board_Id__c = '" + boardId + "' AND Status__c = 'RUNNING'"
   );
   expect(runningGames).toHaveLength(1);
@@ -175,12 +187,12 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(game.Started_At__c).toBeTruthy();
   expect(Number(game.Event_Sequence__c)).toBe(2);
 
-  const actionRequests = queryBigObject<Record<string, unknown>>(
+  const actionRequests = safeBigQuery<Record<string, unknown>>(
     "SELECT Game_Id__c, Status__c, Record_Id__c, Executed_At__c FROM Game_Action_Request__b WHERE Game_Id__c = '" + gameId + "'"
   );
   expect(actionRequests.some(row => row.Record_Id__c === requestId &&
     row.Status__c === "APPROVED" && row.Executed_At__c)).toBe(true);
-  const approvals = queryBigObject<Record<string, unknown>>(
+  const approvals = safeBigQuery<Record<string, unknown>>(
     "SELECT Request_Id__c, Account_Id__c, Response__c, Eligibility_Role__c FROM Game_Action_Response__b WHERE Request_Id__c = '" + requestId + "'"
   );
   expect(approvals).toHaveLength(1);
@@ -188,7 +200,7 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(approvals[0].Response__c).toBe("APPROVE");
   expect(approvals[0].Eligibility_Role__c).toBe("NON_ADMIN");
 
-  const ledger = queryBigObject<Record<string, unknown>>(
+  const ledger = safeBigQuery<Record<string, unknown>>(
     "SELECT Game_Id__c, Entry_Type__c, Amount__c, Ticket_Id__c FROM Game_Ledger__b WHERE Game_Id__c = '" + gameId + "' AND Entry_Type__c = 'TICKET_CAPTURED'"
   );
   expect(ledger).toHaveLength(2);
@@ -205,14 +217,14 @@ test("two-human start requires the second role and captures both ticket holds be
     expect(Number(accountRows[0].Points_Balance__c)).toBe(90);
     expect(Number(accountRows[0].Reserved_Points__c)).toBe(0);
 
-    const holds = queryBigObject<Record<string, unknown>>(
+    const holds = safeBigQuery<Record<string, unknown>>(
       "SELECT Account_Id__c, Game_Id__c, Hold_Id__c, Status__c, Amount__c FROM Wallet_Hold__b WHERE Account_Id__c = '" + account.key + "' AND Game_Id__c = '" + gameId + "'"
     );
     expect(holds).toHaveLength(2);
     expect(holds.some(row => row.Status__c === "ACTIVE")).toBe(true);
     expect(holds.some(row => row.Status__c === "CAPTURED" && Number(row.Amount__c) === 10)).toBe(true);
 
-    const transactions = queryBigObject<Record<string, unknown>>(
+    const transactions = safeBigQuery<Record<string, unknown>>(
       "SELECT Account_Id__c, Transaction_Type__c, Quantity__c FROM Account_Resource_Transaction__b WHERE Account_Id__c = '" + account.key + "'"
     );
     expect(transactions.filter(row => row.Transaction_Type__c === "HOLD_CAPTURE" &&
