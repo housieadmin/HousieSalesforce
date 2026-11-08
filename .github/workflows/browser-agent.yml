@@ -178,6 +178,7 @@ jobs:
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
           SF_USERNAME: ${{ secrets.SF_USERNAME }}
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+          BROWSER_AGENT_SF_ORG_ALIAS: ${{ vars.BROWSER_AGENT_SF_ORG_ALIAS || 'browser-agent-org' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -185,11 +186,15 @@ jobs:
           npm install --global @salesforce/cli
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/browser-agent-server.key"
           chmod 600 "$RUNNER_TEMP/browser-agent-server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-browser-agent --set-default >/dev/null
-          sf org open --url-only --target-org housie-browser-agent --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
+          ORG_ALIAS="${BROWSER_AGENT_SF_ORG_ALIAS:-browser-agent-org}"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/browser-agent-server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias "$ORG_ALIAS" --set-default >/dev/null
+          sf org open --url-only --target-org "$ORG_ALIAS" --json > "$RUNNER_TEMP/browser-agent-frontdoor.json"
           FRONTDOOR_URL="$(node "$RUNNER_TEMP/extract-frontdoor-url.mjs" "$RUNNER_TEMP/browser-agent-frontdoor.json")"
           echo "::add-mask::$FRONTDOOR_URL"
-          echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
+          echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV" # Legacy fixture compatibility.
+          echo "BROWSER_AGENT_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
+          echo "BROWSER_AGENT_BASE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
+          echo "BROWSER_AGENT_SF_ORG_ALIAS=$ORG_ALIAS" >> "$GITHUB_ENV"
           echo "SF_INSTANCE_URL=$SF_INSTANCE_URL" >> "$GITHUB_ENV"
 
       - name: Enable Apex debug logging for the browser transaction
