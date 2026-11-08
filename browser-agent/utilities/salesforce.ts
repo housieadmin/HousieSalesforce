@@ -6,7 +6,7 @@ import type { Page } from "@playwright/test";
 export async function openLightningTab(
   page: Page,
   lightningPath: string,
-  targetOrg = "housie-browser-agent"
+  targetOrg = process.env.BROWSER_AGENT_SF_ORG_ALIAS || "browser-agent-org"
 ): Promise<void> {
   if (!lightningPath.startsWith("/lightning/")) {
     throw new Error("Expected a Lightning route beginning with /lightning/.");
@@ -93,9 +93,9 @@ import os from "node:os";
 /** Query a Big Object through Bulk API 2.0; REST data query/describe does not support Big Objects. */
 export function queryBigObject<T extends Record<string, unknown>>(
   soql: string,
-  targetOrg = "housie-browser-agent"
+  targetOrg = process.env.BROWSER_AGENT_SF_ORG_ALIAS || "browser-agent-org"
 ): T[] {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "housie-bigobject-query-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "browser-agent-bigobject-query-"));
   const outputFile = path.join(dir, "records.json");
   try {
     try {

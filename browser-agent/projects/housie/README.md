@@ -1,6 +1,6 @@
 # Housie browser project configuration
 
-This directory contains project-specific configuration examples. The shared runner in `../framework` has no Housie assumptions.
+This directory contains project-specific configuration examples. The shared runner in `../../framework` has no Housie assumptions.
 
 1. Copy `../../config.example.json` to `../../browser-agent.config.json`.
 2. Set `BROWSER_AGENT_BASE_URL` and `BROWSER_AGENT_START_URL` in your shell or CI secret/variable store. Do not commit frontdoor URLs, session IDs, JWT keys or credentials.
