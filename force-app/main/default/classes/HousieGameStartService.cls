@@ -1091,7 +1091,8 @@ public without sharing class HousieGameStartService {
             Datetime lastSeen = lastSeenByAccount.get(accountId);
             Decimal sequence = joinSequences.get(accountId);
             if (!activeAccounts.contains(accountId) || lastSeen == null || lastSeen < cutoff || sequence == null) continue;
-            if (selectedAccount == null || sequence < selectedSequence) {
+            if (selectedAccount == null || sequence < selectedSequence ||
+                (sequence == selectedSequence && accountId.compareTo(selectedAccount) < 0)) {
                 selectedAccount = accountId;
                 selectedSequence = sequence;
             }
