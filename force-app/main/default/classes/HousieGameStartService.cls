@@ -387,6 +387,14 @@ public without sharing class HousieGameStartService {
     @AuraEnabled
     public static ActionResult prepareStartExecution(String boardId, String requestId, String accountId) {
         Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
+        Housie_Ticket_Command__c prior = findCommand(commandKey);
+        if (prior != null) {
+            HousieErrors.require(prior.Account_Key__c == actor.Account_Key__c &&
+                prior.Action_Type__c == START_EXECUTION_COMMAND,
+                'A start execution command exists for a different account.');
+            return commandResult(prior);
+        }
         GameContext context = loadCurrentGame(boardId);
         HousieErrors.require(context.gameRow.Status__c == 'WAITING', 'Only a waiting game can be started.');
         Game_Action_Request__b requestRow = findLatestActionRequest(context.gameRow.Record_Id__c, requestId);
@@ -470,9 +478,6 @@ public without sharing class HousieGameStartService {
         }
         HousieErrors.require(!holdPlan.isEmpty(), 'No active human ticket holds are available to fund the game.');
 
-        String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
-        Housie_Ticket_Command__c prior = findCommand(commandKey);
-        if (prior != null) return commandResult(prior);
         Housie_Game_Command_Lock__c gate = lockGameCommandSlot(context.gameRow.Record_Id__c);
         HousieErrors.require(gate == null || gate.Status__c != 'PROCESSING',
             'Another game command is being finalized. Retry shortly.');
