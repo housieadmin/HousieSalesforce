@@ -41,6 +41,12 @@ public without sharing class HousieGameStartService {
         Decimal joinSequence;
         Datetime joinedAt;
     }
+    private class StartFundingPlan {
+        List<Object> holds = new List<Object>();
+        Map<String,Decimal> accountTotals = new Map<String,Decimal>();
+        Decimal total = 0;
+        String gameAdminId;
+    }
 
     @AuraEnabled
     public static ActionResult prepareStartRequest(String boardId, String accountId, String clientRequestId) {
@@ -440,66 +446,42 @@ public without sharing class HousieGameStartService {
         String gameAdminId = findGameAdmin(participants);
         HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin is not available.');
 
-        List<Ticket__b> tickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
-        Set<String> withdrawnTickets = withdrawnTicketIds(context.gameRow.Record_Id__c);
-        Map<String,Wallet_Hold__b> latestHolds = new Map<String,Wallet_Hold__b>();
-        Map<String,Decimal> accountTotals = new Map<String,Decimal>();
-        List<Object> holdPlan = new List<Object>();
-        Decimal total = 0;
-        Set<String> participantIds = participants.keySet();
-        List<Wallet_Hold__b> holdRows = [
-            SELECT Record_Id__c, Operation_Id__c, Hold_Id__c, Account_Id__c, Amount__c,
-                   Status__c, Created_At__c, Updated_At__c
-            FROM Wallet_Hold__b
-            WHERE Account_Id__c IN :participantIds AND Game_Id__c = :context.gameRow.Record_Id__c
-            LIMIT 2000
-        ];
-        Set<String> holdOperations = new Set<String>();
-        for (Wallet_Hold__b hold : holdRows) holdOperations.add(hold.Operation_Id__c);
-        Set<String> committedHoldOperations = HousieBigObjectStore.committedOperationIds(holdOperations);
-        for (Wallet_Hold__b hold : holdRows) {
-            if (!committedHoldOperations.contains(hold.Operation_Id__c)) continue;
-            Wallet_Hold__b prior = latestHolds.get(hold.Hold_Id__c);
-            if (prior == null || (hold.Updated_At__c != null &&
-                (prior.Updated_At__c == null || hold.Updated_At__c > prior.Updated_At__c))) {
-                latestHolds.put(hold.Hold_Id__c, hold);
-            }
-        }
-        for (Ticket__b ticket : tickets) {
-            if (ticket.Status__c != 'ACTIVE' || withdrawnTickets.contains(ticket.Record_Id__c) ||
-                !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
-            Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
-            HousieErrors.require(hold != null && hold.Status__c == 'ACTIVE',
-                'An active human ticket does not have an active committed wallet hold.');
-            Decimal amount = hold.Amount__c == null ? 0 : hold.Amount__c;
-            total += amount;
-            accountTotals.put(ticket.Owner_Account_Id__c,
-                (accountTotals.containsKey(ticket.Owner_Account_Id__c) ? accountTotals.get(ticket.Owner_Account_Id__c) : 0) + amount);
-            holdPlan.add(new Map<String,Object>{
-                'accountId' => ticket.Owner_Account_Id__c,
-                'ticketId' => ticket.Record_Id__c,
-                'holdId' => hold.Hold_Id__c,
-                'amount' => amount,
-                'createdAt' => hold.Created_At__c
-            });
-        }
-        HousieErrors.require(!holdPlan.isEmpty(), 'No active human ticket holds are available to fund the game.');
-
         Housie_Game_Command_Lock__c gate = lockGameCommandSlot(context.gameRow.Record_Id__c);
         HousieErrors.require(gate == null || gate.Status__c != 'PROCESSING',
             'Another game command is being finalized. Retry shortly.');
 
-        Map<String,Object> accountPlan = new Map<String,Object>();
-        for (String key : accountTotals.keySet()) accountPlan.put(key, accountTotals.get(key));
+        // Re-read after acquiring the per-game gate so the funding snapshot includes
+        // every committed purchase/withdrawal that won the race before this command.
+        context = loadCurrentGame(boardId);
+        HousieErrors.require(context.gameRow.Status__c == 'WAITING',
+            'The game is no longer waiting.');
+        participants = loadActiveParticipants(context.gameRow.Record_Id__c);
+        HousieErrors.require(participants.size() >= minimum,
+            'The game no longer meets minimum human participation.');
+        gameAdminId = findGameAdmin(participants);
+        HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin is not available.');
+        executorRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
+        HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
+            executorRole == 'ADMIN' || executorRole == 'NON_ADMIN',
+            'Only a game participant, participating board admin, or platform super-admin can execute an approved start.');
+        if (requesterRole != 'SUPER_ADMIN') {
+            String currentRequesterRole = resolveRequesterRole(boardId, requestRow.Requester_Account_Id__c,
+                participants, gameAdminId, false);
+            HousieErrors.require(currentRequesterRole == requesterRole,
+                'The start requester no longer holds the role that was used to approve this request.');
+        }
+        StartFundingPlan fundingPlan = buildStartFundingPlan(context, participants);
+        Datetime startedAt = System.now();
+        Decimal nextEventSequence = (context.gameRow.Event_Sequence__c == null
+            ? 0 : context.gameRow.Event_Sequence__c) + 1;
         Map<String,Object> payload = new Map<String,Object>{
             'requestId' => requestId,
             'cursor' => 0,
-            'holds' => holdPlan,
-            'accounts' => accountPlan,
-            'total' => total,
-            'currentAdmin' => gameAdminId,
-            'eventSequence' => (context.gameRow.Event_Sequence__c == null ? 0 : context.gameRow.Event_Sequence__c) + 1,
-            'startedAt' => System.now()
+            'ticketCount' => fundingPlan.holds.size(),
+            'total' => fundingPlan.total,
+            'currentAdmin' => fundingPlan.gameAdminId,
+            'eventSequence' => nextEventSequence,
+            'startedAt' => startedAt
         };
         Datetime nowAt = System.now();
         activateGameCommandLock(gate, context.gameRow.Record_Id__c, commandKey);
@@ -510,7 +492,7 @@ public without sharing class HousieGameStartService {
             Game_Id__c = context.gameRow.Record_Id__c,
             Action_Type__c = START_EXECUTION_COMMAND,
             Ticket_Id__c = requestId,
-            Entry_Fee__c = total,
+            Entry_Fee__c = fundingPlan.total,
             Payload__c = JSON.serialize(payload),
             Status__c = 'PREPARED',
             Created_At__c = nowAt,
@@ -913,6 +895,59 @@ public without sharing class HousieGameStartService {
         context.config = String.isBlank(current.Config_Snapshot__c)
             ? new Map<String,Object>() : (Map<String,Object>)JSON.deserializeUntyped(current.Config_Snapshot__c);
         return context;
+    }
+
+    private static StartFundingPlan buildStartFundingPlan(
+        GameContext context, Map<String,Participant> participants
+    ) {
+        StartFundingPlan plan = new StartFundingPlan();
+        plan.gameAdminId = findGameAdmin(participants);
+        HousieErrors.require(String.isNotBlank(plan.gameAdminId),
+            'An eligible game admin must be available before starting.');
+        List<Ticket__b> tickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
+        Set<String> withdrawnTickets = withdrawnTicketIds(context.gameRow.Record_Id__c);
+        Set<String> participantIds = participants.keySet();
+        List<Wallet_Hold__b> holdRows = [
+            SELECT Record_Id__c, Operation_Id__c, Hold_Id__c, Account_Id__c, Amount__c,
+                   Status__c, Created_At__c, Updated_At__c
+            FROM Wallet_Hold__b
+            WHERE Account_Id__c IN :participantIds AND Game_Id__c = :context.gameRow.Record_Id__c
+            LIMIT 2000
+        ];
+        Set<String> holdOperations = new Set<String>();
+        for (Wallet_Hold__b hold : holdRows) holdOperations.add(hold.Operation_Id__c);
+        Set<String> committedHoldOperations = HousieBigObjectStore.committedOperationIds(holdOperations);
+        Map<String,Wallet_Hold__b> latestHolds = new Map<String,Wallet_Hold__b>();
+        for (Wallet_Hold__b hold : holdRows) {
+            if (!committedHoldOperations.contains(hold.Operation_Id__c)) continue;
+            Wallet_Hold__b prior = latestHolds.get(hold.Hold_Id__c);
+            if (prior == null || (hold.Updated_At__c != null &&
+                (prior.Updated_At__c == null || hold.Updated_At__c > prior.Updated_At__c))) {
+                latestHolds.put(hold.Hold_Id__c, hold);
+            }
+        }
+        for (Ticket__b ticket : tickets) {
+            if (ticket.Status__c != 'ACTIVE' || withdrawnTickets.contains(ticket.Record_Id__c) ||
+                !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
+            Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
+            HousieErrors.require(hold != null && new Set<String>{'ACTIVE','CAPTURED'}.contains(hold.Status__c),
+                'An active human ticket does not have an active or captured committed wallet hold.');
+            Decimal amount = hold.Amount__c == null ? 0 : hold.Amount__c;
+            plan.total += amount;
+            plan.accountTotals.put(ticket.Owner_Account_Id__c,
+                (plan.accountTotals.containsKey(ticket.Owner_Account_Id__c)
+                    ? plan.accountTotals.get(ticket.Owner_Account_Id__c) : 0) + amount);
+            plan.holds.add(new Map<String,Object>{
+                'accountId' => ticket.Owner_Account_Id__c,
+                'ticketId' => ticket.Record_Id__c,
+                'holdId' => hold.Hold_Id__c,
+                'amount' => amount,
+                'createdAt' => hold.Created_At__c
+            });
+        }
+        HousieErrors.require(!plan.holds.isEmpty(),
+            'No active human ticket holds are available to fund the game.');
+        return plan;
     }
 
     private static Map<String,Participant> loadActiveParticipants(String gameId) {
