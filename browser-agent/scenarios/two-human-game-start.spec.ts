@@ -197,7 +197,7 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(approvals[0].Eligibility_Role__c).toBe("NON_ADMIN");
 
   const ledger = safeBigQuery<Record<string, unknown>>(
-    "SELECT Game_Id__c, Entry_Type__c, Amount__c, Ticket_Id__c FROM Game_Ledger__b WHERE Game_Id__c = '" + gameId + "' AND Entry_Type__c = 'TICKET_CAPTURED'"
+    "SELECT Game_Id__c, Entry_Type__c, Amount__c, Ticket_Id__c FROM Game_Ledger__b WHERE Game_Id__c = '" + gameId + "' AND Entry_Type__c = 'HUMAN_TICKET_CAPTURE'"
   );
   expect(ledger).toHaveLength(2);
   expect(ledger.map(row => Number(row.Amount__c)).reduce((sum, amount) => sum + amount, 0)).toBe(20);
