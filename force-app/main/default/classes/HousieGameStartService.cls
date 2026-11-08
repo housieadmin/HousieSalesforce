@@ -45,7 +45,7 @@ public without sharing class HousieGameStartService {
             'A valid start request id is required.');
         GameContext context = loadCurrentGame(boardId);
         HousieErrors.require(context.gameRow.Status__c == 'WAITING', 'Only a waiting game can be started.');
-        requireBoardMember(boardId, actor.Account_Key__c);
+        if (!HousieSecurity.isSuperAdmin(actor)) requireBoardMember(boardId, actor.Account_Key__c);
 
         Map<String,Participant> participants = loadActiveParticipants(context.gameRow.Record_Id__c);
         Integer minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
@@ -55,7 +55,8 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin must be available before starting.');
 
         String requesterRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, false);
-        HousieErrors.require(requesterRole == 'ADMIN' || requesterRole == 'NON_ADMIN',
+        HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
+            requesterRole == 'ADMIN' || requesterRole == 'NON_ADMIN',
             'Only an authorized board admin or game participant can request a start.');
         if (HousieSecurity.isSuperAdmin(actor)) requesterRole = 'SUPER_ADMIN';
 
@@ -335,8 +336,10 @@ public without sharing class HousieGameStartService {
         GameContext context = loadCurrentGame(boardId);
         HousieErrors.require(context.gameRow.Status__c == 'WAITING', 'Only a waiting game can be started.');
         Game_Action_Request__b requestRow = findLatestActionRequest(context.gameRow.Record_Id__c, requestId);
-        HousieErrors.require(requestRow != null && requestRow.Expires_At__c != null &&
-            requestRow.Expires_At__c > System.now(), 'The start request is missing or expired.');
+        HousieErrors.require(requestRow != null &&
+            new Set<String>{'OPEN','APPROVED'}.contains(requestRow.Status__c) &&
+            requestRow.Expires_At__c != null && requestRow.Expires_At__c > System.now(),
+            'The start request is missing, closed, or expired.');
         Map<String,Object> rules = (Map<String,Object>)JSON.deserializeUntyped(requestRow.Required_Approval_Rules__c);
         String requesterRole = String.valueOf(rules.get('requesterRole'));
         List<Game_Action_Response__b> responses = [
@@ -560,7 +563,7 @@ public without sharing class HousieGameStartService {
         result.nextCursor = nextCursor;
         result.complete = finalBatch;
         result.message = finalBatch
-            ? 'All ticket holds and the RUNNING game state are persisted. Finalize the account wallet capture.'
+            ? 'All ticket hold capture records are persisted. Finalize the account wallet capture.'
             : 'Funding batch persisted. Finalize this batch before continuing.';
         return result;
     }
@@ -578,11 +581,13 @@ public without sharing class HousieGameStartService {
         ];
         HousieErrors.require(!commands.isEmpty(), 'Prepared start execution not found.');
         Housie_Ticket_Command__c command = commands[0];
-        if (command.Status__c == 'COMMITTED') {
+        if (command.Status__c == 'COMMITTED' || command.Status__c == 'CAPTURED') {
             ActionResult done = new ActionResult();
             done.requestId = requestId; done.gameId = command.Game_Id__c;
-            done.status = 'COMMITTED'; done.complete = true;
-            done.message = 'Game start is already finalized.';
+            done.status = command.Status__c; done.complete = command.Status__c == 'COMMITTED';
+            done.readyToExecute = command.Status__c == 'CAPTURED';
+            done.message = command.Status__c == 'COMMITTED'
+                ? 'Game start is already finalized.' : 'Funding capture is already finalized; activate the game next.';
             return done;
         }
         requireGameCommandLock(command.Game_Id__c, command.Request_Key__c);
@@ -590,6 +595,14 @@ public without sharing class HousieGameStartService {
         List<Object> holds = (List<Object>)payload.get('holds');
         Integer cursor = Integer.valueOf(String.valueOf(payload.get('cursor')));
         Integer expectedNext = Math.min(cursor + BATCH_SIZE, holds.size());
+        if (nextCursor != null && nextCursor == cursor) {
+            ActionResult alreadyApplied = new ActionResult();
+            alreadyApplied.requestId = requestId; alreadyApplied.gameId = command.Game_Id__c;
+            alreadyApplied.status = command.Status__c; alreadyApplied.nextCursor = cursor;
+            alreadyApplied.readyToExecute = command.Status__c == 'CAPTURED';
+            alreadyApplied.message = 'This funding batch was already finalized.';
+            return alreadyApplied;
+        }
         HousieErrors.require(nextCursor != null && nextCursor == expectedNext,
             'The start batch cursor is stale. Refresh the pending action and retry.');
         verifyCapturedHolds(command.Game_Id__c, holds, cursor, expectedNext);
@@ -654,6 +667,14 @@ public without sharing class HousieGameStartService {
         Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
         GameContext context = loadCurrentGame(command.Board_Id__c);
         Decimal fundedSequence = Decimal.valueOf(String.valueOf(payload.get('eventSequence')));
+        if (context.gameRow.Status__c == 'RUNNING' &&
+            context.gameRow.Event_Sequence__c == fundedSequence + 1) {
+            ActionResult alreadyActivated = new ActionResult();
+            alreadyActivated.requestId = requestId; alreadyActivated.gameId = command.Game_Id__c;
+            alreadyActivated.status = 'PERSISTED';
+            alreadyActivated.message = 'RUNNING game state is already persisted. Finalize the start command.';
+            return alreadyActivated;
+        }
         HousieErrors.require(context.gameRow.Status__c == 'WAITING' &&
             context.gameRow.Event_Sequence__c == fundedSequence,
             'The funded waiting-game state changed before activation.');
