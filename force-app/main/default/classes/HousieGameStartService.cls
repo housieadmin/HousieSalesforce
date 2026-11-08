@@ -1366,9 +1366,9 @@ public without sharing class HousieGameStartService {
     private static Boolean hasStartExecutionAccess(
         Housie_Ticket_Command__c command, Housie_Account__c actor
     ) {
-        if (HousieSecurity.isSuperAdmin(actor)) return true;
         GameContext context = loadCurrentGame(command.Board_Id__c);
         if (context.gameRow.Record_Id__c != command.Game_Id__c) return false;
+        if (HousieSecurity.isSuperAdmin(actor)) return true;
         Map<String,Participant> participants = loadActiveParticipants(command.Game_Id__c);
         String adminId = findAvailableGameAdmin(participants,
             integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
