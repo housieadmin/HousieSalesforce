@@ -320,13 +320,16 @@ public without sharing class HousieGameStartService {
             }
         }
         if (requestIds.isEmpty()) return result;
-        List<Game_Action_Response__b> responseRows = [
-            SELECT Record_Id__c, Request_Id__c, Account_Id__c, Response__c,
-                   Eligibility_Role__c, Operation_Id__c
-            FROM Game_Action_Response__b
-            WHERE Request_Id__c IN :requestIds
-            LIMIT 2000
-        ];
+        List<Game_Action_Response__b> responseRows = new List<Game_Action_Response__b>();
+        for (String openRequestId : requestIds) {
+            responseRows.addAll([
+                SELECT Record_Id__c, Request_Id__c, Account_Id__c, Response__c,
+                       Eligibility_Role__c, Operation_Id__c
+                FROM Game_Action_Response__b
+                WHERE Request_Id__c = :openRequestId
+                LIMIT 200
+            ]);
+        }
         Set<String> operationIds = new Set<String>();
         for (Game_Action_Response__b row : responseRows) operationIds.add(row.Operation_Id__c);
         Set<String> committed = HousieBigObjectStore.committedOperationIds(operationIds);
@@ -1164,7 +1167,7 @@ public without sharing class HousieGameStartService {
                    Expected_Game_State__c, Required_Approval_Rules__c, Status__c,
                    Created_At__c, Expires_At__c, Closed_At__c, Executed_At__c
             FROM Game_Action_Request__b
-            WHERE Game_Id__c = :gameId AND Status__c = :status LIMIT 200
+            WHERE Game_Id__c = :gameId AND Status__c = :status LIMIT 40
         ];
         Set<String> operations = new Set<String>();
         for (Game_Action_Request__b row : rows) operations.add(row.Operation_Id__c);
