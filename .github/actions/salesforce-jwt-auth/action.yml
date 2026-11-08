@@ -45,9 +45,9 @@ runs:
         [[ "$SF_ORG_ALIAS" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Invalid Salesforce CLI alias." >&2; exit 1; }
         [[ "$SF_SET_DEFAULT" == "true" || "$SF_SET_DEFAULT" == "false" ]] || { echo "set_default must be true or false." >&2; exit 1; }
         key_file="$RUNNER_TEMP/sf-jwt-$SF_ORG_ALIAS.key"
+        trap 'rm -f "$key_file"' EXIT
         printf '%s' "$SF_JWT_KEY" > "$key_file"
         chmod 600 "$key_file"
         args=(--client-id "$SF_CLIENT_ID" --jwt-key-file "$key_file" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias "$SF_ORG_ALIAS")
         if [[ "$SF_SET_DEFAULT" == "true" ]]; then args+=(--set-default); fi
         sf org login jwt "${args[@]}"
-        rm -f "$key_file"
