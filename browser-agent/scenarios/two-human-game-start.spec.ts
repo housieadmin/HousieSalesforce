@@ -6,9 +6,23 @@ import { openLightningTab, redactAccountKey, queryBigObject } from "../utilities
 test.use({ trace: "off" });
 
 function sfQuery<T extends Record<string, unknown>>(soql: string): T[] {
-  const output = execFileSync("sf", [
-    "data", "query", "--query", soql, "--target-org", "housie-browser-agent", "--json"
-  ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  let output: string;
+  try {
+    output = execFileSync("sf", [
+      "data", "query", "--query", soql, "--target-org", "housie-browser-agent", "--json"
+    ], { cwd: path.resolve(process.cwd(), ".."), encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    const failure = error as NodeJS.ErrnoException & { stderr?: string | Buffer; stdout?: string | Buffer };
+    const detail = [failure.stderr, failure.stdout, failure.message]
+      .map(value => String(value ?? ""))
+      .filter(Boolean)
+      .join("\n")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .replace(/[a-f0-9]{32}/gi, "[REDACTED_ID_OR_KEY]")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[REDACTED_EMAIL]")
+      .slice(0, 1600);
+    throw new Error("Salesforce CLI query failed. " + detail);
+  }
   const clean = output.replace(/\u001b\[[0-9;]*m/g, "").trim();
   const start = clean.indexOf("{");
   if (start < 0) throw new Error("Salesforce CLI did not return JSON.");
