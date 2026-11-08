@@ -494,6 +494,11 @@ public without sharing class HousieGameStartService {
         context = loadCurrentGame(boardId);
         HousieErrors.require(context.gameRow.Status__c == 'WAITING',
             'The game is no longer waiting.');
+        requestRow = findLatestActionRequest(context.gameRow.Record_Id__c, requestId);
+        HousieErrors.require(requestRow != null &&
+            new Set<String>{'OPEN','APPROVED'}.contains(requestRow.Status__c) &&
+            requestRow.Expires_At__c != null && requestRow.Expires_At__c > System.now(),
+            'The start request expired while waiting for the game command gate.');
         participants = loadActiveParticipants(context.gameRow.Record_Id__c);
         HousieErrors.require(participants.size() >= minimum,
             'The game no longer meets minimum human participation.');
