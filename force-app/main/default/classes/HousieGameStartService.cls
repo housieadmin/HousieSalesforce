@@ -1226,7 +1226,7 @@ public without sharing class HousieGameStartService {
                    Expected_Game_State__c, Required_Approval_Rules__c, Status__c,
                    Created_At__c, Expires_At__c, Closed_At__c, Executed_At__c
             FROM Game_Action_Request__b
-            WHERE Game_Id__c = :gameId AND Status__c = :status LIMIT 40
+            WHERE Game_Id__c = :gameId AND Status__c = :status LIMIT 20
         ];
         Set<String> operations = new Set<String>();
         for (Game_Action_Request__b row : rows) operations.add(row.Operation_Id__c);
