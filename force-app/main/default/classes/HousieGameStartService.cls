@@ -372,12 +372,14 @@ public without sharing class HousieGameStartService {
         HousieErrors.require(String.isNotBlank(gameAdminId), 'An eligible game admin is not available.');
 
         List<Ticket__b> tickets = loadCommittedHumanTickets(context.gameRow.Record_Id__c);
+        Set<String> withdrawnTickets = withdrawnTicketIds(context.gameRow.Record_Id__c);
         Map<String,Wallet_Hold__b> latestHolds = new Map<String,Wallet_Hold__b>();
         Map<String,Decimal> accountTotals = new Map<String,Decimal>();
         List<Object> holdPlan = new List<Object>();
         Decimal total = 0;
         for (Ticket__b ticket : tickets) {
-            if (ticket.Status__c != 'ACTIVE' || !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
+            if (ticket.Status__c != 'ACTIVE' || withdrawnTickets.contains(ticket.Record_Id__c) ||
+                !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
             List<Wallet_Hold__b> holdRows = [
                 SELECT Record_Id__c, Operation_Id__c, Hold_Id__c, Amount__c, Status__c,
                        Created_At__c, Updated_At__c
@@ -935,6 +937,26 @@ public without sharing class HousieGameStartService {
         return result;
     }
 
+    private static Set<String> withdrawnTicketIds(String gameId) {
+        List<Game_Event__b> events = [
+            SELECT Record_Id__c, Operation_Id__c, Event_Type__c, Payload__c
+            FROM Game_Event__b WHERE Game_Id__c = :gameId LIMIT 2000
+        ];
+        Set<String> operations = new Set<String>();
+        for (Game_Event__b row : events) operations.add(row.Operation_Id__c);
+        Set<String> committed = HousieBigObjectStore.committedOperationIds(operations);
+        Set<String> withdrawn = new Set<String>();
+        for (Game_Event__b row : events) {
+            if (row.Event_Type__c != 'TICKET_WITHDRAWN' || !committed.contains(row.Operation_Id__c) ||
+                String.isBlank(row.Payload__c)) continue;
+            Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(row.Payload__c);
+            if (payload != null && payload.containsKey('ticketId')) {
+                withdrawn.add(String.valueOf(payload.get('ticketId')));
+            }
+        }
+        return withdrawn;
+    }
+
     private static List<Game_Action_Request__b> findActionRequests(String gameId, String status) {
         List<Game_Action_Request__b> rows = [
             SELECT Record_Id__c, Operation_Id__c, Action_Type__c, Requester_Account_Id__c,
@@ -1077,7 +1099,7 @@ public without sharing class HousieGameStartService {
         result.requestId = command.Ticket_Id__c;
         result.gameId = command.Game_Id__c;
         result.status = command.Status__c;
-        result.readyToExecute = command.Status__c == 'COMMITTED';
+        result.readyToExecute = command.Status__c == 'COMMITTED' || command.Status__c == 'CAPTURED';
         result.message = command.Status__c == 'COMMITTED'
             ? 'Command is already committed.' : 'Command is prepared and can be retried.';
         return result;
