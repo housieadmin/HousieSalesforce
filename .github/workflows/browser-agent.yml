@@ -58,6 +58,10 @@ jobs:
         if: github.event_name == 'pull_request'
         working-directory: browser-agent
         run: npm install --no-audit --no-fund
+      - name: Install Chromium for framework smoke test
+        if: github.event_name == 'pull_request'
+        working-directory: browser-agent
+        run: npx playwright install --with-deps chromium
       - name: Run framework unit tests and TypeScript checks
         if: github.event_name == 'pull_request'
         working-directory: browser-agent
