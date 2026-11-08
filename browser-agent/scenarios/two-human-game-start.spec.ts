@@ -51,15 +51,38 @@ async function createAccount(page: import("@playwright/test").Page, stamp: numbe
 async function openAccount(
   page: import("@playwright/test").Page,
   key: string,
-  displayName: string
+  displayName: string,
+  housie: { note(message: string): void }
 ) {
+  await page.addInitScript(() => {
+    const query = new URLSearchParams(window.location.search);
+    const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    (window as any).__housieRouteTransport = {
+      queryTokenPresent: query.has("c__token") || query.has("token"),
+      fragmentTokenPresent: fragment.has("c__token") || fragment.has("token"),
+      historyTokenPresent: Boolean((window.history.state as any)?.housieAccountToken)
+    };
+  });
   const root = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
   await page.goto(root + "?c__token=" + encodeURIComponent(key) +
     "&token=" + encodeURIComponent(key) + "#c__token=" + encodeURIComponent(key),
     { waitUntil: "domcontentloaded" });
+  const routeTransport = await page.evaluate(() => (window as any).__housieRouteTransport || {});
+  housie.note("Public route transport flags: " + JSON.stringify(routeTransport));
   const app = page.locator("c-housie-app");
   await expect(app).toHaveCount(1, { timeout: 60000 });
   await redactAccountKey(page, false);
+  const cleanRoute = await page.evaluate(() => {
+    const query = new URLSearchParams(window.location.search);
+    const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    return {
+      queryTokenPresent: query.has("c__token") || query.has("token"),
+      fragmentTokenPresent: fragment.has("c__token") || fragment.has("token"),
+      historyTokenPresent: Boolean((window.history.state as any)?.housieAccountToken)
+    };
+  });
+  expect(cleanRoute.queryTokenPresent).toBe(false);
+  expect(cleanRoute.fragmentTokenPresent).toBe(false);
   await expect(app.getByText("Welcome, " + displayName, { exact: true }))
     .toBeVisible({ timeout: 60000 });
   const hub = app.locator("c-housie-board-hub");
@@ -86,7 +109,7 @@ test("two-human start requires the second role and captures both ticket holds be
   const stamp = Date.now();
   const owner = await createAccount(page, stamp, "owner");
   const member = await createAccount(page, stamp, "member");
-  const ownerSession = await openAccount(page, owner.key, owner.displayName);
+  const ownerSession = await openAccount(page, owner.key, owner.displayName, housie);
   const boardName = "M1 Start Board " + stamp;
 
   await ownerSession.hub.getByRole("textbox", { name: "Board name", exact: true }).fill(boardName);
@@ -97,7 +120,7 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(boardId).toMatch(/^[a-f0-9]{32}$/i);
 
   const memberPage = await page.context().newPage();
-  const memberSession = await openAccount(memberPage, member.key, member.displayName);
+  const memberSession = await openAccount(memberPage, member.key, member.displayName, housie);
   await memberSession.hub.getByRole("textbox", { name: "Invitation board ID", exact: true }).fill(boardId as string);
   await memberSession.hub.getByRole("button", { name: "Join board", exact: true }).click();
   const memberCard = memberSession.hub.locator("article.board-card").filter({ hasText: boardName });
