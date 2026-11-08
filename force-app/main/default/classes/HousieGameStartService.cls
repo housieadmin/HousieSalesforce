@@ -28,6 +28,7 @@ public without sharing class HousieGameStartService {
         @AuraEnabled public String status;
         @AuraEnabled public String requesterRole;
         @AuraEnabled public Boolean canApprove;
+        @AuraEnabled public Boolean canExecute;
         @AuraEnabled public String currentUserResponse;
         @AuraEnabled public Integer approvedCount;
     }
@@ -291,11 +292,13 @@ public without sharing class HousieGameStartService {
         String gameAdminId = findGameAdmin(participants);
         String role = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, true);
         List<Game_Action_Request__b> rows = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
+        rows.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
         List<StartRequestView> result = new List<StartRequestView>();
         Set<String> requestIds = new Set<String>();
         for (Game_Action_Request__b row : rows) {
-            if (row.Action_Type__c == START_ACTION && row.Expires_At__c != null &&
-                row.Expires_At__c > System.now() && row.Expected_Game_State__c == context.gameRow.Status__c) {
+            if (row.Action_Type__c == START_ACTION && row.Expected_Game_State__c == 'WAITING' &&
+                row.Expires_At__c != null && row.Expires_At__c > System.now() &&
+                (row.Status__c == 'OPEN' || (row.Status__c == 'APPROVED' && row.Executed_At__c == null))) {
                 requestIds.add(row.Record_Id__c);
             }
         }
@@ -322,15 +325,22 @@ public without sharing class HousieGameStartService {
             String requesterRole = String.valueOf(rules.get('requesterRole'));
             List<Game_Action_Response__b> responses = byRequest.containsKey(row.Record_Id__c)
                 ? byRequest.get(row.Record_Id__c) : new List<Game_Action_Response__b>();
+            Boolean ready = requesterRole == 'SUPER_ADMIN' ||
+                approvalThreshold(row.Requester_Account_Id__c, requesterRole, responses);
             StartRequestView view = new StartRequestView();
             view.requestId = row.Record_Id__c;
+            view.gameId = row.Game_Id__c;
+            view.boardId = boardId;
             view.actionType = row.Action_Type__c;
             view.requesterAccountId = row.Requester_Account_Id__c;
             view.createdAt = row.Created_At__c;
             view.expiresAt = row.Expires_At__c;
             view.status = row.Status__c;
             view.requesterRole = requesterRole;
-            view.canApprove = role == 'ADMIN' || role == 'NON_ADMIN';
+            view.canApprove = row.Status__c == 'OPEN' && (role == 'ADMIN' || role == 'NON_ADMIN');
+            view.canExecute = ready && (HousieSecurity.isSuperAdmin(actor) ||
+                role == 'ADMIN' || role == 'NON_ADMIN');
+            view.readyToExecute = ready;
             view.approvedCount = requesterRole == 'INITIATOR_ONLY' ? 0 : 1;
             for (Game_Action_Response__b responseRow : responses) {
                 if (responseRow.Account_Id__c == actor.Account_Key__c) view.currentUserResponse = responseRow.Response__c;
