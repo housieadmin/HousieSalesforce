@@ -326,7 +326,7 @@ export default class HousieBoardHub extends LightningElement {
       } else {
         this.success = response === 'APPROVE'
           ? 'Approval recorded. Waiting for the other required approval role.'
-          : 'Rejection recorded. The request remains open while an eligible approval is still possible.';
+          : 'Rejection recorded. The request remains open until the required approvals are satisfied or it expires.';
       }
       this.loading = false;
       await this.refresh();
