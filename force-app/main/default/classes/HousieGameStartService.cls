@@ -17,6 +17,10 @@ public without sharing class HousieGameStartService {
     }
     public class StartRequestView {
         @AuraEnabled public String requestId;
+        @AuraEnabled public String gameId;
+        @AuraEnabled public String boardId;
+        @AuraEnabled public Integer nextCursor;
+        @AuraEnabled public Boolean readyToExecute;
         @AuraEnabled public String actionType;
         @AuraEnabled public String requesterAccountId;
         @AuraEnabled public Datetime createdAt;
@@ -325,6 +329,33 @@ public without sharing class HousieGameStartService {
                 if (responseRow.Account_Id__c == actor.Account_Key__c) view.currentUserResponse = responseRow.Response__c;
                 if (responseRow.Response__c == 'APPROVE') view.approvedCount++;
             }
+            result.add(view);
+        }
+        return result;
+    }
+
+    @AuraEnabled
+    public static List<StartRequestView> listPendingStartExecutions(String accountId) {
+        Housie_Account__c actor = HousieSecurity.requireAccount(accountId);
+        List<Housie_Ticket_Command__c> commands = [
+            SELECT Request_Key__c, Ticket_Id__c, Board_Id__c, Game_Id__c,
+                   Status__c, Payload__c, Updated_At__c
+            FROM Housie_Ticket_Command__c
+            WHERE Account_Key__c = :actor.Account_Key__c
+              AND Action_Type__c = :START_EXECUTION_COMMAND
+              AND Status__c IN ('PREPARED','CAPTURED')
+            ORDER BY Updated_At__c ASC LIMIT 100
+        ];
+        List<StartRequestView> result = new List<StartRequestView>();
+        for (Housie_Ticket_Command__c command : commands) {
+            Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
+            StartRequestView view = new StartRequestView();
+            view.requestId = command.Ticket_Id__c;
+            view.gameId = command.Game_Id__c;
+            view.boardId = command.Board_Id__c;
+            view.status = command.Status__c;
+            view.nextCursor = Integer.valueOf(String.valueOf(payload.get('cursor')));
+            view.readyToExecute = command.Status__c == 'CAPTURED';
             result.add(view);
         }
         return result;
@@ -1106,6 +1137,11 @@ public without sharing class HousieGameStartService {
         result.gameId = command.Game_Id__c;
         result.status = command.Status__c;
         result.readyToExecute = command.Status__c == 'COMMITTED' || command.Status__c == 'CAPTURED';
+        if (command.Action_Type__c == START_EXECUTION_COMMAND && String.isNotBlank(command.Payload__c)) {
+            Map<String,Object> payload = (Map<String,Object>)JSON.deserializeUntyped(command.Payload__c);
+            result.nextCursor = Integer.valueOf(String.valueOf(payload.get('cursor')));
+            result.complete = command.Status__c == 'COMMITTED';
+        }
         result.message = command.Status__c == 'COMMITTED'
             ? 'Command is already committed.' : 'Command is prepared and can be retried.';
         return result;
