@@ -1043,20 +1043,40 @@ public without sharing class HousieGameStartService {
             WHERE Account_Key__c IN :accountIds
             LIMIT 2000
         ];
-        Map<String,Housie_Account__c> byAccount = new Map<String,Housie_Account__c>();
-        for (Housie_Account__c account : accounts) byAccount.put(account.Account_Key__c, account);
-        Integer grace = graceSeconds == null || graceSeconds <= 0 ? 90 : graceSeconds;
-        Datetime cutoff = System.now().addSeconds(-grace);
-        Participant firstAvailable;
+        Map<String,Decimal> joinSequences = new Map<String,Decimal>();
         for (Participant participant : participants.values()) {
-            Housie_Account__c account = byAccount.get(participant.accountId);
-            if (account == null || account.Status__c != 'ACTIVE' || account.Last_Seen_At__c == null ||
-                account.Last_Seen_At__c < cutoff) continue;
-            if (firstAvailable == null || participant.joinSequence < firstAvailable.joinSequence) {
-                firstAvailable = participant;
+            joinSequences.put(participant.accountId, participant.joinSequence);
+        }
+        Map<String,Datetime> lastSeenByAccount = new Map<String,Datetime>();
+        Set<String> activeAccounts = new Set<String>();
+        for (Housie_Account__c account : accounts) {
+            if (account.Status__c == 'ACTIVE') activeAccounts.add(account.Account_Key__c);
+            lastSeenByAccount.put(account.Account_Key__c, account.Last_Seen_At__c);
+        }
+        Integer grace = graceSeconds == null || graceSeconds <= 0 ? 90 : graceSeconds;
+        return selectAvailableAdmin(joinSequences, lastSeenByAccount, activeAccounts,
+            System.now().addSeconds(-grace));
+    }
+
+    @TestVisible
+    static String selectAvailableAdmin(
+        Map<String,Decimal> joinSequences,
+        Map<String,Datetime> lastSeenByAccount,
+        Set<String> activeAccounts,
+        Datetime cutoff
+    ) {
+        String selectedAccount;
+        Decimal selectedSequence;
+        for (String accountId : joinSequences.keySet()) {
+            Datetime lastSeen = lastSeenByAccount.get(accountId);
+            Decimal sequence = joinSequences.get(accountId);
+            if (!activeAccounts.contains(accountId) || lastSeen == null || lastSeen < cutoff || sequence == null) continue;
+            if (selectedAccount == null || sequence < selectedSequence) {
+                selectedAccount = accountId;
+                selectedSequence = sequence;
             }
         }
-        return firstAvailable == null ? null : firstAvailable.accountId;
+        return selectedAccount;
     }
 
     private static String resolveRequesterRole(String boardId, String accountId,
