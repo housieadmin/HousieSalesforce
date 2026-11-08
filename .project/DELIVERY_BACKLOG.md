@@ -21,9 +21,11 @@ Implement the complete ordinary and super-admin start paths in SPEC §§3.3–3.
 
 - A start may be requested by an authorized game participant or board administrator. Enforce the platform role and board/game membership rules server-side.
 - Validate that the game is WAITING, the minimum number of distinct human accounts each own at least one committed active paid human ticket, and an eligible game admin is available. Multiple tickets from one account count once.
+- Establish the initial game admin according to SPEC: the first eligible human ticket owner by participant join order. The current ticket-purchase path writes participant rows but does not populate `Game__b.Current_Admin_Account_Id__c`; do not assume this field is already correct.
+- Define the start-time availability check explicitly. There is no persisted presence/heartbeat field in the current Game or Board Member model. For ordinary start, an eligible admin's valid approval is the positive availability signal; a platform super-admin may act using inherited administrative authority. Do not build ongoing online/offline tracking or admin succession here—that belongs in Package 2.
 - Ordinary start requires two distinct role approvals: one eligible admin (current game admin or participating board admin) and one different non-admin human participant. A requester may count for their own role category, but one account cannot satisfy both.
 - A participating board admin may provide the admin approval. A non-participating board admin may initiate but cannot count as a participating approver.
-- A platform super-admin may execute start immediately and must produce the required audit record.
+- A platform super-admin may execute start immediately without joining or ordinary approvals. Record actor, action, game, timestamp and reason in the required audit record.
 - Persist open requests and actual responses; do not pre-create response rows. Record rejection without prematurely vetoing a request while the required approval threshold remains achievable.
 - Enforce the configured request expiry (default 60 seconds), and revalidate expected game state and reviewer eligibility at execution time. Expired or stale requests must never start a game.
 - On approval, freeze active human participation, ticket layouts and ticket modes. For this first human-only slice, do not fund bot tickets or contributions; reject or safely prevent start if unsupported active bot commitments are present rather than silently ignoring them.
