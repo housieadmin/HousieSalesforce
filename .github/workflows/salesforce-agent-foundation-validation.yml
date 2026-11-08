@@ -1,0 +1,43 @@
+name: Salesforce Agent Foundation Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/actions/**'
+      - '.github/workflows/salesforce-ai-iteration-deploy.yml'
+      - '.github/workflows/salesforce-ai-iteration-restore.yml'
+      - '.github/workflows/salesforce-deploy.yml'
+      - '.github/workflows/salesforce-manual-validation.yml'
+      - '.github/workflows/salesforce-org-sync.yml'
+      - '.github/workflows/salesforce-pr-validation.yml'
+      - '.github/workflows/salesforce-agent-foundation-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint workflows and composite actions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - name: Lint Salesforce workflows
+        run: |
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 \
+            .github/workflows/salesforce-ai-iteration-deploy.yml \
+            .github/workflows/salesforce-ai-iteration-restore.yml \
+            .github/workflows/salesforce-deploy.yml \
+            .github/workflows/salesforce-manual-validation.yml \
+            .github/workflows/salesforce-org-sync.yml \
+            .github/workflows/salesforce-pr-validation.yml \
+            .github/workflows/salesforce-agent-foundation-validation.yml
+      - name: Validate composite action metadata
+        run: |
+          ruby -e 'require "yaml"; ARGV.each { |f| d = YAML.load_file(f); abort "#{f}: expected composite action" unless d.dig("runs", "using") == "composite"; puts "Validated #{f}" }' \
+            .github/actions/setup-salesforce-cli/action.yml \
+            .github/actions/salesforce-jwt-auth/action.yml
