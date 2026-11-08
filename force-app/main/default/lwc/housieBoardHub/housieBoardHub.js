@@ -164,7 +164,9 @@ export default class HousieBoardHub extends LightningElement {
           hasPendingStartRequest: Boolean(pendingStartRequest),
           hasPendingStartExecution: Boolean(pendingStartExecution),
           hasPendingStart,
-          canRequestStart: board.currentGameStatus === 'WAITING' && !hasPendingStart && startRequestsForBoard.length === 0,
+          canRequestStart: board.currentGameStatus === 'WAITING' &&
+            (hasTickets || board.membershipRole === 'BOARD_ADMIN') &&
+            !hasPendingStart && startRequestsForBoard.length === 0,
           ticketMode: previousModes.get(board.boardId) || 'MANUAL',
           ticketCount: tickets.length,
           canPurchase: board.currentGameStatus === 'WAITING' && pending.length === 0 && !hasPendingStart,
