@@ -13,6 +13,19 @@ import prepareWaitingGameWithdrawal from '@salesforce/apex/HousieGameTicketServi
 import commitTicketCommand from '@salesforce/apex/HousieGameTicketService.commitTicketCommand';
 import completeTicketCommand from '@salesforce/apex/HousieGameTicketService.completeTicketCommand';
 import listMyPendingActions from '@salesforce/apex/HousieGameTicketService.listMyPendingActions';
+import prepareStartRequest from '@salesforce/apex/HousieGameStartService.prepareStartRequest';
+import commitStartRequest from '@salesforce/apex/HousieGameStartService.commitStartRequest';
+import completeStartRequest from '@salesforce/apex/HousieGameStartService.completeStartRequest';
+import respondToStartRequest from '@salesforce/apex/HousieGameStartService.respondToStartRequest';
+import listOpenStartRequests from '@salesforce/apex/HousieGameStartService.listOpenStartRequests';
+import listPendingStartRequests from '@salesforce/apex/HousieGameStartService.listPendingStartRequests';
+import listPendingStartExecutions from '@salesforce/apex/HousieGameStartService.listPendingStartExecutions';
+import prepareStartExecution from '@salesforce/apex/HousieGameStartService.prepareStartExecution';
+import commitStartExecutionBatch from '@salesforce/apex/HousieGameStartService.commitStartExecutionBatch';
+import completeStartExecutionBatch from '@salesforce/apex/HousieGameStartService.completeStartExecutionBatch';
+import commitStartActivation from '@salesforce/apex/HousieGameStartService.commitStartActivation';
+import completeStartActivation from '@salesforce/apex/HousieGameStartService.completeStartActivation';
+import recordPresence from '@salesforce/apex/HousieGameStartService.recordPresence';
 
 export default class HousieBoardHub extends LightningElement {
   @api recordId;
@@ -23,6 +36,7 @@ export default class HousieBoardHub extends LightningElement {
     this._accountKey = value;
     if (changed && this.isConnected) {
       this.boards = [];
+      this.sendPresenceHeartbeat();
       this.refresh();
     }
   }
@@ -35,6 +49,7 @@ export default class HousieBoardHub extends LightningElement {
   loading = false;
   error;
   success;
+  _presenceTimer;
 
   @wire(getRecord, { recordId: '$recordId', fields: [ACCOUNT_KEY_FIELD] })
   wiredAccount({ data, error }) {
@@ -58,9 +73,28 @@ export default class HousieBoardHub extends LightningElement {
   ];
 
   connectedCallback() {
-    // The public HousieApp supplies the resolved account key directly.
-    // Record-page usage can still resolve it later through the record wire below.
-    if (this.accountKey) this.refresh();
+    // Presence is account-scoped: multiple open tabs/devices refresh one timestamp.
+    if (this.accountKey) {
+      this.sendPresenceHeartbeat();
+      this.refresh();
+    }
+    this._presenceTimer = window.setInterval(() => this.sendPresenceHeartbeat(), 30000);
+  }
+
+  disconnectedCallback() {
+    if (this._presenceTimer) {
+      window.clearInterval(this._presenceTimer);
+      this._presenceTimer = undefined;
+    }
+  }
+
+  async sendPresenceHeartbeat() {
+    if (!this.accountKey) return;
+    try {
+      await recordPresence({ accountId: this.accountKey });
+    } catch (e) {
+      // A failed heartbeat is intentionally not treated as online by the server.
+    }
   }
 
   get hasBoards() { return this.boards.length > 0; }
@@ -81,13 +115,15 @@ export default class HousieBoardHub extends LightningElement {
     this.loading = true;
     this.error = undefined;
     try {
-      const [myBoards, publicBoards, pendingActions] = await Promise.all([
+      const [myBoards, publicBoards, pendingActions, pendingStartRequests, pendingStartExecutions] = await Promise.all([
         listMyBoards({ accountId: this.accountKey }),
         listPublicBoards(),
-        listMyPendingActions({ accountId: this.accountKey })
+        listMyPendingActions({ accountId: this.accountKey }),
+        listPendingStartRequests({ accountId: this.accountKey }),
+        listPendingStartExecutions({ accountId: this.accountKey })
       ]);
       const pendingByBoard = {};
-      pendingActions.forEach(action => {
+      pendingActions.filter(action => ['PURCHASE', 'WITHDRAW'].includes(action.actionType)).forEach(action => {
         if (!pendingByBoard[action.boardId]) pendingByBoard[action.boardId] = [];
         pendingByBoard[action.boardId].push({
           ...action,
@@ -95,25 +131,51 @@ export default class HousieBoardHub extends LightningElement {
             ? 'Finish withdrawal' : 'Finish ticket purchase'
         });
       });
+      const pendingStartRequestByBoard = {};
+      pendingStartRequests.forEach(action => { pendingStartRequestByBoard[action.boardId] = action; });
+      const pendingStartExecutionByBoard = {};
+      pendingStartExecutions.forEach(action => { pendingStartExecutionByBoard[action.boardId] = action; });
       const previousModes = new Map(this.boards.map(board => [board.boardId, board.ticketMode]));
       const boardsWithTickets = await Promise.all(myBoards.map(async board => {
-        const tickets = await listMyTickets({
-          boardId: board.boardId, accountId: this.accountKey
-        });
+        const [tickets, startRequests] = await Promise.all([
+          listMyTickets({ boardId: board.boardId, accountId: this.accountKey }),
+          listOpenStartRequests({ boardId: board.boardId, accountId: this.accountKey })
+        ]);
         const hasTickets = tickets.length > 0;
         const pending = pendingByBoard[board.boardId] || [];
+        const startRequestsForBoard = startRequests.map(request => ({
+          ...request,
+          canRespond: request.canApprove && request.requesterAccountId !== this.accountKey && !request.currentUserResponse,
+          canExecute: request.canExecute && request.readyToExecute,
+          executeLabel: request.hasPendingExecution ? 'Resume game start' : 'Execute game start'
+        }));
+        const pendingStartRequest = pendingStartRequestByBoard[board.boardId];
+        const hasRequestRecovery = startRequestsForBoard.some(request => request.hasPendingExecution);
+        const pendingStartExecution = hasRequestRecovery
+          ? undefined : pendingStartExecutionByBoard[board.boardId];
+        const hasPendingStart = Boolean(pendingStartRequest || pendingStartExecution);
         return {
           ...board,
           tickets,
           hasTickets,
           pendingActions: pending,
           hasPendingActions: pending.length > 0,
+          startRequests: startRequestsForBoard,
+          hasStartRequests: startRequestsForBoard.length > 0,
+          pendingStartRequest,
+          pendingStartExecution,
+          hasPendingStartRequest: Boolean(pendingStartRequest),
+          hasPendingStartExecution: Boolean(pendingStartExecution),
+          hasPendingStart,
+          canRequestStart: board.currentGameStatus === 'WAITING' &&
+            (hasTickets || board.membershipRole === 'BOARD_ADMIN') &&
+            !hasPendingStart && startRequestsForBoard.length === 0,
           ticketMode: previousModes.get(board.boardId) || 'MANUAL',
           ticketCount: tickets.length,
-          canPurchase: board.currentGameStatus === 'WAITING' && pending.length === 0,
-          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING' && pending.length === 0,
-          canLeave: pending.length === 0,
-          disableLeave: pending.length > 0
+          canPurchase: board.currentGameStatus === 'WAITING' && pending.length === 0 && !hasPendingStart,
+          canWithdraw: hasTickets && board.currentGameStatus === 'WAITING' && pending.length === 0 && !hasPendingStart,
+          canLeave: pending.length === 0 && !hasPendingStart,
+          disableLeave: pending.length > 0 || hasPendingStart
         };
       }));
       this.boards = boardsWithTickets;
@@ -201,6 +263,149 @@ export default class HousieBoardHub extends LightningElement {
 
   createRequestId() {
     return String(Date.now()) + '-' + Math.random().toString(36).slice(2);
+  }
+
+  async requestGameStart(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    this.loading = true;
+    try {
+      const prepared = await prepareStartRequest({
+        boardId, accountId: this.accountKey, clientRequestId: this.createRequestId()
+      });
+      await commitStartRequest({ requestId: prepared.requestId, accountId: this.accountKey });
+      const completed = await completeStartRequest({ requestId: prepared.requestId, accountId: this.accountKey });
+      if (completed.readyToExecute) {
+        const result = await this.runStartExecution(boardId, prepared.requestId);
+        this.success = result.message;
+      } else {
+        this.success = completed.message;
+      }
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      const message = e?.body?.message || e?.message || 'The start request is pending. Resume it from the board card.';
+      this.loading = false;
+      await this.refresh();
+      this.error = message;
+    }
+  }
+
+  async resumeStartRequest(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    const requestId = event.currentTarget.dataset.requestId;
+    this.loading = true;
+    try {
+      await commitStartRequest({ requestId, accountId: this.accountKey });
+      const completed = await completeStartRequest({ requestId, accountId: this.accountKey });
+      if (completed.readyToExecute) {
+        const result = await this.runStartExecution(boardId, requestId);
+        this.success = result.message;
+      } else {
+        this.success = completed.message;
+      }
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      const message = e?.body?.message || e?.message || 'The start request could not be resumed.';
+      this.loading = false;
+      await this.refresh();
+      this.error = message;
+    }
+  }
+
+  async respondToStart(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    const requestId = event.currentTarget.dataset.requestId;
+    const response = event.currentTarget.dataset.response;
+    this.loading = true;
+    try {
+      const result = await respondToStartRequest({
+        boardId, requestId, accountId: this.accountKey, response
+      });
+      if (result.readyToExecute) {
+        const started = await this.runStartExecution(boardId, requestId);
+        this.success = started.message;
+      } else {
+        this.success = response === 'APPROVE'
+          ? 'Approval recorded. Waiting for the other required approval role.'
+          : 'Rejection recorded. The request remains open until the required approvals are satisfied or it expires.';
+      }
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      const message = e?.body?.message || e?.message || 'Unable to record the start response.';
+      this.loading = false;
+      await this.refresh();
+      this.error = message;
+    }
+  }
+
+  async executeApprovedStart(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    const requestId = event.currentTarget.dataset.requestId;
+    this.loading = true;
+    try {
+      const result = await this.runStartExecution(boardId, requestId);
+      this.success = result.message;
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      const message = e?.body?.message || e?.message || 'The approved game start could not be executed.';
+      this.loading = false;
+      await this.refresh();
+      this.error = message;
+    }
+  }
+
+  async resumeStartExecution(event) {
+    this.clearMessages();
+    const boardId = event.currentTarget.dataset.boardId;
+    const requestId = event.currentTarget.dataset.requestId;
+    this.loading = true;
+    try {
+      const result = await this.runStartExecution(boardId, requestId);
+      this.success = result.message;
+      this.loading = false;
+      await this.refresh();
+    } catch (e) {
+      const message = e?.body?.message || e?.message || 'Game start is still pending. Retry from this board.';
+      this.loading = false;
+      await this.refresh();
+      this.error = message;
+    }
+  }
+
+  async runStartExecution(boardId, requestId) {
+    let state = await prepareStartExecution({
+      boardId, requestId, accountId: this.accountKey
+    });
+    if (state.status === 'COMMITTED') return state;
+    if (state.status !== 'CAPTURED') {
+      let captured = false;
+      for (let batch = 0; batch < 180; batch += 1) {
+        const persisted = await commitStartExecutionBatch({
+          requestId, accountId: this.accountKey
+        });
+        if (persisted.status === 'CAPTURED') {
+          captured = true;
+          break;
+        }
+        const finalized = await completeStartExecutionBatch({
+          requestId, accountId: this.accountKey, nextCursor: persisted.nextCursor
+        });
+        if (finalized.status === 'CAPTURED') {
+          captured = true;
+          break;
+        }
+      }
+      if (!captured) throw new Error('Start funding exceeded the supported batch recovery window.');
+    }
+    await commitStartActivation({ requestId, accountId: this.accountKey });
+    return completeStartActivation({ requestId, accountId: this.accountKey });
   }
 
   async buyTicket(event) {

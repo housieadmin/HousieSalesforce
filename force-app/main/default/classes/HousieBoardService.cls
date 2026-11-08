@@ -7,6 +7,7 @@ public without sharing class HousieBoardService {
         @AuraEnabled public String currentGameId;
         @AuraEnabled public String currentGameStatus;
         @AuraEnabled public String membershipStatus;
+        @AuraEnabled public String membershipRole;
     }
     public class BoardActionResult {
         @AuraEnabled public String boardId;
@@ -151,7 +152,7 @@ public without sharing class HousieBoardService {
             LIMIT 200
         ]);
         List<Game__b> gameRows = [
-            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c
+            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c, Event_Sequence__c
             FROM Game__b
             WHERE Board_Id__c IN :activeBoardIds
             LIMIT 400
@@ -174,7 +175,10 @@ public without sharing class HousieBoardService {
         }
         Map<String,Game__b> gamesById = new Map<String,Game__b>();
         for (Game__b game : gameRows) {
-            if (committedFinalOperations.contains(game.Operation_Id__c)) {
+            if (!committedFinalOperations.contains(game.Operation_Id__c)) continue;
+            Game__b priorGame = gamesById.get(game.Record_Id__c);
+            if (priorGame == null || (game.Event_Sequence__c != null &&
+                (priorGame.Event_Sequence__c == null || game.Event_Sequence__c > priorGame.Event_Sequence__c))) {
                 gamesById.put(game.Record_Id__c, game);
             }
         }
@@ -185,6 +189,7 @@ public without sharing class HousieBoardService {
             if (board == null) continue;
             BoardView view = toView(board);
             view.membershipStatus = 'ACTIVE';
+            view.membershipRole = latestByBoard.get(boardId).role;
             Game__b game = gamesById.get(board.Current_Game_Id__c);
             if (game != null && game.Board_Id__c == board.Record_Id__c) {
                 view.currentGameStatus = game.Status__c;
@@ -213,7 +218,7 @@ public without sharing class HousieBoardService {
         if (publicBoardIds.isEmpty()) return new List<BoardView>();
 
         List<Game__b> gameRows = [
-            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c
+            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c, Event_Sequence__c
             FROM Game__b
             WHERE Board_Id__c IN :publicBoardIds
             LIMIT 400
@@ -225,7 +230,12 @@ public without sharing class HousieBoardService {
 
         Map<String,Game__b> gamesById = new Map<String,Game__b>();
         for (Game__b game : gameRows) {
-            if (committed.contains(game.Operation_Id__c)) gamesById.put(game.Record_Id__c, game);
+            if (!committed.contains(game.Operation_Id__c)) continue;
+            Game__b priorGame = gamesById.get(game.Record_Id__c);
+            if (priorGame == null || (game.Event_Sequence__c != null &&
+                (priorGame.Event_Sequence__c == null || game.Event_Sequence__c > priorGame.Event_Sequence__c))) {
+                gamesById.put(game.Record_Id__c, game);
+            }
         }
         List<BoardView> result = new List<BoardView>();
         for (Board__b board : boardRows) {
@@ -272,6 +282,15 @@ public without sharing class HousieBoardService {
         Board__b board = loadBoard(boardId);
         MembershipState current = currentMembership(boardId, actor.Account_Key__c);
         HousieErrors.require(current != null && current.status == 'ACTIVE', 'You are not an active member of this board.');
+
+        List<Housie_Game_Command_Lock__c> activeGameCommands = [
+            SELECT Status__c
+            FROM Housie_Game_Command_Lock__c
+            WHERE Game_Id__c = :board.Current_Game_Id__c
+            LIMIT 1
+        ];
+        HousieErrors.require(activeGameCommands.isEmpty() || activeGameCommands[0].Status__c != 'PROCESSING',
+            'A game command is being finalized. Finish it before leaving the board.');
 
         List<Housie_Ticket_Command__c> pendingTicketCommands = [
             SELECT Id
@@ -373,7 +392,7 @@ public without sharing class HousieBoardService {
     private static Game__b findGame(String boardId, String gameId) {
         if (String.isBlank(boardId) || String.isBlank(gameId)) return null;
         List<Game__b> rows = [
-            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c
+            SELECT Record_Id__c, Operation_Id__c, Board_Id__c, Status__c, Event_Sequence__c
             FROM Game__b
             WHERE Board_Id__c = :boardId
             LIMIT 200
