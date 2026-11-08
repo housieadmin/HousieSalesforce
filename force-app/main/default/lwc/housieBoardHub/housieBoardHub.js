@@ -150,7 +150,9 @@ export default class HousieBoardHub extends LightningElement {
           executeLabel: request.hasPendingExecution ? 'Resume game start' : 'Execute game start'
         }));
         const pendingStartRequest = pendingStartRequestByBoard[board.boardId];
-        const pendingStartExecution = pendingStartExecutionByBoard[board.boardId];
+        const hasRequestRecovery = startRequestsForBoard.some(request => request.hasPendingExecution);
+        const pendingStartExecution = hasRequestRecovery
+          ? undefined : pendingStartExecutionByBoard[board.boardId];
         const hasPendingStart = Boolean(pendingStartRequest || pendingStartExecution);
         return {
           ...board,
