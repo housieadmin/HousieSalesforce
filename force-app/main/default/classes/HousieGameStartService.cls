@@ -640,7 +640,7 @@ public without sharing class HousieGameStartService {
                 'Record_Id__c' => HousieIds.stableId('GAME_CAPTURE', holdId),
                 'Game_Id__c' => command.Game_Id__c,
                 'Account_Id__c' => account,
-                'Entry_Type__c' => 'TICKET_CAPTURED',
+                'Entry_Type__c' => 'HUMAN_TICKET_CAPTURE',
                 'Amount__c' => amount,
                 'Ticket_Id__c' => ticketId,
                 'Source_Type__c' => 'HUMAN_TICKET',
