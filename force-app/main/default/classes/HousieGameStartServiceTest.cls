@@ -60,6 +60,34 @@ private class HousieGameStartServiceTest {
     }
 
     @IsTest
+    static void adminSuccessionChoosesEarliestOnlineParticipant() {
+        Datetime nowAt = System.now();
+        Map<String,Decimal> sequence = new Map<String,Decimal>{
+            'PLAYER-1' => 1, 'PLAYER-2' => 2, 'PLAYER-3' => 3
+        };
+        Map<String,Datetime> lastSeen = new Map<String,Datetime>{
+            'PLAYER-1' => nowAt.addSeconds(-120),
+            'PLAYER-2' => nowAt.addSeconds(-20),
+            'PLAYER-3' => nowAt
+        };
+        Set<String> active = new Set<String>{'PLAYER-1','PLAYER-2','PLAYER-3'};
+        System.assertEquals('PLAYER-2',
+            HousieGameStartService.selectAvailableAdmin(sequence, lastSeen, active, nowAt.addSeconds(-90)));
+    }
+
+    @IsTest
+    static void adminSuccessionIgnoresSuspendedOrOfflineParticipants() {
+        Datetime nowAt = System.now();
+        Map<String,Decimal> sequence = new Map<String,Decimal>{'PLAYER-1'=>1,'PLAYER-2'=>2};
+        Map<String,Datetime> lastSeen = new Map<String,Datetime>{
+            'PLAYER-1'=>nowAt, 'PLAYER-2'=>nowAt.addSeconds(-200)
+        };
+        Set<String> active = new Set<String>{'PLAYER-2'};
+        System.assertEquals(null,
+            HousieGameStartService.selectAvailableAdmin(sequence, lastSeen, active, nowAt.addSeconds(-90)));
+    }
+
+    @IsTest
     static void platformSuperAdminBypassesApprovals() {
         System.assertEquals(true,
             HousieGameStartService.approvalThreshold('ROOT', 'SUPER_ADMIN', new List<Game_Action_Response__b>()));
