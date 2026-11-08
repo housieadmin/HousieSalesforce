@@ -51,6 +51,56 @@
                   disabled={loading}></lightning-button>
               </div>
             </template>
+            <template if:true={board.canRequestStart}>
+              <div class="start-controls">
+                <lightning-button label="Request game start" variant="brand"
+                  data-board-id={board.boardId} onclick={requestGameStart}
+                  disabled={loading}></lightning-button>
+              </div>
+            </template>
+            <template if:true={board.hasPendingStartRequest}>
+              <div class="pending-actions">
+                <p class="hint">A start request is prepared but not yet fully persisted.</p>
+                <lightning-button label="Finish start request" variant="brand"
+                  data-board-id={board.boardId} data-request-id={board.pendingStartRequest.requestId}
+                  onclick={resumeStartRequest} disabled={loading}></lightning-button>
+              </div>
+            </template>
+            <template if:true={board.hasPendingStartExecution}>
+              <div class="pending-actions">
+                <p class="hint">Game funding or activation is pending. Resume to safely finish the start.</p>
+                <lightning-button label="Resume game start" variant="brand"
+                  data-board-id={board.boardId} data-request-id={board.pendingStartExecution.requestId}
+                  onclick={resumeStartExecution} disabled={loading}></lightning-button>
+              </div>
+            </template>
+            <template if:true={board.hasStartRequests}>
+              <div class="pending-actions">
+                <h4>Start approval requests</h4>
+                <template for:each={board.startRequests} for:item="request">
+                  <div class="pending-action" key={request.requestId}>
+                    <div>
+                      <p class="hint">Requested by {request.requesterAccountId} · {request.approvedCount}/2 approvals · expires {request.expiresAt}</p>
+                      <template if:true={request.currentUserResponse}>
+                        <p class="hint">Your response: {request.currentUserResponse}</p>
+                      </template>
+                    </div>
+                    <template if:true={request.canRespond}>
+                      <div class="approval-actions">
+                        <lightning-button label="Approve" variant="brand"
+                          data-board-id={board.boardId} data-request-id={request.requestId}
+                          data-response="APPROVE" onclick={respondToStart}
+                          disabled={loading}></lightning-button>
+                        <lightning-button label="Reject" variant="destructive-text"
+                          data-board-id={board.boardId} data-request-id={request.requestId}
+                          data-response="REJECT" onclick={respondToStart}
+                          disabled={loading}></lightning-button>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
             <template if:true={board.hasPendingActions}>
               <div class="pending-actions">
                 <p class="hint">A previous action is prepared and needs to be finalized.</p>
