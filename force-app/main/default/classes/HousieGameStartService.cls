@@ -94,9 +94,26 @@ public without sharing class HousieGameStartService {
         Housie_Ticket_Command__c prior = findCommand(commandKey);
         if (prior != null) return commandResult(prior);
 
-        Housie_Game_Command_Lock__c gate = lockGameCommandSlot(context.gameRow.Record_Id__c);
+        String preparedGameId = context.gameRow.Record_Id__c;
+        Housie_Game_Command_Lock__c gate = lockGameCommandSlot(preparedGameId);
         HousieErrors.require(gate == null || gate.Status__c != 'PROCESSING',
             'Another game command is being finalized. Retry shortly.');
+        context = loadCurrentGame(boardId);
+        HousieErrors.require(context.gameRow.Record_Id__c == preparedGameId &&
+            context.gameRow.Status__c == 'WAITING',
+            'The game changed while preparing the start request. Refresh and retry.');
+        participants = loadActiveParticipants(preparedGameId);
+        minimum = integerConfig(context.config, 'minimumHumanParticipants', 2);
+        HousieErrors.require(participants.size() >= minimum,
+            'The game no longer meets minimum human participation.');
+        gameAdminId = findAvailableGameAdmin(participants,
+            integerConfig(context.config, 'adminOfflineGraceSeconds', 90));
+        HousieErrors.require(String.isNotBlank(gameAdminId),
+            'An eligible game admin must be online before requesting a start.');
+        requesterRole = resolveRequesterRole(boardId, actor.Account_Key__c, participants, gameAdminId, false);
+        HousieErrors.require(HousieSecurity.isSuperAdmin(actor) ||
+            requesterRole == 'ADMIN' || requesterRole == 'NON_ADMIN' || requesterRole == 'INITIATOR_ONLY',
+            'Only a participant or board admin can request a game start.');
         List<Game_Action_Request__b> openRequests = findActionRequests(context.gameRow.Record_Id__c, 'OPEN');
         openRequests.addAll(findActionRequests(context.gameRow.Record_Id__c, 'APPROVED'));
         for (Game_Action_Request__b openRequest : openRequests) {
