@@ -146,23 +146,17 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(ownerTicket.fee).toBe(10);
   expect(memberTicket.fee).toBe(10);
 
-  // The game admin is the first eligible participant; both active tabs heartbeat.
-  await ownerSession.hub.getByRole("button", { name: "Refresh boards" }).click();
-  await expect(ownerCard.getByRole("button", { name: "Request game start", exact: true }))
-    .toBeVisible({ timeout: 60000 });
-  await ownerCard.getByRole("button", { name: "Request game start", exact: true }).click();
-
   const initialGames = safeBigQuery<Record<string, unknown>>(
     "SELECT Board_Id__c, Status__c, Record_Id__c FROM Game__b WHERE Board_Id__c = '" + boardId + "'"
   );
   expect(initialGames).toHaveLength(1);
   const gameId = String(initialGames[0].Record_Id__c);
-  const openRequests = safeBigQuery<Record<string, unknown>>(
-    "SELECT Game_Id__c, Status__c, Record_Id__c, Requester_Account_Id__c FROM Game_Action_Request__b WHERE Game_Id__c = '" + gameId + "' AND Status__c = 'OPEN'"
-  );
-  const requestRow = openRequests.find(row => row.Status__c === "OPEN" && row.Requester_Account_Id__c === owner.key);
-  expect(requestRow, "Owner should persist an OPEN start request").toBeTruthy();
-  const requestId = String(requestRow!.Record_Id__c);
+
+  // The game admin is the first eligible participant; both active tabs heartbeat.
+  await ownerSession.hub.getByRole("button", { name: "Refresh boards" }).click();
+  await expect(ownerCard.getByRole("button", { name: "Request game start", exact: true }))
+    .toBeVisible({ timeout: 60000 });
+  await ownerCard.getByRole("button", { name: "Request game start", exact: true }).click();
 
   await memberSession.hub.getByRole("button", { name: "Refresh boards" }).click();
   const approvalCard = memberSession.hub.locator("article.board-card").filter({ hasText: boardName });
@@ -188,10 +182,12 @@ test("two-human start requires the second role and captures both ticket holds be
   expect(Number(game.Event_Sequence__c)).toBe(2);
 
   const actionRequests = safeBigQuery<Record<string, unknown>>(
-    "SELECT Game_Id__c, Status__c, Record_Id__c, Executed_At__c FROM Game_Action_Request__b WHERE Game_Id__c = '" + gameId + "'"
+    "SELECT Game_Id__c, Status__c, Record_Id__c, Requester_Account_Id__c, Executed_At__c FROM Game_Action_Request__b WHERE Game_Id__c = '" + gameId + "'"
   );
-  expect(actionRequests.some(row => row.Record_Id__c === requestId &&
-    row.Status__c === "APPROVED" && row.Executed_At__c)).toBe(true);
+  const approvedRequest = actionRequests.find(row => row.Status__c === "APPROVED" &&
+    row.Requester_Account_Id__c === owner.key && row.Executed_At__c);
+  expect(approvedRequest, "Owner's start request should be approved and executed").toBeTruthy();
+  const requestId = String(approvedRequest!.Record_Id__c);
   const approvals = safeBigQuery<Record<string, unknown>>(
     "SELECT Request_Id__c, Account_Id__c, Response__c, Eligibility_Role__c FROM Game_Action_Response__b WHERE Request_Id__c = '" + requestId + "'"
   );
