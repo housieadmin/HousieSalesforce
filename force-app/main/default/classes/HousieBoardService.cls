@@ -7,6 +7,7 @@ public without sharing class HousieBoardService {
         @AuraEnabled public String currentGameId;
         @AuraEnabled public String currentGameStatus;
         @AuraEnabled public String membershipStatus;
+        @AuraEnabled public String membershipRole;
     }
     public class BoardActionResult {
         @AuraEnabled public String boardId;
@@ -188,6 +189,7 @@ public without sharing class HousieBoardService {
             if (board == null) continue;
             BoardView view = toView(board);
             view.membershipStatus = 'ACTIVE';
+            view.membershipRole = latestByBoard.get(boardId).role;
             Game__b game = gamesById.get(board.Current_Game_Id__c);
             if (game != null && game.Board_Id__c == board.Record_Id__c) {
                 view.currentGameStatus = game.Status__c;
