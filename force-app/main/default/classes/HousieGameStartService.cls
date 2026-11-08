@@ -1067,7 +1067,8 @@ public without sharing class HousieGameStartService {
             SELECT Record_Id__c, Operation_Id__c, Owner_Account_Id__c, Status__c,
                    Entry_Fee__c, Wallet_Hold_Id__c
             FROM Ticket__b
-            WHERE Game_Id__c = :gameId AND Ticket_Kind__c = 'HUMAN' LIMIT 2000
+            WHERE Game_Id__c = :gameId AND Ticket_Kind__c = 'HUMAN'
+            ORDER BY Record_Id__c ASC LIMIT 2000
         ];
         Set<String> operations = new Set<String>();
         for (Ticket__b row : rows) operations.add(row.Operation_Id__c);
