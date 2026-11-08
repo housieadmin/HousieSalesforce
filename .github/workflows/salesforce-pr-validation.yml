@@ -42,5 +42,3 @@ jobs:
       - name: Validate application metadata and run local Apex tests
         run: sf project deploy start --dry-run --manifest manifest/package.xml --target-org housie-dev --test-level RunLocalTests --wait 60
 
-      - name: Run local Apex tests
-        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
