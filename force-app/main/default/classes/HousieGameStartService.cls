@@ -377,30 +377,28 @@ public without sharing class HousieGameStartService {
         Map<String,Decimal> accountTotals = new Map<String,Decimal>();
         List<Object> holdPlan = new List<Object>();
         Decimal total = 0;
-        for (Ticket__b ticket : tickets) {
-            if (ticket.Status__c != 'ACTIVE' || withdrawnTickets.contains(ticket.Record_Id__c) ||
-                !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
-            List<Wallet_Hold__b> holdRows = [
-                SELECT Record_Id__c, Operation_Id__c, Hold_Id__c, Amount__c, Status__c,
-                       Created_At__c, Updated_At__c
-                FROM Wallet_Hold__b
-                WHERE Account_Id__c = :ticket.Owner_Account_Id__c
-                  AND Game_Id__c = :context.gameRow.Record_Id__c
-                LIMIT 200
-            ];
-            for (Wallet_Hold__b hold : holdRows) {
-                if (hold.Hold_Id__c == ticket.Wallet_Hold_Id__c &&
-                    HousieBigObjectStore.isCommitted(hold.Operation_Id__c)) {
-                    Wallet_Hold__b prior = latestHolds.get(hold.Hold_Id__c);
-                    if (prior == null || (hold.Updated_At__c != null &&
-                        (prior.Updated_At__c == null || hold.Updated_At__c > prior.Updated_At__c))) {
-                        latestHolds.put(hold.Hold_Id__c, hold);
-                    }
-                }
+        Set<String> participantIds = participants.keySet();
+        List<Wallet_Hold__b> holdRows = [
+            SELECT Record_Id__c, Operation_Id__c, Hold_Id__c, Account_Id__c, Amount__c,
+                   Status__c, Created_At__c, Updated_At__c
+            FROM Wallet_Hold__b
+            WHERE Account_Id__c IN :participantIds AND Game_Id__c = :context.gameRow.Record_Id__c
+            LIMIT 2000
+        ];
+        Set<String> holdOperations = new Set<String>();
+        for (Wallet_Hold__b hold : holdRows) holdOperations.add(hold.Operation_Id__c);
+        Set<String> committedHoldOperations = HousieBigObjectStore.committedOperationIds(holdOperations);
+        for (Wallet_Hold__b hold : holdRows) {
+            if (!committedHoldOperations.contains(hold.Operation_Id__c)) continue;
+            Wallet_Hold__b prior = latestHolds.get(hold.Hold_Id__c);
+            if (prior == null || (hold.Updated_At__c != null &&
+                (prior.Updated_At__c == null || hold.Updated_At__c > prior.Updated_At__c))) {
+                latestHolds.put(hold.Hold_Id__c, hold);
             }
         }
         for (Ticket__b ticket : tickets) {
-            if (ticket.Status__c != 'ACTIVE' || !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
+            if (ticket.Status__c != 'ACTIVE' || withdrawnTickets.contains(ticket.Record_Id__c) ||
+                !participants.containsKey(ticket.Owner_Account_Id__c)) continue;
             Wallet_Hold__b hold = latestHolds.get(ticket.Wallet_Hold_Id__c);
             HousieErrors.require(hold != null && hold.Status__c == 'ACTIVE',
                 'An active human ticket does not have an active committed wallet hold.');
