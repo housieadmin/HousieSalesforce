@@ -482,6 +482,8 @@ public without sharing class HousieGameStartService {
         String commandKey = HousieIds.stableId('START_EXECUTION', requestId);
         Housie_Ticket_Command__c prior = findCommand(commandKey);
         if (prior != null) {
+            HousieErrors.require(prior.Board_Id__c == boardId,
+                'This start execution request belongs to a different board.');
             requireStartExecutionAccess(prior, actor);
             return commandResult(prior);
         }
