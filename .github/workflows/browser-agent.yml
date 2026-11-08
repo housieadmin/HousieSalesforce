@@ -13,6 +13,10 @@ on:
     paths:
       - '.github/workflows/browser-agent.yml'
       - 'browser-agent/scripts/**'
+      - 'browser-agent/framework/**'
+      - 'browser-agent/scenarios/**'
+      - 'browser-agent/package.json'
+      - 'browser-agent/tsconfig.json'
 
 permissions:
   contents: read
@@ -50,6 +54,16 @@ jobs:
       - name: Run parser regression tests
         if: github.event_name == 'pull_request'
         run: node --test browser-agent/scripts/*.test.mjs
+      - name: Install framework dependencies
+        if: github.event_name == 'pull_request'
+        working-directory: browser-agent
+        run: npm install --no-audit --no-fund
+      - name: Run framework unit tests and TypeScript checks
+        if: github.event_name == 'pull_request'
+        working-directory: browser-agent
+        run: |
+          npm run test:framework
+          npx tsc --noEmit -p tsconfig.json
 
       - name: Check out trusted browser-agent runtime and tooling
         if: github.event_name == 'issue_comment' || inputs.source_ref != ''
@@ -78,7 +92,7 @@ jobs:
           RUN_DESCRIPTION: ${{ inputs.run_description }}
         run: |
           set -euo pipefail
-          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!x.startsWith("browser-agent/scenarios/")||!x.endsWith(".spec.ts")||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); const nl=String.fromCharCode(10); fs.appendFileSync(process.env.GITHUB_OUTPUT,["ref="+process.env.REQUESTED_REF,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300),"scenarios="+JSON.stringify(a)].join(nl)+nl);'
+          node -e 'const fs=require("node:fs"); const a=JSON.parse(process.env.SCENARIOS_JSON); if(!Array.isArray(a)||a.length<1||a.length>10||new Set(a).size!==a.length||a.some(x=>typeof x!=="string"||!x.startsWith("browser-agent/scenarios/")||!/\.(?:spec|scenario|workflow)\.ts$/.test(x)||x.includes("..")||x.includes("//"))) throw Error("Invalid scenario list"); if(!process.env.REQUESTED_REF||process.env.REQUESTED_REF.length>200) throw Error("Invalid source ref"); const nl=String.fromCharCode(10); fs.appendFileSync(process.env.GITHUB_OUTPUT,["ref="+process.env.REQUESTED_REF,"description="+(process.env.RUN_DESCRIPTION||"").slice(0,300),"scenarios="+JSON.stringify(a)].join(nl)+nl);'
           cp .browser-agent-runtime/browser-agent/scripts/extract-frontdoor-url.mjs "$RUNNER_TEMP/extract-frontdoor-url.mjs"
 
       - name: Check out requested ref
@@ -105,7 +119,7 @@ jobs:
           const files = JSON.parse(process.env.SCENARIOS_JSON || '[]');
           if (!Array.isArray(files) || files.length < 1 || files.length > 10) throw new Error('Invalid scenario list');
           for (const file of files) {
-            if (typeof file !== 'string' || !/^[A-Za-z0-9._\/-]+$/.test(file) || !file.startsWith('browser-agent/scenarios/') || !file.endsWith('.spec.ts') || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
+            if (typeof file !== 'string' || !/^[A-Za-z0-9._\/-]+$/.test(file) || !file.startsWith('browser-agent/scenarios/') || !/\.(?:spec|scenario|workflow)\.ts$/.test(file) || file.includes('..') || file.includes('//')) throw new Error('Invalid scenario path: ' + file);
             const source = path.resolve('.browser-agent-source', file);
             const real = fs.realpathSync(source);
             const rel = path.relative(sourceRoot, real);
@@ -238,9 +252,19 @@ jobs:
             scenarios: files,
             description: process.env.RUN_DESCRIPTION
           }, null, 2));
-          const args = ['node_modules/@playwright/test/cli.js', 'test', ...files.map(f => path.relative(process.cwd(), path.resolve('scenarios', path.relative('browser-agent/scenarios', f))))];
-          const result = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
-          process.exit(result.status === null ? 1 : result.status);
+          const legacy = files.filter(f => f.endsWith('.spec.ts'));
+          const framework = files.filter(f => /\.(scenario|workflow)\.ts$/.test(f));
+          const relative = list => list.map(f => path.relative(process.cwd(), path.resolve('scenarios', path.relative('browser-agent/scenarios', f))));
+          let exitCode = 0;
+          if (legacy.length) {
+            const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...relative(legacy)], { stdio: 'inherit', env: process.env });
+            if (result.status !== 0) exitCode = result.status === null ? 1 : result.status;
+          }
+          if (framework.length) {
+            const result = spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'framework/cli.ts', ...relative(framework)], { stdio: 'inherit', env: process.env });
+            if (result.status !== 0) exitCode = result.status === null ? 1 : result.status;
+          }
+          process.exit(exitCode);
           NODE
           TEST_EXIT=$?
           export TEST_EXIT
