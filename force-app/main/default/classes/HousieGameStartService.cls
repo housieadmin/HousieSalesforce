@@ -393,13 +393,12 @@ public without sharing class HousieGameStartService {
             view.expiresAt = row.Expires_At__c;
             view.status = row.Status__c;
             view.requesterRole = requesterRole;
-            view.canApprove = row.Status__c == 'OPEN' &&
-                !requestsWithPendingExecution.contains(row.Record_Id__c) &&
+            view.hasPendingExecution = requestsWithPendingExecution.contains(row.Record_Id__c);
+            view.canApprove = row.Status__c == 'OPEN' && !view.hasPendingExecution &&
                 (role == 'ADMIN' || role == 'NON_ADMIN');
-            view.canExecute = ready && !requestsWithPendingExecution.contains(row.Record_Id__c) &&
-                (requesterRole == 'SUPER_ADMIN'
-                    ? HousieSecurity.isSuperAdmin(actor)
-                    : (HousieSecurity.isSuperAdmin(actor) || role == 'ADMIN' || role == 'NON_ADMIN'));
+            view.canExecute = ready && (requesterRole == 'SUPER_ADMIN'
+                ? HousieSecurity.isSuperAdmin(actor)
+                : (HousieSecurity.isSuperAdmin(actor) || role == 'ADMIN' || role == 'NON_ADMIN'));
             view.readyToExecute = ready;
             view.approvedCount = countRequiredApprovals(row.Requester_Account_Id__c, requesterRole, responses);
             for (Game_Action_Response__b responseRow : responses) {
