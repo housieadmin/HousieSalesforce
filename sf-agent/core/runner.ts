@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { tsImport } from "tsx/esm/api";
 import { loadConfig } from "./config.js";
 import type {
   EnginePlugin,
@@ -26,7 +27,7 @@ async function loadModule(specifier: string, directory: string): Promise<Record<
   const target = specifier.startsWith(".") || specifier.startsWith("/")
     ? pathToFileURL(path.resolve(directory, specifier)).href
     : specifier;
-  return await import(target) as Record<string, unknown>;
+  return await tsImport(target, import.meta.url) as Record<string, unknown>;
 }
 
 export async function runOperation(file: string, operationName: string, inputOverrides: JsonObject = {}) {
