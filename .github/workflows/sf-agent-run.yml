@@ -109,6 +109,7 @@ jobs:
             .sf-agent-runtime/.project/.sf-agent/evidence/
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
 
       - name: Write execution summary
         if: always()

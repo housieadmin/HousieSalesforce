@@ -110,6 +110,7 @@ jobs:
           path: .sf-agent-runtime/.project/.sf-agent/evidence/
           if-no-files-found: ignore
           retention-days: 14
+          include-hidden-files: true
 
   create-pull-request:
     if: github.ref == 'refs/heads/main' && inputs.create_pr
@@ -152,10 +153,14 @@ jobs:
           git commit -m "chore(sf-agent): retrieve metadata from org"
           git push origin "$branch"
           description="$(node -e 'const value=JSON.parse(process.env.DESCRIPTION || "{}"); process.stdout.write(String(value.description || "Automated metadata retrieval").slice(0,300))')"
-          gh pr create --base "$SOURCE_REF" --head "$branch" --title "Retrieve Salesforce metadata from org" --body "Retrieved metadata is proposed for review and is never written directly to the base branch.
+          body="$(cat <<EOF
+Retrieved metadata is proposed for review and is never written directly to the base branch.
 
 - Description: $description
 - Base ref: $SOURCE_REF
 - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID
 
-Review the full diff before merging."
+Review the full diff before merging.
+EOF
+          )"
+          gh pr create --base "$SOURCE_REF" --head "$branch" --title "Retrieve Salesforce metadata from org" --body "$body"
