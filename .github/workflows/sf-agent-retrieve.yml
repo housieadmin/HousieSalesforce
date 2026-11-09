@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: Project ref to use as the retrieval base
+        description: Project ref to retrieve into and use as the PR base
         required: true
         type: string
         default: main
@@ -93,14 +93,21 @@ jobs:
           inputs="$(node -e 'const value=JSON.parse(process.env.INPUTS_JSON || "{}"); if(!value || Array.isArray(value) || typeof value!=="object") throw Error("inputs_json must be a JSON object"); value.targetOrg=process.env.SF_TARGET_ORG; value.confirmation=process.env.CONFIRMATION; process.stdout.write(JSON.stringify(value))')"
           node core/dist/cli.js run --config ../.project/sf-agent.config.yml --operation retrieve --inputs-json "$inputs"
 
-      - name: Upload retrieved source and execution evidence
+      - name: Upload retrieved source
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sf-agent-retrieve-${{ github.run_id }}
-          path: |
-            project/force-app/
-            .sf-agent-runtime/.project/.sf-agent/evidence/
+          name: sf-agent-retrieve-source-${{ github.run_id }}
+          path: project/force-app/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sf-agent-retrieve-evidence-${{ github.run_id }}
+          path: .sf-agent-runtime/.project/.sf-agent/evidence/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -115,13 +122,13 @@ jobs:
       - name: Check out PR base
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.source_ref }}
           path: project
 
       - name: Download retrieved source
         uses: actions/download-artifact@v4
         with:
-          name: sf-agent-retrieve-${{ github.run_id }}
+          name: sf-agent-retrieve-source-${{ github.run_id }}
           path: project/force-app
 
       - name: Create a reviewable retrieval PR
@@ -129,6 +136,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
+          SOURCE_REF: ${{ inputs.source_ref }}
           DESCRIPTION: ${{ inputs.inputs_json }}
         run: |
           set -euo pipefail
@@ -144,9 +152,10 @@ jobs:
           git commit -m "chore(sf-agent): retrieve metadata from org"
           git push origin "$branch"
           description="$(node -e 'const value=JSON.parse(process.env.DESCRIPTION || "{}"); process.stdout.write(String(value.description || "Automated metadata retrieval").slice(0,300))')"
-          gh pr create --base main --head "$branch" --title "Retrieve Salesforce metadata from org" --body "Retrieved metadata is proposed for review and is never written directly to main.
+          gh pr create --base "$SOURCE_REF" --head "$branch" --title "Retrieve Salesforce metadata from org" --body "Retrieved metadata is proposed for review and is never written directly to the base branch.
 
 - Description: $description
+- Base ref: $SOURCE_REF
 - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID
 
 Review the full diff before merging."
