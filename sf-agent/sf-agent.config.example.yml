@@ -12,7 +12,7 @@ plugins:
     options:
       browser: chromium
       headless: true
-      baseUrl: "${ENV:SF_BASE_URL:-}"
+      baseUrl: "${ENV:SF_BASE_URL}"
 operations:
   deploy:
     scenario: ./scenarios/deploy.example.ts
