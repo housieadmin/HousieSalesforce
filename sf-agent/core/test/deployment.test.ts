@@ -22,7 +22,9 @@ function mockContext(inputs: Record<string, unknown>, calls: string[]) {
     async resolveSourcePaths(value: unknown) { return value as string[]; },
     async resolveManifest(value: unknown) { return String(value); },
     validateApexClasses(value: unknown) {
-      if (!Array.isArray(value) || value.some(item => typeof item !== "string")) throw new Error("invalid test classes");
+      if (!Array.isArray(value) || value.length < 1 || value.length > 30 ||
+        value.some(item => typeof item !== "string" || !/^[A-Za-z][A-Za-z0-9_]*$/.test(item)) ||
+        new Set(value).size !== value.length) throw new Error("invalid test classes");
       return value as string[];
     }
   };
