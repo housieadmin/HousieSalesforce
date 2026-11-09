@@ -1,0 +1,2 @@
+import{defineScenario}from"@sf-agent/core";import type{SfBrowserEngine}from"@sf-agent/browser";
+export default defineScenario({name:"browser-check",async run(ctx){const browser=ctx.engine<SfBrowserEngine>("sf-browser");await browser.goto(String(ctx.inputs.path??"/"));const page=browser.getPage();const title=await page.title();await browser.screenshot("page-check");return{title,url:page.url()}}});
