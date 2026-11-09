@@ -2,24 +2,33 @@ version: 1
 defaults:
   timeoutMs: 600000
   evidenceDirectory: .sf-agent/evidence
+
 plugins:
   - id: sf-cli
+    kind: engine
     module: "@sf-agent/sf-cli"
     options:
       binary: sf
   - id: sf-browser
+    kind: engine
     module: "@sf-agent/sf-browser"
     options:
       browser: chromium
       headless: true
       baseUrl: "${ENV:SF_BASE_URL:-}"
+  - id: shared-tools
+    kind: utility
+    module: ./plugins/shared-tools.ts
+
 operations:
   deploy:
     scenario: ./scenarios/deploy.example.ts
     engines: [sf-cli]
+    utilities: [shared-tools]
   browser-check:
     scenario: ./scenarios/browser-check.example.ts
     engines: [sf-browser]
   deploy-and-verify:
     scenario: ./scenarios/mixed-engine.example.ts
     engines: [sf-cli, sf-browser]
+    utilities: [shared-tools]

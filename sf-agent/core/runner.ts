@@ -1,9 +1,169 @@
-import fs from "node:fs/promises";import path from "node:path";import{pathToFileURL}from"node:url";import{loadConfig}from"./config.js";import type{JsonObject,JsonValue,Logger,ScenarioContext,EnginePlugin}from"./types.js";
-const log:Logger={debug:(m,d)=>console.debug("[debug]",m,d??""),info:(m,d)=>console.info("[info]",m,d??""),warn:(m,d)=>console.warn("[warn]",m,d??""),error:(m,d)=>console.error("[error]",m,d??"")};
-async function loadModule(spec:string,dir:string){return await import(spec.startsWith(".")||spec.startsWith("/")?pathToFileURL(path.resolve(dir,spec)).href:spec) as Record<string,unknown>}
-function safeName(name:string){return name.replace(/[^a-zA-Z0-9._-]/g,"-").slice(0,80)||"evidence"}
-export async function runOperation(file:string,name:string,overrides:JsonObject={}){const{config,directory}=await loadConfig(file);const op=config.operations[name];if(!op)throw Error(`Unknown operation "${name}".`);const root=path.resolve(directory,config.defaults?.evidenceDirectory??".sf-agent/evidence");await fs.mkdir(root,{recursive:true});const runId=new Date().toISOString().replace(/[:.]/g,"-");const evidence={async record(label:string,value:JsonValue){await fs.writeFile(path.join(root,`${runId}-${safeName(label)}.json`),JSON.stringify(value,null,2))},async attach(label:string,data:Uint8Array,contentType:string){const ext=contentType==="image/png"?"png":contentType==="application/pdf"?"pdf":"bin";const filePath=path.join(root,`${runId}-${safeName(label)}.${ext}`);await fs.writeFile(filePath,data);return filePath}};const abort=new AbortController();const runtime={configDirectory:directory,signal:abort.signal,log,evidence};const engines=new Map<string,unknown>();const closers:Array<()=>Promise<void>>=[];const started=Date.now();let timer:ReturnType<typeof setTimeout>|undefined;
-try{for(const id of op.engines){const p=config.plugins.find(x=>x.id===id)!;const mod=await loadModule(p.module,directory);if(typeof mod.createPlugin!=="function")throw Error(`Plugin ${p.module} must export createPlugin.`);const plugin=await(mod.createPlugin as(o:JsonObject)=>EnginePlugin)(p.options??{});if(plugin.id!==id||typeof plugin.create!=="function")throw Error(`Plugin ${id} registration mismatch.`);const engine=await plugin.create(p.options??{},runtime);engines.set(id,engine);if(engine&&typeof engine==="object"&&"close"in engine&&typeof(engine as{close?:unknown}).close==="function")closers.push(async()=>{await(engine as{close():Promise<void>|void}).close()})}
-const sm=await loadModule(op.scenario,directory);const scenario=(sm.default??sm.scenario)as{name?:string;run?:(ctx:ScenarioContext)=>Promise<JsonValue|void>};if(typeof scenario?.run!=="function")throw Error("Scenario must export a default scenario with run(context).");const ctx:ScenarioContext={operation:name,inputs:{...(op.inputs??{}),...overrides},config,log,evidence,signal:abort.signal,engine<T>(id:string){if(!engines.has(id))throw Error(`Engine "${id}" is not enabled for operation "${name}".`);return engines.get(id)as T}};
-const timeout=op.timeoutMs??config.defaults?.timeoutMs;if(timeout)timer=setTimeout(()=>abort.abort(Error(`Operation timed out after ${timeout}ms.`)),timeout);const work=scenario.run(ctx);const result=timeout?await Promise.race([work,new Promise<never>((_,reject)=>abort.signal.addEventListener("abort",()=>reject(abort.signal.reason),{once:true}))]):await work;const summary={status:"completed",operation:name,scenario:scenario.name??op.scenario,durationMs:Date.now()-started,result:result??null};await evidence.record("run-summary",summary);return summary
-}catch(e){await evidence.record("run-summary",{status:"failed",operation:name,durationMs:Date.now()-started,error:e instanceof Error?e.message:String(e)});throw e}finally{if(timer)clearTimeout(timer);for(const close of closers.reverse())try{await close()}catch(e){log.warn("Engine cleanup failed.",{error:String(e)})}}}
+import fs from "node:fs/promises";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+import { loadConfig } from "./config.js";
+import type {
+  EnginePlugin,
+  JsonObject,
+  JsonValue,
+  Logger,
+  ScenarioContext,
+  UtilityPlugin
+} from "./types.js";
+
+const logger: Logger = {
+  debug: (message, data) => console.debug("[debug]", message, data ?? ""),
+  info: (message, data) => console.info("[info]", message, data ?? ""),
+  warn: (message, data) => console.warn("[warn]", message, data ?? ""),
+  error: (message, data) => console.error("[error]", message, data ?? "")
+};
+
+function safeName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, "-").slice(0, 80) || "evidence";
+}
+
+async function loadModule(specifier: string, directory: string): Promise<Record<string, unknown>> {
+  const target = specifier.startsWith(".") || specifier.startsWith("/")
+    ? pathToFileURL(path.resolve(directory, specifier)).href
+    : specifier;
+  return await import(target) as Record<string, unknown>;
+}
+
+export async function runOperation(file: string, operationName: string, inputOverrides: JsonObject = {}) {
+  const { config, directory } = await loadConfig(file);
+  const operation = config.operations[operationName];
+  if (!operation) {
+    throw new Error(`Unknown operation "${operationName}". Available: ${Object.keys(config.operations).join(", ")}`);
+  }
+
+  const evidenceDirectory = path.resolve(directory, config.defaults?.evidenceDirectory ?? ".sf-agent/evidence");
+  await fs.mkdir(evidenceDirectory, { recursive: true });
+  const runId = new Date().toISOString().replace(/[:.]/g, "-");
+  const evidence = {
+    async record(name: string, value: JsonValue): Promise<void> {
+      const fileName = `${runId}-${safeName(name)}.json`;
+      await fs.writeFile(path.join(evidenceDirectory, fileName), JSON.stringify(value, null, 2));
+    },
+    async attach(name: string, data: Uint8Array, contentType: string): Promise<string> {
+      const extension = contentType === "image/png" ? "png" :
+        contentType === "application/pdf" ? "pdf" : "bin";
+      const filePath = path.join(evidenceDirectory, `${runId}-${safeName(name)}.${extension}`);
+      await fs.writeFile(filePath, data);
+      return filePath;
+    }
+  };
+
+  const abortController = new AbortController();
+  const runtime = { configDirectory: directory, signal: abortController.signal, log: logger, evidence };
+  const engines = new Map<string, unknown>();
+  const utilities = new Map<string, unknown>();
+  const closers: Array<() => Promise<void>> = [];
+  const startedAt = Date.now();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+
+  const registerCleanup = (instance: unknown) => {
+    if (instance && typeof instance === "object" && "close" in instance &&
+      typeof (instance as { close?: unknown }).close === "function") {
+      closers.push(async () => {
+        await (instance as { close(): Promise<void> | void }).close();
+      });
+    }
+  };
+
+  const createPluginInstance = async (id: string, kind: "engine" | "utility") => {
+    const definition = config.plugins.find(plugin => plugin.id === id && plugin.kind === kind);
+    if (!definition) throw new Error(`No ${kind} plugin registered as "${id}".`);
+
+    const module = await loadModule(definition.module, directory);
+    if (typeof module.createPlugin !== "function") {
+      throw new Error(`Plugin module "${definition.module}" must export createPlugin(options).`);
+    }
+
+    const plugin = await (module.createPlugin as (options: JsonObject) => EnginePlugin | UtilityPlugin)(
+      definition.options ?? {}
+    );
+    if (!plugin || plugin.id !== id || typeof plugin.create !== "function") {
+      throw new Error(`Plugin "${id}" returned an invalid ${kind} registration.`);
+    }
+
+    const instance = await plugin.create(definition.options ?? {}, runtime);
+    registerCleanup(instance);
+    return instance;
+  };
+
+  try {
+    for (const id of operation.engines) engines.set(id, await createPluginInstance(id, "engine"));
+    for (const id of operation.utilities ?? []) utilities.set(id, await createPluginInstance(id, "utility"));
+
+    const scenarioModule = await loadModule(operation.scenario, directory);
+    const scenario = (scenarioModule.default ?? scenarioModule.scenario) as {
+      name?: string;
+      run?: (context: ScenarioContext) => Promise<JsonValue | void>;
+    };
+    if (typeof scenario?.run !== "function") {
+      throw new Error("Scenario module must export a default scenario with run(context).");
+    }
+
+    const context: ScenarioContext = {
+      operation: operationName,
+      inputs: { ...(operation.inputs ?? {}), ...inputOverrides },
+      config,
+      log: logger,
+      evidence,
+      signal: abortController.signal,
+      engine<T>(id: string): T {
+        if (!engines.has(id)) throw new Error(`Engine "${id}" is not enabled for operation "${operationName}".`);
+        return engines.get(id) as T;
+      },
+      utility<T>(id: string): T {
+        if (!utilities.has(id)) throw new Error(`Utility "${id}" is not enabled for operation "${operationName}".`);
+        return utilities.get(id) as T;
+      }
+    };
+
+    const timeoutMs = operation.timeoutMs ?? config.defaults?.timeoutMs;
+    if (timeoutMs) {
+      timeout = setTimeout(
+        () => abortController.abort(new Error(`Operation timed out after ${timeoutMs}ms.`)),
+        timeoutMs
+      );
+    }
+
+    const scenarioWork = scenario.run(context);
+    const result = timeoutMs
+      ? await Promise.race([
+          scenarioWork,
+          new Promise<never>((_resolve, reject) => {
+            abortController.signal.addEventListener("abort", () => reject(abortController.signal.reason), { once: true });
+          })
+        ])
+      : await scenarioWork;
+
+    const summary = {
+      status: "completed",
+      operation: operationName,
+      scenario: scenario.name ?? operation.scenario,
+      durationMs: Date.now() - startedAt,
+      result: result ?? null
+    };
+    await evidence.record("run-summary", summary);
+    return summary;
+  } catch (error) {
+    await evidence.record("run-summary", {
+      status: "failed",
+      operation: operationName,
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    for (const close of closers.reverse()) {
+      try {
+        await close();
+      } catch (error) {
+        logger.warn("Plugin cleanup failed.", { error: String(error) });
+      }
+    }
+  }
+}

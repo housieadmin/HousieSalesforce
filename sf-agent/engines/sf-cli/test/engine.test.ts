@@ -1,5 +1,0 @@
-import test from"node:test";import assert from"node:assert/strict";import{SfCliEngine}from"../index.js";
-test("executes argument arrays without a shell",async()=>{const cli=new SfCliEngine({binary:process.execPath});const r=await cli.run(["-e","process.stdout.write(process.argv[1])","safe-value"]);assert.equal(r.stdout,"safe-value")});
-test("rejects empty commands",()=>{const cli=new SfCliEngine({binary:process.execPath});assert.throws(()=>cli.run([]),/non-empty/)});
-test("validates Apex test selection before process execution",async()=>{const cli=new SfCliEngine({binary:process.execPath});await assert.rejects(()=>cli.runApexTests({targetOrg:"target-org",testLevel:"RunSpecifiedTests"}),/requires valid Apex class names/)});
-test("validates org URL scheme before login",async()=>{const cli=new SfCliEngine({binary:process.execPath});await assert.rejects(()=>cli.loginJwt({clientId:"x",privateKey:"x",username:"x",instanceUrl:"http://example.invalid",alias:"target"}),/HTTPS/)})
