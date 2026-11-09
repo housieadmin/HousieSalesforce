@@ -1,7 +1,7 @@
 version: 1
 
 defaults:
-  timeoutMs: 900000
+  timeoutMs: 2400000
   evidenceDirectory: .sf-agent/evidence
 
 plugins:
