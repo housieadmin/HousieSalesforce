@@ -4,11 +4,11 @@ defaults:
   evidenceDirectory: .sf-agent/evidence
 plugins:
   - id: sf-cli
-    module: "@sf-agent/cli"
+    module: "@sf-agent/sf-cli"
     options:
       binary: sf
   - id: sf-browser
-    module: "@sf-agent/browser"
+    module: "@sf-agent/sf-browser"
     options:
       browser: chromium
       headless: true
