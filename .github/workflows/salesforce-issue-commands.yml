@@ -92,8 +92,8 @@ jobs:
               const paths = (fields.paths || '').split('\n').map(x => x.trim()).filter(Boolean);
               if (isRetrieve) {
                 if (paths.length > 25 || new Set(paths).size !== paths.length) throw new Error('Provide at most 25 unique retrieve paths.');
-                const xmlPaths = paths.filter(path => path.endsWith('.xml'));
-                if (xmlPaths.length > 1 || (xmlPaths.length && paths.length > 1)) throw new Error('Use either one retrieve manifest XML path or one or more component paths, not both.');
+                const manifestPaths = paths.filter(path => path.startsWith('manifest/'));
+                if (manifestPaths.length > 1 || (manifestPaths.length && paths.length > 1)) throw new Error('Use either one retrieve manifest XML path or one or more component paths, not both.');
                 for (const path of paths) {
                   if (path.length > 240 || path.includes('..') || path.includes('//') || path.endsWith('/') ||
                       !( /^force-app\/[A-Za-z0-9._/-]+$/.test(path) || /^manifest\/[A-Za-z0-9._/-]+\.xml$/.test(path))) {
@@ -102,7 +102,7 @@ jobs:
                 }
                 const createPr = (fields.create_pr || 'true').trim();
                 if (!['true', 'false'].includes(createPr)) throw new Error('create_pr must be true or false.');
-                const manifestPath = xmlPaths[0] || (paths.length === 0 ? 'manifest/package-retrieve.xml' : undefined);
+                const manifestPath = manifestPaths[0] || (paths.length === 0 ? 'manifest/package-retrieve.xml' : undefined);
                 const selection = manifestPath ? { manifest: manifestPath } : { sourcePaths: paths };
                 workflowId = '.github/workflows/sf-agent-retrieve.yml';
                 inputs = {
