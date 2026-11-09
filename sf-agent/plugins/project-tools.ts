@@ -5,15 +5,17 @@ import type { EngineRuntime, JsonObject, UtilityPlugin } from "@sf-agent/core";
 
 export interface ProjectTools {
   requireConfirmation(value: unknown, expected: string): void;
+  requireTargetOrg(value: unknown): string;
   resolveSourcePaths(values: unknown): Promise<string[]>;
   resolveManifest(value: unknown): Promise<string>;
+  resolveOutputDirectory(value: unknown): Promise<string | undefined>;
   validateApexClasses(values: unknown): string[];
 }
 
 export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject, ProjectTools> {
   return {
     id: "project-tools",
-    create(_options, runtime: EngineRuntime) {
+    create(_pluginOptions, runtime: EngineRuntime) {
       const configuredRoot = typeof options.projectDirectory === "string" ? options.projectDirectory : "..";
       const projectRoot = path.resolve(runtime.configDirectory, configuredRoot);
       const forceRoot = path.join(projectRoot, "force-app");
@@ -32,6 +34,13 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
           if (value !== expected) throw new Error(`This operation requires the exact confirmation: ${expected}.`);
         },
 
+        requireTargetOrg(value) {
+          if (typeof value !== "string" || !value.trim() || value.startsWith("-") || /[\r\n]/.test(value)) {
+            throw new Error("targetOrg must be a valid non-empty org alias or username.");
+          }
+          return value.trim();
+        },
+
         async resolveSourcePaths(values) {
           if (!Array.isArray(values) || values.length < 1 || values.length > 25) {
             throw new Error("Provide between 1 and 25 source paths.");
@@ -47,6 +56,7 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
             const absolute = await resolveInside(forceRoot, value, "Source path");
             const stat = await fs.stat(absolute);
             if (!stat.isFile() && !stat.isDirectory()) throw new Error(`Source path is not a file or directory: ${value}`);
+
             const tracked = execFileSync("git", ["ls-files", "--error-unmatch", value], {
               cwd: projectRoot,
               encoding: "utf8",
@@ -61,7 +71,7 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
                 await resolveInside(forceRoot, companion, "Metadata companion");
                 resolved.push(companion);
               } catch {
-                // Salesforce source companions are optional for formats that do not use them.
+                // Some metadata formats do not have a companion file.
               }
             }
           }
@@ -77,6 +87,17 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
           const absolute = await resolveInside(manifestRoot, value, "Manifest");
           if (!(await fs.stat(absolute)).isFile()) throw new Error("Manifest must be a file.");
           return value;
+        },
+
+        async resolveOutputDirectory(value) {
+          if (value === undefined || value === null || value === "") return undefined;
+          if (typeof value !== "string" || path.isAbsolute(value) || value.includes("..")) {
+            throw new Error("outputDirectory must be a relative path inside the project.");
+          }
+          const absolute = path.resolve(projectRoot, value);
+          if (!absolute.startsWith(projectRoot + path.sep)) throw new Error("outputDirectory escapes the project.");
+          await fs.mkdir(absolute, { recursive: true });
+          return absolute;
         },
 
         validateApexClasses(values) {

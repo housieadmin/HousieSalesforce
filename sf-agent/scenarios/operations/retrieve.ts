@@ -8,12 +8,10 @@ export default defineScenario({
     const cli = context.engine<SfCliEngine>("sf-cli");
     const tools = context.utility<ProjectTools>("project-tools");
     tools.requireConfirmation(context.inputs.confirmation, "SYNC");
-    const targetOrg = String(context.inputs.targetOrg ?? "");
+    const targetOrg = tools.requireTargetOrg(context.inputs.targetOrg);
     const manifest = await tools.resolveManifest(context.inputs.manifest ?? "manifest/package-retrieve.xml");
-    const outputDir = typeof context.inputs.outputDirectory === "string"
-      ? context.inputs.outputDirectory
-      : undefined;
+    const outputDir = await tools.resolveOutputDirectory(context.inputs.outputDirectory);
     const result = await cli.retrieve({ targetOrg, manifest, outputDir });
-    return { retrieval: "completed", output: result.stdout.slice(-3000) };
+    return { retrieval: "completed", output: result.stdout.slice(-3000), outputDir: outputDir ?? null };
   }
 });

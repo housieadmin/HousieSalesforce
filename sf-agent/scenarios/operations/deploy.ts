@@ -8,8 +8,8 @@ export default defineScenario({
     const cli = context.engine<SfCliEngine>("sf-cli");
     const tools = context.utility<ProjectTools>("project-tools");
     tools.requireConfirmation(context.inputs.confirmation, "DEPLOY");
+    const targetOrg = tools.requireTargetOrg(context.inputs.targetOrg);
 
-    const targetOrg = String(context.inputs.targetOrg ?? "");
     const sourceDirs = context.inputs.sourcePaths
       ? await tools.resolveSourcePaths(context.inputs.sourcePaths)
       : undefined;
@@ -17,16 +17,10 @@ export default defineScenario({
       ? await tools.resolveManifest(context.inputs.manifest)
       : undefined;
 
-    const deployment = await cli.deploy({
-      targetOrg,
-      sourceDirs,
-      manifest,
-      dryRun: false,
-      testLevel: "NoTestRun"
-    });
-
+    const deployment = await cli.deploy({ targetOrg, sourceDirs, manifest, testLevel: "NoTestRun" });
     const testMode = String(context.inputs.testMode ?? "none");
-    let tests: string | undefined;
+    let tests = "skipped";
+
     if (testMode === "local") {
       await cli.runApexTests({ targetOrg, testLevel: "RunLocalTests" });
       tests = "local";
@@ -38,6 +32,6 @@ export default defineScenario({
       throw new Error("testMode must be none, local or specified.");
     }
 
-    return { deployment: "completed", tests: tests ?? "skipped", output: deployment.stdout.slice(-3000) };
+    return { deployment: "completed", tests, output: deployment.stdout.slice(-3000) };
   }
 });

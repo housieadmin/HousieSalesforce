@@ -11,7 +11,7 @@ export default defineScenario({
     const tools = context.utility<ProjectTools>("project-tools");
     tools.requireConfirmation(context.inputs.confirmation, "DEPLOY");
 
-    const targetOrg = String(context.inputs.targetOrg ?? "");
+    const targetOrg = tools.requireTargetOrg(context.inputs.targetOrg);
     const sourceDirs = await tools.resolveSourcePaths(context.inputs.sourcePaths);
     const deployment = await cli.deploy({ targetOrg, sourceDirs, testLevel: "NoTestRun" });
 
@@ -20,13 +20,13 @@ export default defineScenario({
       path: String(context.inputs.browserPath ?? "/lightning/page/home")
     });
     await browser.goto(frontdoorUrl);
-    const title = await browser.getPage().title();
+    const pageTitle = await browser.getPage().title();
     await browser.screenshot("post-deployment-verification");
 
     return {
       deployment: "completed",
       browser: "completed",
-      pageTitle: title,
+      pageTitle,
       deploymentOutput: deployment.stdout.slice(-2000)
     };
   }

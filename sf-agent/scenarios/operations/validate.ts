@@ -7,7 +7,7 @@ export default defineScenario({
   async run(context) {
     const cli = context.engine<SfCliEngine>("sf-cli");
     const tools = context.utility<ProjectTools>("project-tools");
-    const targetOrg = String(context.inputs.targetOrg ?? "");
+    const targetOrg = tools.requireTargetOrg(context.inputs.targetOrg);
     const sourceDirs = context.inputs.sourcePaths
       ? await tools.resolveSourcePaths(context.inputs.sourcePaths)
       : undefined;

@@ -8,9 +8,10 @@ export default defineScenario({
     const cli = context.engine<SfCliEngine>("sf-cli");
     const tools = context.utility<ProjectTools>("project-tools");
     tools.requireConfirmation(context.inputs.confirmation, "RESTORE");
-    const targetOrg = String(context.inputs.targetOrg ?? "");
+    const targetOrg = tools.requireTargetOrg(context.inputs.targetOrg);
     const sourceDirs = await tools.resolveSourcePaths(context.inputs.sourcePaths);
     const deployment = await cli.deploy({ targetOrg, sourceDirs, testLevel: "NoTestRun" });
+
     if (context.inputs.runLocalTests === true) {
       await cli.runApexTests({ targetOrg, testLevel: "RunLocalTests" });
     }
