@@ -1,7 +1,139 @@
-import fs from "node:fs/promises";import path from "node:path";import{parse}from"yaml";import type{AgentConfig,JsonObject,JsonValue}from"./types.js";
-const object=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
-function expand(v:unknown,where:string):unknown{if(typeof v==="string")return v.replace(/\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,(_m,n:string,fallback:string|undefined)=>{const x=process.env[n];if(x!==undefined)return x;if(fallback!==undefined)return fallback;throw Error(`Missing environment variable ${n} at ${where}`)});if(Array.isArray(v))return v.map((x,i)=>expand(x,`${where}[${i}]`));if(object(v))return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,expand(x,`${where}.${k}`)]));return v}
-const json=(v:unknown):v is JsonValue=>v===null||["string","number","boolean"].includes(typeof v)||(Array.isArray(v)&&v.every(json))||(object(v)&&Object.values(v).every(json));
-const jsonObject=(v:unknown):v is JsonObject=>object(v)&&Object.values(v).every(json);
-export function validateConfig(v:unknown):AgentConfig{if(!object(v)||v.version!==1)throw Error("Configuration version must be 1.");if(!Array.isArray(v.plugins)||!object(v.operations)||!Object.keys(v.operations).length)throw Error("plugins and non-empty operations are required.");const ids=new Set<string>();const plugins=v.plugins.map((p,i)=>{if(!object(p)||typeof p.id!=="string"||!/^[a-z][a-z0-9-]*$/.test(p.id)||typeof p.module!=="string"||!p.module.trim())throw Error(`Invalid plugins[${i}]`);if(ids.has(p.id))throw Error(`Duplicate plugin id: ${p.id}`);ids.add(p.id);if(p.options!==undefined&&!jsonObject(p.options))throw Error(`Invalid options for ${p.id}`);return{id:p.id,module:p.module,...(p.options?{options:p.options}:{})}});const operations:AgentConfig["operations"]={};for(const[name,o]of Object.entries(v.operations)){if(!/^[a-z][a-z0-9-]*$/.test(name)||!object(o)||typeof o.scenario!=="string"||!Array.isArray(o.engines)||o.engines.some(x=>typeof x!=="string"||!ids.has(x)))throw Error(`Invalid operation definition: ${name}`);if(o.inputs!==undefined&&!jsonObject(o.inputs))throw Error(`Invalid inputs for ${name}`);if(o.timeoutMs!==undefined&&(!Number.isInteger(o.timeoutMs)||(o.timeoutMs as number)<=0))throw Error(`Invalid timeout for ${name}`);operations[name]={scenario:o.scenario,engines:[...new Set(o.engines as string[])],...(o.inputs?{inputs:o.inputs}:{}),...(o.timeoutMs?{timeoutMs:o.timeoutMs as number}:{})}}let defaults:AgentConfig["defaults"];if(v.defaults!==undefined){if(!object(v.defaults)||(v.defaults.timeoutMs!==undefined&&(!Number.isInteger(v.defaults.timeoutMs)||(v.defaults.timeoutMs as number)<=0))||(v.defaults.evidenceDirectory!==undefined&&typeof v.defaults.evidenceDirectory!=="string"))throw Error("Invalid defaults.");defaults={...(v.defaults.timeoutMs?{timeoutMs:v.defaults.timeoutMs as number}:{}),...(v.defaults.evidenceDirectory?{evidenceDirectory:v.defaults.evidenceDirectory as string}:{})}}return{version:1,plugins,operations,...(defaults?{defaults}:{})}}
-export async function loadConfig(file:string){const absolute=path.resolve(file);const raw=parse(await fs.readFile(absolute,"utf8"))as unknown;return{config:validateConfig(expand(raw,absolute)),directory:path.dirname(absolute)}}
+import fs from "node:fs/promises";
+import path from "node:path";
+import { parse } from "yaml";
+import type { AgentConfig, JsonObject, JsonValue, PluginConfig } from "./types.js";
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
+function expandEnvironment(value: unknown, location: string): unknown {
+  if (typeof value === "string") {
+    return value.replace(
+      /\$\{ENV:([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
+      (_match, name: string, fallback: string | undefined) => {
+        const resolved = process.env[name];
+        if (resolved !== undefined) return resolved;
+        if (fallback !== undefined) return fallback;
+        throw new Error(`Missing environment variable ${name} referenced at ${location}.`);
+      }
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.map((item, index) => expandEnvironment(item, `${location}[${index}]`));
+  }
+  if (isObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, expandEnvironment(item, `${location}.${key}`)])
+    );
+  }
+  return value;
+}
+
+const isJsonValue = (value: unknown): value is JsonValue => {
+  if (value === null || ["string", "number", "boolean"].includes(typeof value)) return true;
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isObject(value) && Object.values(value).every(isJsonValue);
+};
+
+const isJsonObject = (value: unknown): value is JsonObject =>
+  isObject(value) && Object.values(value).every(isJsonValue);
+
+function validatePlugin(value: unknown, index: number): PluginConfig {
+  if (
+    !isObject(value) ||
+    typeof value.id !== "string" ||
+    !/^[a-z][a-z0-9-]*$/.test(value.id) ||
+    typeof value.module !== "string" ||
+    !value.module.trim()
+  ) {
+    throw new Error(`plugins[${index}] requires a valid id and module.`);
+  }
+
+  const kind = value.kind ?? "engine";
+  if (kind !== "engine" && kind !== "utility") {
+    throw new Error(`plugins[${index}].kind must be engine or utility.`);
+  }
+  if (value.options !== undefined && !isJsonObject(value.options)) {
+    throw new Error(`plugins[${index}].options must be a JSON object.`);
+  }
+
+  return {
+    id: value.id,
+    module: value.module,
+    kind,
+    ...(value.options ? { options: value.options } : {})
+  };
+}
+
+export function validateConfig(value: unknown): AgentConfig {
+  if (!isObject(value) || value.version !== 1) {
+    throw new Error("Configuration version must be 1.");
+  }
+  if (!Array.isArray(value.plugins) || !isObject(value.operations) || Object.keys(value.operations).length === 0) {
+    throw new Error("plugins and non-empty operations are required.");
+  }
+
+  const plugins = value.plugins.map(validatePlugin);
+  const pluginKinds = new Map<string, PluginConfig["kind"]>();
+  for (const plugin of plugins) {
+    if (pluginKinds.has(plugin.id)) throw new Error(`Duplicate plugin id: ${plugin.id}`);
+    pluginKinds.set(plugin.id, plugin.kind);
+  }
+
+  const operations: AgentConfig["operations"] = {};
+  for (const [name, raw] of Object.entries(value.operations)) {
+    if (!/^[a-z][a-z0-9-]*$/.test(name) || !isObject(raw) || typeof raw.scenario !== "string") {
+      throw new Error(`Invalid operation definition: ${name}`);
+    }
+
+    const engines = raw.engines ?? [];
+    const utilities = raw.utilities ?? [];
+    if (!Array.isArray(engines) || engines.some(id => typeof id !== "string" || pluginKinds.get(id) !== "engine")) {
+      throw new Error(`operations.${name}.engines must reference registered engine plugins.`);
+    }
+    if (!Array.isArray(utilities) || utilities.some(id => typeof id !== "string" || pluginKinds.get(id) !== "utility")) {
+      throw new Error(`operations.${name}.utilities must reference registered utility plugins.`);
+    }
+    if (raw.inputs !== undefined && !isJsonObject(raw.inputs)) {
+      throw new Error(`operations.${name}.inputs must be a JSON object.`);
+    }
+    if (raw.timeoutMs !== undefined && (!Number.isInteger(raw.timeoutMs) || (raw.timeoutMs as number) <= 0)) {
+      throw new Error(`operations.${name}.timeoutMs must be a positive integer.`);
+    }
+
+    operations[name] = {
+      scenario: raw.scenario,
+      engines: [...new Set(engines as string[])],
+      ...(utilities.length ? { utilities: [...new Set(utilities as string[])] } : {}),
+      ...(raw.inputs ? { inputs: raw.inputs } : {}),
+      ...(raw.timeoutMs ? { timeoutMs: raw.timeoutMs as number } : {})
+    };
+  }
+
+  let defaults: AgentConfig["defaults"];
+  if (value.defaults !== undefined) {
+    if (
+      !isObject(value.defaults) ||
+      (value.defaults.timeoutMs !== undefined &&
+        (!Number.isInteger(value.defaults.timeoutMs) || (value.defaults.timeoutMs as number) <= 0)) ||
+      (value.defaults.evidenceDirectory !== undefined && typeof value.defaults.evidenceDirectory !== "string")
+    ) {
+      throw new Error("Invalid defaults.");
+    }
+    defaults = {
+      ...(value.defaults.timeoutMs ? { timeoutMs: value.defaults.timeoutMs as number } : {}),
+      ...(value.defaults.evidenceDirectory ? { evidenceDirectory: value.defaults.evidenceDirectory as string } : {})
+    };
+  }
+
+  return { version: 1, plugins, operations, ...(defaults ? { defaults } : {}) };
+}
+
+export async function loadConfig(file: string) {
+  const absolute = path.resolve(file);
+  const parsed = parse(await fs.readFile(absolute, "utf8")) as unknown;
+  return {
+    config: validateConfig(expandEnvironment(parsed, absolute)),
+    directory: path.dirname(absolute)
+  };
+}
