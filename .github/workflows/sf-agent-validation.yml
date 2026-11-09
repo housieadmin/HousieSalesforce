@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - 'sf-agent/**'
+      - '.project/sf-agent.config.yml'
       - '.github/workflows/sf-agent-validation.yml'
+      - '.github/workflows/sf-agent-run.yml'
   workflow_dispatch:
 
 permissions:
@@ -22,6 +24,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
       - name: Install workspace dependencies
         run: npm install --no-audit --no-fund
       - name: Install Chromium for browser smoke tests
@@ -32,3 +37,6 @@ jobs:
         run: npm test
       - name: Build importable packages
         run: npm run build
+      - name: Lint execution workflows
+        working-directory: .
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/sf-agent-validation.yml .github/workflows/sf-agent-run.yml

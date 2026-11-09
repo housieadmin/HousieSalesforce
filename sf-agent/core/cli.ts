@@ -1,4 +1,37 @@
 #!/usr/bin/env node
-import {runOperation} from "./runner.js";
-const args=process.argv.slice(2);const cmd=args.shift();const val=(key:string)=>{const i=args.indexOf(key);return i<0?undefined:args[i+1]};
-if(cmd!=="run"){console.error("Usage: sf-agent run --config <file> --operation <name>");process.exitCode=2}else{const op=val("--operation");if(!op){console.error("Missing --operation");process.exitCode=2}else try{console.log(JSON.stringify(await runOperation(val("--config")??"sf-agent.config.yml",op),null,2))}catch(e){console.error(e instanceof Error?e.message:String(e));process.exitCode=1}}
+import { runOperation } from "./runner.js";
+import type { JsonObject } from "./types.js";
+
+function option(args: string[], name: string): string | undefined {
+  const index = args.indexOf(name);
+  return index < 0 ? undefined : args[index + 1];
+}
+
+const args = process.argv.slice(2);
+const command = args.shift();
+
+if (command !== "run") {
+  console.error("Usage: sf-agent run --config <file> --operation <name> [--inputs-json <json>]");
+  process.exitCode = 2;
+} else {
+  const operation = option(args, "--operation");
+  const config = option(args, "--config") ?? "sf-agent.config.yml";
+  const rawInputs = option(args, "--inputs-json");
+
+  if (!operation) {
+    console.error("Missing required --operation.");
+    process.exitCode = 2;
+  } else {
+    try {
+      const inputs = rawInputs ? JSON.parse(rawInputs) as JsonObject : {};
+      if (!inputs || Array.isArray(inputs) || typeof inputs !== "object") {
+        throw new Error("--inputs-json must contain a JSON object.");
+      }
+      const result = await runOperation(config, operation, inputs);
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    }
+  }
+}

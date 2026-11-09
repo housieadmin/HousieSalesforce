@@ -10,7 +10,7 @@ export default defineScenario({
     tools.requireConfirmation(context.inputs.confirmation, "SYNC");
     const targetOrg = tools.requireTargetOrg(context.inputs.targetOrg);
     const manifest = await tools.resolveManifest(context.inputs.manifest ?? "manifest/package-retrieve.xml");
-    const outputDir = await tools.resolveOutputDirectory(context.inputs.outputDirectory);
+    const outputDir = await tools.resolveOutputDirectory(context.inputs.outputDirectory ?? "retrieved");
     const result = await cli.retrieve({ targetOrg, manifest, outputDir });
     return { retrieval: "completed", output: result.stdout.slice(-3000), outputDir: outputDir ?? null };
   }

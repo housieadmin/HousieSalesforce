@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadConfig, validateConfig } from "../config.js";
 
 test("supports independent engines, utility plugins and mixed operations", () => {
@@ -29,7 +30,6 @@ test("rejects duplicate plugins and cross-kind references", () => {
     plugins: [{ id: "sf-cli", module: "x" }, { id: "sf-cli", module: "y" }],
     operations: { invalid: { scenario: "./x.ts", engines: [] } }
   }), /Duplicate plugin/);
-
   assert.throws(() => validateConfig({
     version: 1,
     plugins: [{ id: "common", kind: "utility", module: "./common.ts" }],
@@ -70,4 +70,14 @@ test("optional environment values do not block unrelated operations", async () =
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
+});
+
+test("repository project config declares all reusable operations and engine boundaries", async () => {
+  const file = fileURLToPath(new URL("../../../.project/sf-agent.config.yml", import.meta.url));
+  const { config } = await loadConfig(file);
+  assert.deepEqual(Object.keys(config.operations).sort(), [
+    "apex-tests", "deploy", "deploy-and-verify", "restore", "retrieve", "validate"
+  ]);
+  assert.deepEqual(config.operations["deploy-and-verify"].engines, ["sf-cli", "sf-browser"]);
+  assert.deepEqual(config.operations.deploy.utilities, ["project-tools"]);
 });

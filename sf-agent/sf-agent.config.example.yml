@@ -1,25 +1,50 @@
 version: 1
+
 defaults:
   timeoutMs: 600000
   evidenceDirectory: .sf-agent/evidence
+
 plugins:
   - id: sf-cli
+    kind: engine
     module: "@sf-agent/sf-cli"
     options:
       binary: sf
+      cwd: "${ENV:SF_PROJECT_DIR:-..}"
   - id: sf-browser
+    kind: engine
     module: "@sf-agent/sf-browser"
     options:
       browser: chromium
       headless: true
-      baseUrl: "${ENV:SF_BASE_URL:-}"
+  - id: project-tools
+    kind: utility
+    module: ./plugins/project-tools.ts
+    options:
+      projectDirectory: "${ENV:SF_PROJECT_DIR:-..}"
+
 operations:
   deploy:
-    scenario: ./scenarios/deploy.example.ts
+    scenario: ./scenarios/operations/deploy.ts
     engines: [sf-cli]
-  browser-check:
-    scenario: ./scenarios/browser-check.example.ts
-    engines: [sf-browser]
+    utilities: [project-tools]
+  restore:
+    scenario: ./scenarios/operations/restore.ts
+    engines: [sf-cli]
+    utilities: [project-tools]
+  validate:
+    scenario: ./scenarios/operations/validate.ts
+    engines: [sf-cli]
+    utilities: [project-tools]
+  retrieve:
+    scenario: ./scenarios/operations/retrieve.ts
+    engines: [sf-cli]
+    utilities: [project-tools]
+  apex-tests:
+    scenario: ./scenarios/operations/apex-tests.ts
+    engines: [sf-cli]
+    utilities: [project-tools]
   deploy-and-verify:
-    scenario: ./scenarios/mixed-engine.example.ts
+    scenario: ./scenarios/operations/deploy-and-verify.ts
     engines: [sf-cli, sf-browser]
+    utilities: [project-tools]
