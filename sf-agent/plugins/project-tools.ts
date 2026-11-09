@@ -52,11 +52,9 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
               value.includes("..") || value.includes("//") || value.endsWith("/")) {
               throw new Error(`Invalid source path: ${String(value)}`);
             }
-
             const absolute = await resolveInside(forceRoot, value, "Source path");
             const stat = await fs.stat(absolute);
             if (!stat.isFile() && !stat.isDirectory()) throw new Error(`Source path is not a file or directory: ${value}`);
-
             const tracked = execFileSync("git", ["ls-files", "--error-unmatch", value], {
               cwd: projectRoot,
               encoding: "utf8",
@@ -68,8 +66,8 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
             if (stat.isFile() && (value.endsWith(".cls") || value.endsWith(".trigger"))) {
               const companion = `${value}-meta.xml`;
               try {
-                await resolveInside(forceRoot, companion, "Metadata companion");
-                resolved.push(companion);
+                const companionPath = await resolveInside(forceRoot, companion, "Metadata companion");
+                if ((await fs.stat(companionPath)).isFile()) resolved.push(companion);
               } catch {
                 // Some metadata formats do not have a companion file.
               }
@@ -94,10 +92,30 @@ export function createPlugin(options: JsonObject = {}): UtilityPlugin<JsonObject
           if (typeof value !== "string" || path.isAbsolute(value) || value.includes("..")) {
             throw new Error("outputDirectory must be a relative path inside the project.");
           }
-          const absolute = path.resolve(projectRoot, value);
-          if (!absolute.startsWith(projectRoot + path.sep)) throw new Error("outputDirectory escapes the project.");
+          const projectRealPath = await fs.realpath(projectRoot);
+          const absolute = path.resolve(projectRealPath, value);
+          if (!absolute.startsWith(projectRealPath + path.sep)) throw new Error("outputDirectory escapes the project.");
+
+          let current = projectRealPath;
+          for (const segment of path.relative(projectRealPath, absolute).split(path.sep)) {
+            current = path.join(current, segment);
+            try {
+              const real = await fs.realpath(current);
+              if (!real.startsWith(projectRealPath + path.sep)) {
+                throw new Error("outputDirectory resolves through a symlink outside the project.");
+              }
+            } catch (error) {
+              if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+              break;
+            }
+          }
+
           await fs.mkdir(absolute, { recursive: true });
-          return absolute;
+          const resolved = await fs.realpath(absolute);
+          if (!resolved.startsWith(projectRealPath + path.sep)) {
+            throw new Error("outputDirectory resolves outside the project.");
+          }
+          return resolved;
         },
 
         validateApexClasses(values) {
