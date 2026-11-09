@@ -7,7 +7,7 @@ on:
         description: Framework operation to execute
         required: true
         type: choice
-        options: [deploy, restore, validate, retrieve, apex-tests, deploy-and-verify]
+        options: [deploy, restore, validate, apex-tests, deploy-and-verify]
       source_ref:
         description: Project branch, tag or commit to operate on
         required: true

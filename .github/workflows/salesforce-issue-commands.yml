@@ -102,13 +102,17 @@ jobs:
                 }
                 const createPr = (fields.create_pr || 'true').trim();
                 if (!['true', 'false'].includes(createPr)) throw new Error('create_pr must be true or false.');
-                workflowId = '.github/workflows/salesforce-org-sync.yml';
+                const manifestPath = xmlPaths[0] || (paths.length === 0 ? 'manifest/package-retrieve.xml' : undefined);
+                const selection = manifestPath ? { manifest: manifestPath } : { sourcePaths: paths };
+                workflowId = '.github/workflows/sf-agent-retrieve.yml';
                 inputs = {
-                  confirm_sync: 'SYNC',
-                  retrieve_paths: paths.filter(path => !path.endsWith('.xml')).join('\n'),
-                  retrieve_manifest: paths.find(path => path.endsWith('.xml')) || 'manifest/package-retrieve.xml',
-                  create_pr: createPr,
-                  run_description: (fields.description || 'Issue-comment initiated Salesforce metadata retrieve').slice(0, 300)
+                  source_ref: 'main',
+                  inputs_json: JSON.stringify({
+                    ...selection,
+                    description: (fields.description || 'Issue-comment initiated metadata retrieve').slice(0, 300)
+                  }),
+                  confirmation: 'SYNC',
+                  create_pr: createPr === 'true'
                 };
               } else {
                 if (!paths.length || paths.length > 25 || new Set(paths).size !== paths.length) {

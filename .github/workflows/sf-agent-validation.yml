@@ -8,6 +8,7 @@ on:
       - '.project/sf-agent.config.yml'
       - '.github/workflows/sf-agent-validation.yml'
       - '.github/workflows/sf-agent-run.yml'
+      - '.github/workflows/sf-agent-retrieve.yml'
       - '.github/workflows/salesforce-issue-commands.yml'
   workflow_dispatch:
 
@@ -40,4 +41,4 @@ jobs:
         run: npm run build
       - name: Lint execution workflows
         working-directory: .
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/sf-agent-validation.yml .github/workflows/sf-agent-run.yml .github/workflows/salesforce-issue-commands.yml
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7 .github/workflows/sf-agent-validation.yml .github/workflows/sf-agent-run.yml .github/workflows/sf-agent-retrieve.yml .github/workflows/salesforce-issue-commands.yml

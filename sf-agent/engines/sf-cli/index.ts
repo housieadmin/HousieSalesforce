@@ -14,7 +14,7 @@ export interface DeployOptions {
   testLevel?: "NoTestRun" | "RunSpecifiedTests" | "RunLocalTests" | "RunAllTestsInOrg"; waitMinutes?: number;
 }
 export interface RetrieveOptions {
-  targetOrg: string; manifest?: string; metadata?: string[]; outputDir?: string; waitMinutes?: number;
+  targetOrg: string; sourceDirs?: string[]; manifest?: string; metadata?: string[]; outputDir?: string; waitMinutes?: number;
 }
 export interface ApexTestOptions {
   targetOrg: string; testLevel?: "RunLocalTests" | "RunSpecifiedTests" | "RunAllTestsInOrg";
@@ -98,9 +98,12 @@ export class SfCliEngine {
 
   async retrieve(options: RetrieveOptions): Promise<SfCliResult> {
     if (!options.targetOrg || options.targetOrg.startsWith("-")) throw new Error("retrieve requires a valid targetOrg.");
-    if (!options.manifest && !options.metadata?.length) throw new Error("retrieve requires a manifest or metadata selection.");
+    if (!options.manifest && !options.sourceDirs?.length && !options.metadata?.length) {
+      throw new Error("retrieve requires a manifest, sourceDirs or metadata selection.");
+    }
     const args = ["project", "retrieve", "start"];
     if (options.manifest) args.push("--manifest", options.manifest);
+    for (const directory of options.sourceDirs ?? []) args.push("--source-dir", directory);
     for (const item of options.metadata ?? []) args.push("--metadata", item);
     if (options.outputDir) args.push("--output-dir", options.outputDir);
     args.push("--target-org", options.targetOrg, "--wait", String(options.waitMinutes ?? 60));
