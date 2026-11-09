@@ -153,14 +153,10 @@ jobs:
           git commit -m "chore(sf-agent): retrieve metadata from org"
           git push origin "$branch"
           description="$(node -e 'const value=JSON.parse(process.env.DESCRIPTION || "{}"); process.stdout.write(String(value.description || "Automated metadata retrieval").slice(0,300))')"
-          body="$(cat <<EOF
-Retrieved metadata is proposed for review and is never written directly to the base branch.
-
-- Description: $description
-- Base ref: $SOURCE_REF
-- Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID
-
-Review the full diff before merging.
-EOF
-          )"
+          body="$(printf '%s\\n' \
+            'Retrieved metadata is proposed for review and is never written directly to the base branch.' \
+            "- Description: $description" \
+            "- Base ref: $SOURCE_REF" \
+            "- Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" \
+            'Review the full diff before merging.')"
           gh pr create --base "$SOURCE_REF" --head "$branch" --title "Retrieve Salesforce metadata from org" --body "$body"
