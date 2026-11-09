@@ -92,8 +92,8 @@ jobs:
               const paths = (fields.paths || '').split('\n').map(x => x.trim()).filter(Boolean);
               if (isRetrieve) {
                 if (paths.length > 25 || new Set(paths).size !== paths.length) throw new Error('Provide at most 25 unique retrieve paths.');
-                const xmlPaths = paths.filter(path => path.endsWith('.xml'));
-                if (xmlPaths.length > 1 || (xmlPaths.length && paths.length > 1)) throw new Error('Use either one retrieve manifest XML path or one or more component paths, not both.');
+                const manifestPaths = paths.filter(path => path.startsWith('manifest/'));
+                if (manifestPaths.length > 1 || (manifestPaths.length && paths.length > 1)) throw new Error('Use either one retrieve manifest XML path or one or more component paths, not both.');
                 for (const path of paths) {
                   if (path.length > 240 || path.includes('..') || path.includes('//') || path.endsWith('/') ||
                       !( /^force-app\/[A-Za-z0-9._/-]+$/.test(path) || /^manifest\/[A-Za-z0-9._/-]+\.xml$/.test(path))) {
@@ -102,13 +102,17 @@ jobs:
                 }
                 const createPr = (fields.create_pr || 'true').trim();
                 if (!['true', 'false'].includes(createPr)) throw new Error('create_pr must be true or false.');
-                workflowId = '.github/workflows/salesforce-org-sync.yml';
+                const manifestPath = manifestPaths[0] || (paths.length === 0 ? 'manifest/package-retrieve.xml' : undefined);
+                const selection = manifestPath ? { manifest: manifestPath } : { sourcePaths: paths };
+                workflowId = '.github/workflows/sf-agent-retrieve.yml';
                 inputs = {
-                  confirm_sync: 'SYNC',
-                  retrieve_paths: paths.filter(path => !path.endsWith('.xml')).join('\n'),
-                  retrieve_manifest: paths.find(path => path.endsWith('.xml')) || 'manifest/package-retrieve.xml',
-                  create_pr: createPr,
-                  run_description: (fields.description || 'Issue-comment initiated Salesforce metadata retrieve').slice(0, 300)
+                  source_ref: 'main',
+                  inputs_json: JSON.stringify({
+                    ...selection,
+                    description: (fields.description || 'Issue-comment initiated metadata retrieve').slice(0, 300)
+                  }),
+                  confirmation: 'SYNC',
+                  create_pr: createPr === 'true'
                 };
               } else {
                 if (!paths.length || paths.length > 25 || new Set(paths).size !== paths.length) {
@@ -148,16 +152,29 @@ jobs:
                 if ((fields.confirm || '').trim() !== 'DEPLOY') {
                   throw new Error('Deployment requires the exact confirmation: confirm: DEPLOY.');
                 }
-                workflowId = command === '/sf deploy-and-verify' ? '.github/workflows/salesforce-deploy-and-verify.yml' : '.github/workflows/salesforce-ai-iteration-deploy.yml';
-                inputs = {
-                  source_ref: ref,
-                  source_paths: paths.join('\n'),
-                  deployment_mode: deploymentMode,
-                  test_mode: testMode,
-                  apex_test_classes: testClasses.join('\n'),
-                  confirm_deployment: 'DEPLOY'
-                };
-                if (command === '/sf deploy-and-verify') {
+                if (command === '/sf deploy') {
+                  workflowId = '.github/workflows/sf-agent-run.yml';
+                  inputs = {
+                    operation: 'deploy',
+                    source_ref: ref,
+                    inputs_json: JSON.stringify({
+                      sourcePaths: paths,
+                      deploymentMode,
+                      testMode,
+                      apexTestClasses: testClasses
+                    }),
+                    confirmation: 'DEPLOY'
+                  };
+                } else {
+                  workflowId = '.github/workflows/salesforce-deploy-and-verify.yml';
+                  inputs = {
+                    source_ref: ref,
+                    source_paths: paths.join('\n'),
+                    deployment_mode: deploymentMode,
+                    test_mode: testMode,
+                    apex_test_classes: testClasses.join('\n'),
+                    confirm_deployment: 'DEPLOY'
+                  };
                   const scenarios = (fields.scenarios || '').split('\n').map(x => x.trim()).filter(Boolean);
                   if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length || scenarios.some(x => !x.startsWith('browser-agent/scenarios/') || !x.endsWith('.spec.ts') || x.includes('..') || x.includes('//'))) throw new Error('Provide 1–10 unique scenario paths under browser-agent/scenarios/*.spec.ts.');
                   inputs.scenarios_json = JSON.stringify(scenarios);
@@ -171,12 +188,15 @@ jobs:
                 if ((fields.confirm || '').trim() !== 'RESTORE') {
                   throw new Error('Restore requires the exact confirmation: confirm: RESTORE.');
                 }
-                workflowId = '.github/workflows/salesforce-ai-iteration-restore.yml';
+                workflowId = '.github/workflows/sf-agent-run.yml';
                 inputs = {
-                  restore_ref: ref,
-                  source_paths: paths.join('\n'),
-                  run_local_tests: runTests,
-                  confirm_restore: 'RESTORE'
+                  operation: 'restore',
+                  source_ref: ref,
+                  inputs_json: JSON.stringify({
+                    sourcePaths: paths,
+                    runLocalTests: runTests === 'true'
+                  }),
+                  confirmation: 'RESTORE'
                 };
               }
 

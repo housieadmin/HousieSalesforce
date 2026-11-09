@@ -1,0 +1,17 @@
+{
+  "name": "sf-agent-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": ["core", "engines/sf-cli", "engines/sf-browser"],
+  "scripts": {
+    "typecheck": "npm run build --workspace @sf-agent/core && npm run build --workspace @sf-agent/sf-cli && npm run build --workspace @sf-agent/sf-browser && tsc -p tsconfig.scenarios.json --noEmit",
+    "test": "npm run test --workspace @sf-agent/core && npm run test --workspace @sf-agent/sf-cli && npm run test --workspace @sf-agent/sf-browser",
+    "build": "npm run build --workspace @sf-agent/core && npm run build --workspace @sf-agent/sf-cli && npm run build --workspace @sf-agent/sf-browser"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.0",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

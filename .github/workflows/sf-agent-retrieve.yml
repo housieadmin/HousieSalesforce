@@ -1,0 +1,162 @@
+name: sf-agent retrieve
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Project ref to retrieve into and use as the PR base
+        required: true
+        type: string
+        default: main
+      inputs_json:
+        description: JSON object containing sourcePaths or manifest and optional description
+        required: false
+        type: string
+      confirmation:
+        description: Type SYNC to authorize org metadata retrieval
+        required: true
+        type: string
+      create_pr:
+        description: Create a pull request with retrieved metadata
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sf-agent-org-operations
+  cancel-in-progress: false
+
+jobs:
+  retrieve:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out trusted framework and project config
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .sf-agent-runtime
+          persist-credentials: false
+
+      - name: Check out project retrieval base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: project
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install framework workspace
+        working-directory: .sf-agent-runtime/sf-agent
+        run: npm install --no-audit --no-fund && npm run build
+
+      - name: Install Salesforce CLI
+        env:
+          SF_CLI_VERSION: ${{ vars.SF_CLI_VERSION || 'latest' }}
+        run: npm install --global "@salesforce/cli@${SF_CLI_VERSION}"
+
+      - name: Authenticate target org
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+          SF_TARGET_ORG: ${{ vars.SF_ORG_ALIAS || 'target-org' }}
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          key_file="$RUNNER_TEMP/sf-agent-jwt.key"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s' "$SF_JWT_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$key_file" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias "$SF_TARGET_ORG"
+
+      - name: Execute retrieve operation
+        working-directory: .sf-agent-runtime/sf-agent
+        env:
+          INPUTS_JSON: ${{ inputs.inputs_json }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          SF_TARGET_ORG: ${{ vars.SF_ORG_ALIAS || 'target-org' }}
+          SF_PROJECT_DIR: ${{ github.workspace }}/project
+        run: |
+          set -euo pipefail
+          inputs="$(node -e 'const value=JSON.parse(process.env.INPUTS_JSON || "{}"); if(!value || Array.isArray(value) || typeof value!=="object") throw Error("inputs_json must be a JSON object"); value.targetOrg=process.env.SF_TARGET_ORG; value.confirmation=process.env.CONFIRMATION; process.stdout.write(JSON.stringify(value))')"
+          node core/dist/cli.js run --config ../.project/sf-agent.config.yml --operation retrieve --inputs-json "$inputs"
+
+      - name: Upload retrieved source
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sf-agent-retrieve-source-${{ github.run_id }}
+          path: project/force-app/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sf-agent-retrieve-evidence-${{ github.run_id }}
+          path: .sf-agent-runtime/.project/.sf-agent/evidence/
+          if-no-files-found: ignore
+          retention-days: 14
+          include-hidden-files: true
+
+  create-pull-request:
+    if: github.ref == 'refs/heads/main' && inputs.create_pr
+    needs: retrieve
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out PR base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: project
+
+      - name: Download retrieved source
+        uses: actions/download-artifact@v4
+        with:
+          name: sf-agent-retrieve-source-${{ github.run_id }}
+          path: project/force-app
+
+      - name: Create a reviewable retrieval PR
+        working-directory: project
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          DESCRIPTION: ${{ inputs.inputs_json }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add force-app
+          if git diff --cached --quiet; then
+            echo "No retrieved metadata changes; no PR created." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch="automation/sf-agent-retrieve-$RUN_ID"
+          git checkout -b "$branch"
+          git commit -m "chore(sf-agent): retrieve metadata from org"
+          git push origin "$branch"
+          description="$(node -e 'const value=JSON.parse(process.env.DESCRIPTION || "{}"); process.stdout.write(String(value.description || "Automated metadata retrieval").slice(0,300))')"
+          body="$(printf '%s\n' \
+            'Retrieved metadata is proposed for review and is never written directly to the base branch.' \
+            "- Description: $description" \
+            "- Base ref: $SOURCE_REF" \
+            "- Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" \
+            'Review the full diff before merging.')"
+          gh pr create --base "$SOURCE_REF" --head "$branch" --title "Retrieve Salesforce metadata from org" --body "$body"

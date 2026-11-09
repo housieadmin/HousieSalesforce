@@ -1,0 +1,126 @@
+name: sf-agent run
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Framework operation to execute
+        required: true
+        type: choice
+        options: [deploy, restore, validate, retrieve, apex-tests, deploy-and-verify]
+      source_ref:
+        description: Project branch, tag or commit to operate on
+        required: true
+        type: string
+        default: main
+      inputs_json:
+        description: Operation inputs as a JSON object (sourcePaths, manifest, testMode, etc.)
+        required: false
+        type: string
+      confirmation:
+        description: Exact safety confirmation (DEPLOY, RESTORE or SYNC when required)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sf-agent-org-operations
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out trusted framework and workflow configuration
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: .sf-agent-runtime
+          persist-credentials: false
+
+      - name: Check out selected project source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: project
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install framework workspace
+        working-directory: .sf-agent-runtime/sf-agent
+        run: npm install --no-audit --no-fund && npm run build
+
+      - name: Install Salesforce CLI
+        env:
+          SF_CLI_VERSION: ${{ vars.SF_CLI_VERSION || 'latest' }}
+        run: |
+          set -euo pipefail
+          npm install --global "@salesforce/cli@${SF_CLI_VERSION}"
+          sf version
+
+      - name: Authenticate target org
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+          SF_TARGET_ORG: ${{ vars.SF_ORG_ALIAS || 'target-org' }}
+        run: |
+          set -euo pipefail
+          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
+          key_file="$RUNNER_TEMP/sf-agent-jwt.key"
+          trap 'rm -f "$key_file"' EXIT
+          printf '%s' "$SF_JWT_KEY" > "$key_file"
+          chmod 600 "$key_file"
+          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$key_file" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias "$SF_TARGET_ORG"
+
+      - name: Install Chromium for browser operation
+        if: inputs.operation == 'deploy-and-verify'
+        working-directory: .sf-agent-runtime/sf-agent
+        run: npx playwright install --with-deps chromium
+
+      - name: Execute selected operation
+        working-directory: .sf-agent-runtime/sf-agent
+        env:
+          OPERATION: ${{ inputs.operation }}
+          INPUTS_JSON: ${{ inputs.inputs_json }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          SF_TARGET_ORG: ${{ vars.SF_ORG_ALIAS || 'target-org' }}
+          SF_PROJECT_DIR: ${{ github.workspace }}/project
+        run: |
+          set -euo pipefail
+          inputs="$(node -e 'const value=JSON.parse(process.env.INPUTS_JSON || "{}"); if(!value || Array.isArray(value) || typeof value!=="object") throw Error("inputs_json must be a JSON object"); value.targetOrg=process.env.SF_TARGET_ORG; value.confirmation=process.env.CONFIRMATION || ""; process.stdout.write(JSON.stringify(value))')"
+          node core/dist/cli.js run --config ../.project/sf-agent.config.yml --operation "$OPERATION" --inputs-json "$inputs"
+
+      - name: Upload operation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sf-agent-${{ inputs.operation }}-${{ github.run_id }}
+          path: |
+            .sf-agent-runtime/.project/.sf-agent/evidence/
+          if-no-files-found: ignore
+          retention-days: 14
+          include-hidden-files: true
+
+      - name: Write execution summary
+        if: always()
+        env:
+          OPERATION: ${{ inputs.operation }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          {
+            echo "## sf-agent execution"
+            echo "- Operation: $OPERATION"
+            echo "- Source ref: $SOURCE_REF"
+            echo "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- Evidence: download the sf-agent artifact from this run."
+          } >> "$GITHUB_STEP_SUMMARY"
