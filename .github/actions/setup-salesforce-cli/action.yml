@@ -1,0 +1,19 @@
+name: Setup Salesforce CLI
+description: Install the Salesforce CLI for a GitHub Actions job.
+inputs:
+  version:
+    description: npm package version or dist-tag
+    required: false
+    default: latest
+runs:
+  using: composite
+  steps:
+    - name: Install Salesforce CLI
+      shell: bash
+      env:
+        SF_CLI_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        [[ -n "$SF_CLI_VERSION" ]] || { echo "Salesforce CLI version is required." >&2; exit 1; }
+        npm install --global "@salesforce/cli@$SF_CLI_VERSION"
+        sf version

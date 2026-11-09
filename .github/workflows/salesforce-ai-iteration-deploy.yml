@@ -47,6 +47,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Override with a repository variable when using a different Salesforce org alias.
+  SF_ORG_ALIAS: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
+
 concurrency:
   group: salesforce-development-deployment
   cancel-in-progress: false
@@ -147,20 +151,16 @@ jobs:
           echo "Apex test mode: $TEST_MODE"
 
       - name: Install Salesforce CLI
-        run: npm install --global @salesforce/cli
+        uses: ./.github/actions/setup-salesforce-cli
 
       - name: Authenticate to Developer Edition
-        env:
-          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
-          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
-          SF_USERNAME: ${{ secrets.SF_USERNAME }}
-          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
-        run: |
-          set -euo pipefail
-          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
-          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
-          chmod 600 "$RUNNER_TEMP/server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+        uses: ./.github/actions/salesforce-jwt-auth
+        with:
+          jwt_key: ${{ secrets.SF_JWT_KEY }}
+          client_id: ${{ secrets.SF_CLIENT_ID }}
+          username: ${{ secrets.SF_USERNAME }}
+          instance_url: ${{ vars.SF_INSTANCE_URL }}
+          alias: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
 
       - name: Validate selected metadata (dry run)
         if: env.DEPLOYMENT_MODE == 'standard'
@@ -171,7 +171,7 @@ jobs:
           mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
           declare -a source_args=()
           for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
-          sf project deploy start --dry-run "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
+          sf project deploy start --dry-run "${source_args[@]}" --target-org "$SF_ORG_ALIAS" --test-level NoTestRun --wait 60
 
       - name: Deploy selected metadata
         env:
@@ -181,7 +181,7 @@ jobs:
           mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
           declare -a source_args=()
           for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
-          sf project deploy start "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
+          sf project deploy start "${source_args[@]}" --target-org "$SF_ORG_ALIAS" --test-level NoTestRun --wait 60
 
       - name: Run selected Apex tests
         if: env.DEPLOYMENT_MODE == 'standard' && inputs.test_mode != 'none'
@@ -192,7 +192,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$TEST_MODE" == "local" ]]; then
-            sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+            sf apex run test --target-org "$SF_ORG_ALIAS" --test-level RunLocalTests --result-format human --wait 60
           else
             declare -a test_args=()
             while IFS= read -r test_class || [[ -n "$test_class" ]]; do
@@ -200,7 +200,7 @@ jobs:
               [[ -z "$test_class" ]] && continue
               test_args+=(--tests "$test_class")
             done <<< "$APEX_TEST_CLASSES_INPUT"
-            sf apex run test "${test_args[@]}" --target-org housie-dev --result-format human --wait 60
+            sf apex run test "${test_args[@]}" --target-org "$SF_ORG_ALIAS" --result-format human --wait 60
           fi
 
       - name: Record iteration deployment details

@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Override with a repository variable when using a different Salesforce org alias.
+  SF_ORG_ALIAS: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
+
 concurrency:
   group: salesforce-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -24,23 +28,19 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Install Salesforce CLI
-        run: npm install --global @salesforce/cli
+        uses: ./.github/actions/setup-salesforce-cli
 
       - name: Authenticate to Developer Edition
-        env:
-          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
-          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
-          SF_USERNAME: ${{ secrets.SF_USERNAME }}
-          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
-        run: |
-          set -euo pipefail
-          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
-          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
-          chmod 600 "$RUNNER_TEMP/server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
+        uses: ./.github/actions/salesforce-jwt-auth
+        with:
+          jwt_key: ${{ secrets.SF_JWT_KEY }}
+          client_id: ${{ secrets.SF_CLIENT_ID }}
+          username: ${{ secrets.SF_USERNAME }}
+          instance_url: ${{ vars.SF_INSTANCE_URL }}
+          alias: ${{ vars.SF_ORG_ALIAS || 'housie-dev' }}
 
       - name: Validate application manifest without deployment
-        run: sf project deploy start --dry-run --manifest manifest/package.xml --target-org housie-dev --test-level NoTestRun --wait 60
+        run: sf project deploy start --dry-run --manifest manifest/package.xml --target-org "$SF_ORG_ALIAS" --test-level NoTestRun --wait 60
 
       - name: Run local Apex tests
-        run: sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
+        run: sf apex run test --target-org "$SF_ORG_ALIAS" --test-level RunLocalTests --result-format human --wait 60
