@@ -153,7 +153,7 @@ jobs:
           git commit -m "chore(sf-agent): retrieve metadata from org"
           git push origin "$branch"
           description="$(node -e 'const value=JSON.parse(process.env.DESCRIPTION || "{}"); process.stdout.write(String(value.description || "Automated metadata retrieval").slice(0,300))')"
-          body="$(printf '%s\\n' \
+          body="$(printf '%s\n' \
             'Retrieved metadata is proposed for review and is never written directly to the base branch.' \
             "- Description: $description" \
             "- Base ref: $SOURCE_REF" \
