@@ -1,0 +1,19 @@
+import { defineScenario } from "@sf-agent/core";
+import type { SfCliEngine } from "@sf-agent/sf-cli";
+import type { ProjectTools } from "../../plugins/project-tools.js";
+
+export default defineScenario({
+  name: "retrieve",
+  async run(context) {
+    const cli = context.engine<SfCliEngine>("sf-cli");
+    const tools = context.utility<ProjectTools>("project-tools");
+    tools.requireConfirmation(context.inputs.confirmation, "SYNC");
+    const targetOrg = String(context.inputs.targetOrg ?? "");
+    const manifest = await tools.resolveManifest(context.inputs.manifest ?? "manifest/package-retrieve.xml");
+    const outputDir = typeof context.inputs.outputDirectory === "string"
+      ? context.inputs.outputDirectory
+      : undefined;
+    const result = await cli.retrieve({ targetOrg, manifest, outputDir });
+    return { retrieval: "completed", output: result.stdout.slice(-3000) };
+  }
+});

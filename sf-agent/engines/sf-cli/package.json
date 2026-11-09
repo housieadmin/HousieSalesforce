@@ -1,1 +1,19 @@
-{"name":"@sf-agent/sf-cli","version":"0.1.0","type":"module","exports":{".":"./dist/index.js"},"files":["dist"],"scripts":{"build":"tsc -p tsconfig.json","typecheck":"tsc -p tsconfig.json --noEmit"},"peerDependencies":{"@sf-agent/core":"^0.1.0"},"devDependencies":{"@sf-agent/core":"^0.1.0","typescript":"^5.9.3","@types/node":"^22.18.0"}}
+{
+  "name": "@sf-agent/sf-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": { ".": "./dist/index.js" },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "peerDependencies": { "@sf-agent/core": "^0.1.0" },
+  "devDependencies": {
+    "@sf-agent/core": "^0.1.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "@types/node": "^22.18.0"
+  }
+}
