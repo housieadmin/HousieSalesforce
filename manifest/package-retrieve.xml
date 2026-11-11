@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<Package xmlns="http://soap.sforce.com/2006/04/metadata">
-  <!-- Deliberately narrow starter allowlist. Add exact members here before widening org sync. -->
-  <types>
-    <members>Housie_Account__c</members>
-    <name>CustomObject</name>
-  </types>
-  <version>66.0</version>
-</Package>

@@ -1,7 +1,0 @@
-.DS_Store
-node_modules
-.tmp
-.idea
-.vscode
-**/jsconfig.json
-**/.eslintrc.json

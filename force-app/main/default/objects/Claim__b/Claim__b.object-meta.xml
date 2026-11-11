@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
-    <deploymentStatus>Deployed</deploymentStatus>
-    <description>Housie append-oriented Big Object for Claim. All reads and writes are mediated by Apex.</description>
-    <label>Housie Claim</label>
-    <pluralLabel>Housie Claim Records</pluralLabel>
-</CustomObject>
