@@ -43,7 +43,7 @@ jobs:
   browser:
     name: Run browser scenarios after successful deployment
     needs: deploy
-    uses: ./.github/workflows/browser-agent.yml
+    uses: ./.github/workflows/e2e.yml
     with:
       source_ref: ${{ inputs.source_ref }}
       scenarios_json: ${{ inputs.scenarios_json }}
