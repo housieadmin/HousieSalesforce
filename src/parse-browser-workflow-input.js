@@ -11,3 +11,19 @@ export function parseBrowserWorkflowInput({ requestedRef, scenariosJson, descrip
   validateScenarios(scenarios);
   return { ref, scenarios, description: String(description || "E2E verification").replace(/[\r\n]/g, " ").slice(0, 300) };
 }
+
+if (process.argv[1]?.endsWith("/parse-browser-workflow-input.js")) {
+  const request = parseBrowserWorkflowInput({
+    requestedRef: process.env.REQUESTED_REF,
+    scenariosJson: process.env.SCENARIOS_JSON,
+    description: process.env.RUN_DESCRIPTION
+  });
+  if (process.env.GITHUB_OUTPUT) {
+    const fs = await import("node:fs");
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, [
+      "ref=" + request.ref,
+      "description=" + request.description,
+      "scenarios=" + JSON.stringify(request.scenarios)
+    ].join("\n") + "\n");
+  }
+}
