@@ -86,4 +86,4 @@ jobs:
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
         run: node .automation-runtime/packages/sf-augment/bin/login-with-jwt.js housie-dev
       - name: Deploy selected metadata and run configured tests
-        run: node .automation-runtime/src/salesforce-deploy.mjs ai-iteration
+        run: node .automation-runtime/src/deploy-feature-metadata.js
