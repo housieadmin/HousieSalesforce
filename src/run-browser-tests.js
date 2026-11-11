@@ -35,3 +35,5 @@ export function runBrowserTests(env = process.env) {
   fs.writeFileSync(path.join(artifactDir, "execution-summary.json"), JSON.stringify({ specs, exitCode }, null, 2));
   return exitCode;
 }
+
+if (process.argv[1]?.endsWith("/run-browser-tests.js")) process.exitCode = runBrowserTests();
