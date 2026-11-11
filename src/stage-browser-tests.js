@@ -27,3 +27,11 @@ export function stageBrowserTests({ scenarios, sourceCheckout = ".automation-sou
     fs.copyFileSync(real, destination);
   }
 }
+
+if (process.argv[1]?.endsWith("/stage-browser-tests.js")) {
+  stageBrowserTests({
+    scenarios: JSON.parse(process.env.SCENARIOS_JSON || "[]"),
+    sourceCheckout: process.env.SOURCE_CHECKOUT || ".automation-source",
+    runtimeCheckout: process.env.RUNTIME_CHECKOUT || ".automation-runtime"
+  });
+}
