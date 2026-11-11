@@ -13,7 +13,7 @@ function filesUnder(dir: string): string[] {
 
 test("round-trip all Housie custom objects in Salesforce DX source format", async ({ housie }) => {
   const projectRoot = path.resolve(process.cwd());
-  const expectedRoot = path.resolve(projectRoot, "..", ".browser-agent-source", "force-app", "main", "default", "objects");
+  const expectedRoot = path.resolve(projectRoot, "..", ".automation-source", "force-app", "main", "default", "objects");
   const retrieveRoot = path.join(projectRoot, "force-app", "main", "default", "objects");
   const objects = [
     "Account_Resource_Transaction__b", "Audit_Record__b", "Board_Member__b", "Board__b",
