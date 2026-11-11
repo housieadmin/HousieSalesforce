@@ -38,3 +38,5 @@ export function deployFeatureMetadata(env = process.env) {
     ]);
   }
 }
+
+if (process.argv[1]?.endsWith("/deploy-feature-metadata.js")) deployFeatureMetadata();
