@@ -67,4 +67,4 @@ jobs:
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
         run: node .automation-runtime/packages/sf-augment/bin/login-with-jwt.js housie-dev
       - name: Validate selected manifest and optionally run local Apex tests
-        run: node .automation-runtime/src/salesforce-deploy.mjs manual-validation
+        run: node .automation-runtime/src/validate-manual-metadata.js
