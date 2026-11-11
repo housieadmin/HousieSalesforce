@@ -40,4 +40,4 @@ jobs:
           GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}
-        run: node src/salesforce-issue-commands.mjs
+        run: node src/handle-issue-command.js
