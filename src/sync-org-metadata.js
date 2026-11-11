@@ -30,3 +30,5 @@ export function syncOrgMetadata(env = process.env) {
   ]);
   return { changed, selection, branch };
 }
+
+if (process.argv[1]?.endsWith("/sync-org-metadata.js")) syncOrgMetadata();
