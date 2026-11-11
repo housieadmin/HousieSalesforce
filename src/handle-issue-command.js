@@ -22,3 +22,5 @@ export function handleIssueCommand(env = process.env) {
     throw error;
   }
 }
+
+if (process.argv[1]?.endsWith("/handle-issue-command.js")) handleIssueCommand();
