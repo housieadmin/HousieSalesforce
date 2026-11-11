@@ -65,4 +65,4 @@ jobs:
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
         run: node .automation-runtime/packages/sf-augment/bin/login-with-jwt.js housie-dev
       - name: Restore selected metadata and optionally run local tests
-        run: node .automation-runtime/src/salesforce-deploy.mjs restore
+        run: node .automation-runtime/src/restore-feature-metadata.js
