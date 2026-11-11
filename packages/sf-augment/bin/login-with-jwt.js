@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { loginWithJwt } from "../src/salesforce-cli.js";
+import { loginWithJwt } from "../src/login-with-jwt.js";
 
 const env = process.env;
 loginWithJwt({

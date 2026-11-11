@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=20" },
   "exports": {
     ".": "./src/index.js",
-    "./salesforce-cli": "./src/salesforce-cli.js",
-    "./salesforce-browser": "./src/salesforce-browser.js",
-    "./browser-diagnostics": "./src/browser-diagnostics.js"
+    "./login-with-jwt": "./src/login-with-jwt.js",
+    "./extract-frontdoor-url": "./src/extract-frontdoor-url.js",
+    "./get-frontdoor-url": "./src/get-frontdoor-url.js",
+    "./open-lightning-tab": "./src/open-lightning-tab.js",
+    "./capture-aura-errors": "./src/capture-aura-errors.js",
+    "./query-big-object": "./src/query-big-object.js",
+    "./capture-browser-diagnostics": "./src/capture-browser-diagnostics.js"
   },
-  "scripts": {
-    "test": "node --test"
-  }
+  "scripts": { "test": "node --test test/*.test.js" }
 }
