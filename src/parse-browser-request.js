@@ -39,3 +39,8 @@ export function writeBrowserRequestOutput(request, file = process.env.GITHUB_OUT
     "scenarios=" + JSON.stringify(request.scenarios)
   ].join("\n") + "\n");
 }
+
+if (process.argv[1]?.endsWith("/parse-browser-request.js")) {
+  const request = parseBrowserRequest(process.env.COMMENT_BODY);
+  writeBrowserRequestOutput(request);
+}
