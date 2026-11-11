@@ -8,3 +8,5 @@ export function validateManualMetadata(env = process.env) {
   deployMetadata({ manifest, targetOrg, dryRun: true });
   if (env.RUN_APEX_TESTS === "true") runApexTests({ mode: "local", classes: [] }, targetOrg);
 }
+
+if (process.argv[1]?.endsWith("/validate-manual-metadata.js")) validateManualMetadata();
