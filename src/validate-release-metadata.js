@@ -11,3 +11,5 @@ export function validateReleaseMetadata(env = process.env) {
   deployMetadata({ manifest, targetOrg });
   runApexTests({ mode: "local", classes: [] }, targetOrg);
 }
+
+if (process.argv[1]?.endsWith("/validate-release-metadata.js")) validateReleaseMetadata();
