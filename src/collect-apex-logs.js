@@ -15,3 +15,10 @@ export function collectApexLogs({ targetOrg, artifactDir = process.env.E2E_ARTIF
   fs.appendFileSync(path.join(artifactDir, "summary.md"), "\nApex debug logs collected: " + count + "\n");
   return { count, status: result.status ?? 1 };
 }
+
+if (process.argv[1]?.endsWith("/collect-apex-logs.js")) {
+  collectApexLogs({
+    targetOrg: process.env.SF_TARGET_ORG_ALIAS || "housie-dev",
+    artifactDir: process.env.E2E_ARTIFACT_DIR || "artifacts/e2e"
+  });
+}
