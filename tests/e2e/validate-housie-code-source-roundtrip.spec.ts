@@ -109,7 +109,7 @@ function retrieveAndCompare(projectRoot: string, manifestRoot: string, manifest:
 
 test("reconcile only Housie-owned Apex and LWC source against the Developer Org", async ({ housie }) => {
   const projectRoot = path.resolve(process.cwd());
-  const sourceCheckoutRoot = path.resolve(projectRoot, "..", ".browser-agent-source");
+  const sourceCheckoutRoot = path.resolve(projectRoot, "..", ".automation-source");
   const sourceRoot = path.join(sourceCheckoutRoot, "force-app", "main", "default");
   const runtimeRoot = path.join(projectRoot, "force-app", "main", "default");
 
