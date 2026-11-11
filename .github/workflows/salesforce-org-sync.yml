@@ -68,7 +68,7 @@ jobs:
         run: node packages/sf-augment/bin/login-with-jwt.js housie-dev
       - name: Retrieve selected metadata and open PR when requested
         id: retrieve
-        run: node src/salesforce-org-sync.mjs
+        run: node src/sync-org-metadata.js
       - name: Upload retrieved metadata when PR creation is disabled
         if: ${{ !inputs.create_pr && steps.retrieve.outputs.changed == 'true' }}
         uses: actions/upload-artifact@v4
