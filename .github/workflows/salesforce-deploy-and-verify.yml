@@ -18,7 +18,7 @@ on:
         default: none
         options: [none, specified, local]
       apex_test_classes: { required: false, type: string }
-      scenarios_json: { description: JSON array of browser-agent scenario paths, required: true, type: string }
+      scenarios_json: { description: JSON array of tests/e2e paths, required: true, type: string }
       run_description: { required: false, type: string }
       confirm_deployment: { description: Type DEPLOY, required: true, type: string }
 
@@ -41,7 +41,7 @@ jobs:
     secrets: inherit
 
   browser:
-    name: Run browser scenarios after successful deployment
+    name: Run E2E tests after successful deployment
     needs: deploy
     uses: ./.github/workflows/e2e.yml
     with:
@@ -63,7 +63,7 @@ jobs:
             const url = 'https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId;
             const deploy = '${{ needs.deploy.result }}';
             const browser = '${{ needs.browser.result }}';
-            const lines = ['**Salesforce deploy and browser verification finished.**', '- Workflow: ' + url, '- Deployment: ' + deploy, '- Browser verification: ' + browser, '- Source ref: `${{ inputs.source_ref }}`', '- Deployment mode: `${{ inputs.deployment_mode }}`', '- Browser evidence: download the artifact from this workflow run.'];
+            const lines = ['**Salesforce deploy and browser verification finished.**', '- Workflow: ' + url, '- Deployment: ' + deploy, '- E2E verification: ' + browser, '- Source ref: `${{ inputs.source_ref }}`', '- Deployment mode: `${{ inputs.deployment_mode }}`', '- E2E evidence: download the artifact from this workflow run.'];
             if (deploy !== 'success' && browser === 'skipped') lines.push('Browser verification was skipped because deployment did not succeed.');
             else if (deploy === 'success' && browser === 'skipped') lines.push('Browser verification was skipped despite successful deployment; check the reusable-workflow condition or wiring.');
             else if (browser !== 'success') lines.push('Browser verification did not complete successfully; this workflow is not an end-to-end pass.');
