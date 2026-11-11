@@ -50,4 +50,4 @@ jobs:
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
         run: node packages/sf-augment/bin/login-with-jwt.js housie-dev
       - name: Validate, deploy and verify release
-        run: node scripts/salesforce-deploy.mjs release
+        run: node src/validate-release-metadata.js
