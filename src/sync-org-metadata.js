@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import { resolveRetrieveSelection } from "./resolve-retrieve-selection.js";
 import { retrieveMetadata } from "./retrieve-metadata.js";
 import { createRetrievalPullRequest } from "./create-retrieval-pull-request.js";
@@ -13,9 +14,7 @@ export function syncOrgMetadata(env = process.env) {
   const targetOrg = env.SF_TARGET_ORG_ALIAS || "housie-dev";
   retrieveMetadata(selection, targetOrg);
   const changed = execFileSync("git", ["status", "--porcelain", "--", "force-app"], { encoding: "utf8" }).trim().length > 0;
-  if (env.GITHUB_OUTPUT) execFileSync("bash", ["-lc", "printf 'changed=%s\\n' \"$CHANGE\" >> \"$GITHUB_OUTPUT\""], {
-    env: { ...env, CHANGE: String(changed) }, stdio: "inherit"
-  });
+  if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, "changed=" + changed + "\n");
   let branch;
   if (changed && env.CREATE_PR === "true") {
     branch = createRetrievalPullRequest({ selection, description: env.RUN_DESCRIPTION });
