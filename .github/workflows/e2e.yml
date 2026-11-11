@@ -1,0 +1,145 @@
+name: Housie E2E
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_call:
+    inputs:
+      source_ref: { required: true, type: string }
+      scenarios_json: { required: true, type: string }
+      run_description: { required: false, type: string, default: E2E verification }
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: e2e-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: Run selected Housie E2E tests
+    if: >-
+      inputs.source_ref != '' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 9 &&
+       github.event.issue.pull_request == null &&
+       startsWith(github.event.comment.body, '/e2e run') &&
+       (github.event.comment.author_association == 'OWNER' ||
+        github.event.comment.author_association == 'MEMBER' ||
+        github.event.comment.author_association == 'COLLABORATOR'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out trusted application runtime
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          path: .automation-runtime
+
+      - name: Parse issue request
+        if: github.event_name == 'issue_comment'
+        id: request
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: node .automation-runtime/src/parse-browser-request.js
+
+      - name: Validate reusable workflow inputs
+        if: inputs.source_ref != ''
+        id: reusable-request
+        env:
+          REQUESTED_REF: ${{ inputs.source_ref }}
+          SCENARIOS_JSON: ${{ inputs.scenarios_json }}
+          RUN_DESCRIPTION: ${{ inputs.run_description }}
+        run: node .automation-runtime/src/parse-browser-workflow-input.js
+
+      - name: Check out selected application tests
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: .automation-source
+
+      - name: Stage selected E2E tests into trusted runtime
+        env:
+          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
+          SOURCE_CHECKOUT: .automation-source
+          RUNTIME_CHECKOUT: .automation-runtime
+        run: node .automation-runtime/src/stage-browser-tests.js
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        working-directory: .automation-runtime
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        working-directory: .automation-runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to Salesforce
+        working-directory: .automation-runtime
+        env:
+          SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
+          SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
+          SF_TARGET_ORG_ALIAS: housie-browser-agent
+        run: |
+          node packages/sf-augment/bin/login-with-jwt.js housie-browser-agent --set-default
+          FRONTDOOR_URL="$(node packages/sf-augment/bin/frontdoor-url.js housie-browser-agent)"
+          echo "::add-mask::$FRONTDOOR_URL"
+          echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
+
+      - name: Enable Apex debug trace
+        continue-on-error: true
+        working-directory: .automation-runtime
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_TARGET_ORG_ALIAS: housie-browser-agent
+        run: node src/enable-apex-trace.js
+
+      - name: Execute selected E2E tests
+        id: run
+        working-directory: .automation-runtime
+        env:
+          SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
+          RUN_DESCRIPTION: ${{ steps.request.outputs.description || steps.reusable-request.outputs.description }}
+          REQUESTED_REF: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
+          E2E_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+        run: node src/run-browser-tests.js
+
+      - name: Collect Apex debug logs
+        if: always() && env.APEX_DEBUG_ENABLED == 'true'
+        working-directory: .automation-runtime
+        env:
+          E2E_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+          SF_TARGET_ORG_ALIAS: housie-browser-agent
+        run: node src/collect-apex-logs.js
+
+      - name: Upload E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: housie-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .automation-runtime/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Comment with E2E result
+        if: always() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = 'https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId;
+            const body = ['Housie E2E execution finished.', '- Workflow run: ' + url, '- Requested ref: ${{ steps.request.outputs.ref }}', '- Scenarios: ${{ steps.request.outputs.scenarios }}', '- Evidence: download the workflow artifact.'].join('\\n');
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 9, body });
