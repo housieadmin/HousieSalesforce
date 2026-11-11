@@ -1,12 +1,20 @@
 # Repository guidance
 
 - Start with `.project/README.md`; verify branch, commit and open PRs before relying on prior context.
-- Read only the relevant sections of `docs/SPEC.md`, `docs/DATA_MODEL.md` and affected source. Consult architecture, mapping, storage or workflow docs only when needed.
-- A work session owns its task end-to-end where practical. Do not create a handoff merely because work crosses disciplines or a chat session ends.
-- Design complete service behaviour before coding: authorization, state transitions, transaction boundaries, idempotency, concurrency, failure handling and audit/ledger effects.
-- Keep a cohesive service implementation together. Use focused tests to validate changed behaviour; do not expand into broad coverage work unless explicitly prioritized.
-- Distinguish source, test, deployment and runtime evidence. A compile, metadata validation or audit event does not prove a product workflow works.
-- Preserve data integrity and security invariants. Verify technical documentation against current source when changing architecture.
-- Keep detailed implementation decisions and validation evidence in the relevant PR. Update `docs/BUILD_STATUS.md` only when the factual implementation snapshot changes.
+- Read relevant sections of `docs/SPEC.md`, `docs/DATA_MODEL.md` and affected source. Consult other docs only when needed.
+- Design complete service behavior before coding: authorization, state transitions, transaction boundaries, idempotency, concurrency, failure handling and audit/ledger effects.
+- Keep cohesive implementations together. Use focused tests; avoid unrelated cleanup.
+- Distinguish source, test, deployment and runtime evidence. A compile or metadata validation does not prove a product workflow works.
+- Preserve data integrity and security invariants. Verify technical documentation against source when changing architecture.
+- Record implementation decisions and validation in the relevant PR. Update `docs/BUILD_STATUS.md` only when the factual implementation snapshot changes.
 - Do not deploy, merge or change org/security settings without explicit authorization.
-- Use `.project/sessions/SESSION_TEMPLATE.md` only for substantial unfinished work that genuinely needs a handoff.
+
+## Salesforce automation
+
+- Housie owns its pages, business flows, scenarios, assertions, manifests, org settings and project configuration. Put Housie Node code in `src/`; add subfolders only when real module boundaries need them.
+- `packages/sf-augment` owns reusable, project-independent Salesforce capabilities. Never add Housie names, org aliases, credentials, paths or business rules there.
+- Before adding code, inspect the relevant Housie code, `packages/sf-augment`, package manifests and existing Salesforce CLI/Playwright capabilities. Reuse or extend before creating.
+- Pass org names, paths, URLs and policies as configuration. Never hardcode credentials.
+- Keep GitHub workflows limited to triggers, permissions, checkout, runtime setup, secret/environment mapping, artifact handling and invoking repository code. Put parsing, validation, Salesforce commands and browser behavior in tested code.
+- Keep Playwright Test as the browser test runner. Housie scenarios and product assertions stay in Housie.
+- Run focused tests for every change. Do not deploy, merge or change org/security settings without explicit authorization.

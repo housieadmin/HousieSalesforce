@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       source_paths:
-        description: "Comma-separated or newline-separated paths under force-app/ (class .cls, LWC bundle folder, object folder, etc.)"
+        description: "Comma-separated or newline-separated paths under force-app/"
         required: true
         type: string
       deployment_mode:
@@ -22,19 +22,15 @@ on:
         required: true
         type: choice
         default: none
-        options:
-          - none
-          - specified
-          - local
+        options: [none, specified, local]
       apex_test_classes:
         description: Required for specified mode; one Apex test class name per line
         required: false
         type: string
       confirm_deployment:
-        description: Type DEPLOY to deploy selected paths to the shared Developer Edition org
+        description: Type DEPLOY to authorize deployment
         required: true
         type: string
-
   workflow_call:
     inputs:
       source_ref: { required: true, type: string }
@@ -63,160 +59,31 @@ jobs:
       TEST_MODE: ${{ inputs.test_mode || 'none' }}
       APEX_TEST_CLASSES_INPUT: ${{ inputs.apex_test_classes }}
       CONFIRM_DEPLOYMENT: ${{ inputs.confirm_deployment }}
+      SF_TARGET_ORG_ALIAS: housie-dev
     steps:
-      - name: Verify explicit deployment confirmation
-        run: |
-          set -euo pipefail
-          [[ "$CONFIRM_DEPLOYMENT" == "DEPLOY" ]] || { echo "Type DEPLOY to authorize this iteration deployment." >&2; exit 1; }
-          [[ -n "$SOURCE_REF" ]] || { echo "Source ref is required." >&2; exit 1; }
-          [[ "$DEPLOYMENT_MODE" == "standard" || "$DEPLOYMENT_MODE" == "fast" ]] || { echo "Unsupported deployment mode." >&2; exit 1; }
-          if [[ "$DEPLOYMENT_MODE" == "fast" && "$TEST_MODE" != "none" ]]; then echo "Fast mode requires test_mode=none." >&2; exit 1; fi
-
       - name: Check out selected feature branch or commit
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.source_ref }}
           fetch-depth: 0
-
-      - name: Resolve and validate selected metadata paths
-        id: paths
-        shell: bash
-        run: |
-          set -euo pipefail
-          declare -a deploy_paths=()
-          declare -a final_paths=()
-          declare -A seen=()
-          while IFS= read -r path || [[ -n "$path" ]]; do
-            path="${path%$'\r'}"
-            [[ -z "$path" ]] && continue
-            if [[ ! "$path" =~ ^force-app/[A-Za-z0-9._/-]+$ || "$path" == *".."* ]]; then
-              echo "Rejected path (must be a literal path under force-app/): $path" >&2
-              exit 1
-            fi
-            [[ -e "$path" ]] || { echo "Path does not exist in $SOURCE_REF: $path" >&2; exit 1; }
-            resolved="$(realpath -e -- "$path")"
-            case "$resolved" in
-              "$GITHUB_WORKSPACE"/force-app/*) ;;
-              *) echo "Resolved path escapes force-app/: $path" >&2; exit 1 ;;
-            esac
-            if [[ -f "$path" ]]; then
-              git ls-files --error-unmatch "$path" >/dev/null 2>&1 || { echo "Path is not tracked in the selected ref: $path" >&2; exit 1; }
-              if [[ "$path" == *.cls || "$path" == *.trigger ]]; then
-                companion="${path}-meta.xml"
-                if [[ -f "$companion" ]]; then
-                  deploy_paths+=("$companion")
-                fi
-              fi
-            else
-              [[ -n "$(git ls-files "$path")" ]] || { echo "Directory has no tracked source files: $path" >&2; exit 1; }
-            fi
-            deploy_paths+=("$path")
-          done < <(printf "%s\n" "$SOURCE_PATHS_INPUT" | tr ',' '\n')
-
-          [[ ${#deploy_paths[@]} -gt 0 ]] || { echo "At least one metadata path is required." >&2; exit 1; }
-          for path in "${deploy_paths[@]}"; do
-            if [[ -z "${seen[$path]+x}" ]]; then
-              seen[$path]=1
-              final_paths+=("$path")
-              echo "Selected: $path"
-            fi
-          done
-          json="$(printf '%s\n' "${final_paths[@]}" | jq -R . | jq -s -c .)"
-          echo "paths=$json" >> "$GITHUB_OUTPUT"
-
-      - name: Validate Apex test selection
-        id: tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          declare -a test_args=()
-          case "$TEST_MODE" in
-            none) ;;
-            local) ;;
-            specified)
-              while IFS= read -r test_class || [[ -n "$test_class" ]]; do
-                test_class="${test_class%$'\r'}"
-                [[ -z "$test_class" ]] && continue
-                [[ "$test_class" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "Invalid Apex test class name: $test_class" >&2; exit 1; }
-                test_args+=(--tests "$test_class")
-              done <<< "$APEX_TEST_CLASSES_INPUT"
-              [[ ${#test_args[@]} -gt 0 ]] || { echo "specified test mode requires at least one test class name." >&2; exit 1; }
-              ;;
-            *) echo "Unsupported test mode: $TEST_MODE" >&2; exit 1 ;;
-          esac
-          echo "Apex test mode: $TEST_MODE"
-
+      - name: Check out trusted automation code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          path: .automation-runtime
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
-
       - name: Authenticate to Developer Edition
         env:
           SF_JWT_KEY: ${{ secrets.SF_JWT_KEY }}
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
           SF_USERNAME: ${{ secrets.SF_USERNAME }}
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
-        run: |
-          set -euo pipefail
-          test -n "$SF_JWT_KEY" && test -n "$SF_CLIENT_ID" && test -n "$SF_USERNAME" && test -n "$SF_INSTANCE_URL"
-          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/server.key"
-          chmod 600 "$RUNNER_TEMP/server.key"
-          sf org login jwt --client-id "$SF_CLIENT_ID" --jwt-key-file "$RUNNER_TEMP/server.key" --username "$SF_USERNAME" --instance-url "$SF_INSTANCE_URL" --alias housie-dev
-
-      - name: Validate selected metadata (dry run)
-        if: env.DEPLOYMENT_MODE == 'standard'
-        env:
-          DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
-        run: |
-          set -euo pipefail
-          mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
-          declare -a source_args=()
-          for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
-          sf project deploy start --dry-run "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
-
-      - name: Deploy selected metadata
-        env:
-          DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
-        run: |
-          set -euo pipefail
-          mapfile -t deploy_paths < <(jq -r '.[]' <<< "$DEPLOY_PATHS_JSON")
-          declare -a source_args=()
-          for path in "${deploy_paths[@]}"; do source_args+=(--source-dir "$path"); done
-          sf project deploy start "${source_args[@]}" --target-org housie-dev --test-level NoTestRun --wait 60
-
-      - name: Run selected Apex tests
-        if: env.DEPLOYMENT_MODE == 'standard' && inputs.test_mode != 'none'
-        env:
-          TEST_MODE: ${{ inputs.test_mode }}
-          APEX_TEST_CLASSES_INPUT: ${{ inputs.apex_test_classes }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ "$TEST_MODE" == "local" ]]; then
-            sf apex run test --target-org housie-dev --test-level RunLocalTests --result-format human --wait 60
-          else
-            declare -a test_args=()
-            while IFS= read -r test_class || [[ -n "$test_class" ]]; do
-              test_class="${test_class%$'\r'}"
-              [[ -z "$test_class" ]] && continue
-              test_args+=(--tests "$test_class")
-            done <<< "$APEX_TEST_CLASSES_INPUT"
-            sf apex run test "${test_args[@]}" --target-org housie-dev --result-format human --wait 60
-          fi
-
-      - name: Record iteration deployment details
-        if: always()
-        env:
-          DEPLOY_PATHS_JSON: ${{ steps.paths.outputs.paths }}
-        run: |
-          {
-            commit_sha="$(git rev-parse HEAD)"
-            printf '%s\n' "### Salesforce AI iteration deployment"
-            printf '%s\n' "- Source ref: $SOURCE_REF"
-            printf '%s\n' "- Commit: $commit_sha"
-            printf '%s\n' "- Deployment mode: $DEPLOYMENT_MODE"
-            printf '%s\n' "- Test mode: $TEST_MODE"
-            printf '%s\n' "- Selected paths:"
-            if [[ -n "${DEPLOY_PATHS_JSON:-}" ]]; then
-              jq -r '.[] | "- `" + . + "`"' <<< "$DEPLOY_PATHS_JSON"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: node .automation-runtime/packages/sf-augment/bin/login-with-jwt.js housie-dev
+      - name: Deploy selected metadata and run configured tests
+        run: node .automation-runtime/src/salesforce-deploy.mjs ai-iteration

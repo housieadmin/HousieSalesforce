@@ -1,0 +1,15 @@
+{
+  "name": "housie-salesforce",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm run test:shared && npm run test:app-scripts && npm run test:browser-scripts",
+    "test:shared": "npm test --workspace=sf-augment",
+    "browser:test": "npm --prefix browser-agent run browser:run",
+    "test:browser-scripts": "node --test browser-agent/scripts/*.test.mjs",
+    "test:app-scripts": "node --test src/*.test.mjs"
+  }
+}
