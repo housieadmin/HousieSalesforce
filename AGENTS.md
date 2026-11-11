@@ -17,4 +17,4 @@
 - Pass org names, paths, URLs and policies as configuration. Never hardcode credentials.
 - Keep GitHub workflows limited to triggers, permissions, checkout, runtime setup, secret/environment mapping, artifact handling and invoking repository code. Put parsing, validation, Salesforce commands and browser behavior in tested code.
 - Keep Playwright Test as the browser test runner. Housie scenarios and product assertions stay in Housie.
-- Run focused tests for every change. Do not deploy, merge or change org/security settings without explicit authorization.
+- Run `npm test` after Node changes. Run browser E2E only against the explicitly configured org. Do not deploy, merge or change org/security settings without explicit authorization.
