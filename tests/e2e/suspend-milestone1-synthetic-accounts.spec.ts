@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
-import { redactAccountKey, queryBigObject } from "../utilities/salesforce";
+import { queryBigObject } from "../helpers/query-big-object";
+import { redactAccountKey } from "../helpers/redact-account-key";
 
 // These scenarios handle bearer account keys; do not retain Playwright traces on failure.
 test.use({ trace: "off" });

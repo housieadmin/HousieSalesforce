@@ -1,5 +1,5 @@
 import { test, expect } from "../core";
-import { captureAuraErrors } from "../utilities/salesforce";
+import { captureAuraErrors } from "sf-augment";
 
 const playerUrl = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/housie-account/a00g500001DFWqoAAH/housie-test-user-3";
 

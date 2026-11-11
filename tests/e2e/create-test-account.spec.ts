@@ -1,5 +1,6 @@
 import { test, expect } from "../core";
-import { openLightningTab, redactAccountKey } from "../utilities/salesforce";
+import { openLightningTab } from "../helpers/open-lightning-tab";
+import { redactAccountKey } from "../helpers/redact-account-key";
 
 // These scenarios handle bearer account keys; do not retain Playwright traces on failure.
 test.use({ trace: "off" });

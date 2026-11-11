@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { test, expect } from "../core";
-import { queryBigObject } from "../utilities/salesforce";
+import { queryBigObject } from "../helpers/query-big-object";
 
 test.use({ trace: "off" });
 

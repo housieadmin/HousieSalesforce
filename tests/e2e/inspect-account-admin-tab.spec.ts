@@ -1,5 +1,5 @@
 import { test, expect } from "../core";
-import { openLightningTab } from "../utilities/salesforce";
+import { openLightningTab } from "../helpers/open-lightning-tab";
 
 test("open the configured Housie Account Admin tab", async ({ page, housie }) => {
   await openLightningTab(page, "/lightning/n/Housie_Account_Admin");
