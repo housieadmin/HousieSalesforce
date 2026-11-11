@@ -1,4 +1,4 @@
-name: Node package tests
+name: Node tests
 
 on:
   pull_request:
@@ -6,8 +6,6 @@ on:
     paths:
       - 'packages/**'
       - 'src/**'
-      - 'src/**'
-      - 'tests/**'
       - 'tests/**'
       - 'playwright.config.ts'
       - 'package.json'
@@ -18,8 +16,6 @@ on:
     paths:
       - 'packages/**'
       - 'src/**'
-      - 'src/**'
-      - 'tests/**'
       - 'tests/**'
       - 'playwright.config.ts'
       - 'package.json'
