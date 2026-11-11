@@ -16,7 +16,7 @@ Keep this directory small. Product requirements and technical design live in `do
 - Design the service contract and end-to-end behaviour before implementation: authorization, state transitions, transaction boundaries, idempotency, concurrency, failure handling and audit/ledger effects.
 - Implement the complete coherent service in one focused coding package, including required supporting code and focused tests. Do not fragment service design across sessions.
 - Separate costly org/browser acceptance from implementation only when it is independently executable and does not require splitting the service itself.
-- Keep validation proportional to changed behaviour. Do not turn coverage uplift or browser-agent activity into a separate delivery goal.
+- Keep validation proportional to changed behaviour. Do not turn coverage uplift or E2E test activity into a separate delivery goal.
 - A package ends when its stated acceptance outcome is implemented and the required focused validation is complete, or when a genuine external approval/dependency blocks it. Report the exact boundary.
 - Do not merge, deploy or change org/security settings without explicit authorization.
 
