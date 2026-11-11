@@ -6,10 +6,10 @@ on:
     paths:
       - 'packages/**'
       - 'src/**'
-      - 'browser-agent/scripts/**'
-      - 'browser-agent/core/**'
-      - 'browser-agent/utilities/**'
-      - 'browser-agent/package.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tests/**'
+      - 'playwright.config.ts'
       - 'package.json'
       - 'package-lock.json'
       - 'AGENTS.md'
@@ -18,10 +18,10 @@ on:
     paths:
       - 'packages/**'
       - 'src/**'
-      - 'browser-agent/scripts/**'
-      - 'browser-agent/core/**'
-      - 'browser-agent/utilities/**'
-      - 'browser-agent/package.json'
+      - 'src/**'
+      - 'tests/**'
+      - 'tests/**'
+      - 'playwright.config.ts'
       - 'package.json'
       - 'package-lock.json'
 
@@ -37,5 +37,5 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm install --no-audit --no-fund
       - run: npm test
