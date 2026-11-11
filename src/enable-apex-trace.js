@@ -23,3 +23,10 @@ export function enableApexTrace({ username, targetOrg, writeEnv = value => proce
   writeEnv("APEX_DEBUG_ENABLED=true");
   return userId;
 }
+
+if (process.argv[1]?.endsWith("/enable-apex-trace.js")) {
+  enableApexTrace({
+    username: process.env.SF_USERNAME,
+    targetOrg: process.env.SF_TARGET_ORG_ALIAS || "housie-dev"
+  });
+}
