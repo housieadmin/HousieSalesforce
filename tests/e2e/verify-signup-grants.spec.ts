@@ -84,7 +84,7 @@ test("new account activation is backed by all four committed signup grants", asy
   housie.note("Signup grant audit passed: one ACTIVE account, all four resource balances match SPEC, and four distinct signup ledger rows exist; activation logic checks committed grants before setting ACTIVE. Bearer account key redacted; synthetic email and key omitted from artifacts.");
 
   // The public app resolves its opaque invitation token from the query string.
-  // The browser-agent diagnostics redact the token query parameter; redact the
+  // The E2E diagnostics redact the token query parameter; redact the
   // rendered account-key line before taking any screenshot or artifact.
   const publicRoot = "https://empathetic-otter-ht8sln-dev-ed.trailblaze.my.site.com/housie/s/";
   await housie.navigate(publicRoot + "?token=" + encodeURIComponent(accountKey));
