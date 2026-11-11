@@ -30,3 +30,5 @@ export function restoreFeatureMetadata(env = process.env) {
     ]);
   }
 }
+
+if (process.argv[1]?.endsWith("/restore-feature-metadata.js")) restoreFeatureMetadata();
