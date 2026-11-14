@@ -77,7 +77,7 @@ jobs:
 
       - name: Install project dependencies
         working-directory: .automation-runtime
-        run: npm install --no-audit --no-fund
+        run: npm ci
 
       - name: Install Chromium
         working-directory: .automation-runtime
@@ -93,10 +93,10 @@ jobs:
           SF_CLIENT_ID: ${{ secrets.SF_CLIENT_ID }}
           SF_USERNAME: ${{ secrets.SF_USERNAME }}
           SF_INSTANCE_URL: ${{ vars.SF_INSTANCE_URL }}
-          SF_TARGET_ORG_ALIAS: housie-browser-agent
+          SF_TARGET_ORG_ALIAS: housie-browser-tests
         run: |
-          node packages/sf-augment/bin/login-with-jwt.js housie-browser-agent --set-default
-          FRONTDOOR_URL="$(node packages/sf-augment/bin/frontdoor-url.js housie-browser-agent)"
+          node packages/sf-augment/bin/login-with-jwt.js housie-browser-tests --set-default
+          FRONTDOOR_URL="$(node packages/sf-augment/bin/frontdoor-url.js housie-browser-tests)"
           echo "::add-mask::$FRONTDOOR_URL"
           echo "HOUSIE_START_URL=$FRONTDOOR_URL" >> "$GITHUB_ENV"
 
@@ -105,7 +105,7 @@ jobs:
         working-directory: .automation-runtime
         env:
           SF_USERNAME: ${{ secrets.SF_USERNAME }}
-          SF_TARGET_ORG_ALIAS: housie-browser-agent
+          SF_TARGET_ORG_ALIAS: housie-browser-tests
         run: node src/enable-apex-trace.js
 
       - name: Execute selected Browser tests
@@ -123,7 +123,7 @@ jobs:
         working-directory: .automation-runtime
         env:
           BROWSER_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
-          SF_TARGET_ORG_ALIAS: housie-browser-agent
+          SF_TARGET_ORG_ALIAS: housie-browser-tests
         run: node src/collect-apex-logs.js
 
       - name: Upload Browser evidence
