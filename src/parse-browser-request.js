@@ -25,7 +25,7 @@ export function parseBrowserRequest(body) {
 export function validateScenarios(scenarios) {
   if (!Array.isArray(scenarios) || scenarios.length < 1 || scenarios.length > 10 ||
     new Set(scenarios).size !== scenarios.length ||
-    scenarios.some(file => typeof file !== "string" || !/^tests\/e2e\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(file) ||
+    scenarios.some(file => typeof file !== "string" || !/^tests\/browser\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(file) ||
       file.includes("..") || file.includes("//"))) {
     throw new Error("Provide 1-10 unique test files under tests/browser/.");
   }
