@@ -49,7 +49,11 @@ Big Object writes are non-transactional. The writer uses `Database.insertImmedia
 - `manifest/package.xml`: routine application deployment (Apex, objects and LWC)
 - `manifest/package-org-setup.xml`: permission sets, custom tabs and custom permissions
 - `manifest/package-experience.xml`: Experience Cloud bundles and network configuration
-- `scripts`: deploy, bootstrap and test scripts
+- `src`: focused Node modules used by GitHub Actions and local automation
+- `packages/sf-augment`: reusable, project-independent Salesforce functions
+- `tests/unit`, `tests/browser`, `tests/helpers`: Node unit tests, Playwright browser tests and Housie-specific helpers
+- `scripts`: bootstrap and direct Salesforce CLI convenience scripts
+- `package.json` / `package-lock.json`: reproducible Node workspace dependencies and test commands
 - `docs`: product specification, data model, architecture, workflow operations and build status
 - `.project/MILESTONES.md`: ordered delivery roadmap and acceptance criteria
 
