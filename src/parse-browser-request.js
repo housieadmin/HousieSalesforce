@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 
 export function parseBrowserRequest(body) {
   const lines = String(body || "").split(/\r?\n/).map(line => line.trim());
-  if (lines.shift() !== "/e2e run") throw new Error("Invalid E2E command.");
+  if (lines.shift() !== "/browser run") throw new Error("Invalid browser-test command.");
   const ref = (lines.find(line => line.startsWith("ref:")) || "").slice(4).trim();
   if (!ref || ref.length > 200 || ref.startsWith("-") || ref.includes("..") || !/^[A-Za-z0-9._/-]+$/.test(ref)) {
     throw new Error("Invalid source ref.");
@@ -18,7 +18,7 @@ export function parseBrowserRequest(body) {
     else if (line) throw new Error("Invalid scenario list.");
   }
   validateScenarios(scenarios);
-  const description = (lines.find(line => line.startsWith("description:")) || "description: E2E verification").slice(12).trim().slice(0, 300);
+  const description = (lines.find(line => line.startsWith("description:")) || "description: browser-test verification").slice(12).trim().slice(0, 300);
   return { ref, scenarios, description };
 }
 
@@ -27,7 +27,7 @@ export function validateScenarios(scenarios) {
     new Set(scenarios).size !== scenarios.length ||
     scenarios.some(file => typeof file !== "string" || !/^tests\/e2e\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(file) ||
       file.includes("..") || file.includes("//"))) {
-    throw new Error("Provide 1-10 unique test files under tests/e2e/.");
+    throw new Error("Provide 1-10 unique test files under tests/browser/.");
   }
 }
 

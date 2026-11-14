@@ -9,7 +9,7 @@ export function parseBrowserWorkflowInput({ requestedRef, scenariosJson, descrip
   try { scenarios = JSON.parse(String(scenariosJson || "")); }
   catch { throw new Error("Scenario list must be valid JSON."); }
   validateScenarios(scenarios);
-  return { ref, scenarios, description: String(description || "E2E verification").replace(/[\r\n]/g, " ").slice(0, 300) };
+  return { ref, scenarios, description: String(description || "browser-test verification").replace(/[\r\n]/g, " ").slice(0, 300) };
 }
 
 if (process.argv[1]?.endsWith("/parse-browser-workflow-input.js")) {

@@ -15,12 +15,12 @@ export function stageBrowserTests({ scenarios, sourceCheckout = ".automation-sou
   const runtimeTests = path.join(runtimeRoot, "tests", "e2e");
   const sourceReal = fs.realpathSync(sourceTests);
   for (const file of scenarios) {
-    const relative = path.relative("tests/e2e", file);
+    const relative = path.relative("tests/browser", file);
     const source = path.resolve(sourceRoot, file);
     const stat = fs.lstatSync(source);
     const real = fs.realpathSync(source);
     if (!stat.isFile() || stat.isSymbolicLink() || !inside(sourceReal, real)) {
-      throw new Error("E2E test must be a regular file under tests/e2e/: " + file);
+      throw new Error("Browser test must be a regular file under tests/browser/: " + file);
     }
     const destination = path.join(runtimeTests, relative);
     fs.mkdirSync(path.dirname(destination), { recursive: true });
