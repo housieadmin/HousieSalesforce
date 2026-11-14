@@ -33,6 +33,5 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install --no-audit --no-fund
-      - run: cat package-lock.json
+      - run: npm ci
       - run: npm test
