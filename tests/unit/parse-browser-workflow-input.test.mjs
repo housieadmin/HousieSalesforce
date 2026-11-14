@@ -4,6 +4,6 @@ import { parseBrowserWorkflowInput } from "../../src/parse-browser-workflow-inpu
 
 test("validates reusable browser workflow inputs", () => {
   assert.deepEqual(parseBrowserWorkflowInput({
-    requestedRef: "feature/change", scenariosJson: '["tests/e2e/sample.spec.ts"]', description: "smoke"
-  }), { ref: "feature/change", scenarios: ["tests/e2e/sample.spec.ts"], description: "smoke" });
+    requestedRef: "feature/change", scenariosJson: '["tests/browser/sample.spec.ts"]', description: "smoke"
+  }), { ref: "feature/change", scenarios: ["tests/browser/sample.spec.ts"], description: "smoke" });
 });

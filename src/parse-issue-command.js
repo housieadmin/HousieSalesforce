@@ -10,7 +10,7 @@ const validRef = value => value && value.length <= 200 && !value.startsWith("-")
   !value.includes("..") && !value.includes("//") && /^[A-Za-z0-9._/-]+$/.test(value);
 const validMetadataPath = value => value.length <= 240 && /^force-app\/[A-Za-z0-9._/-]+$/.test(value) &&
   !value.includes("..") && !value.includes("//") && !value.endsWith("/");
-const validScenarioPath = value => value.length <= 240 && /^tests\/e2e\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(value) &&
+const validScenarioPath = value => value.length <= 240 && /^tests\/browser\/[A-Za-z0-9._/-]+\.spec\.ts$/.test(value) &&
   !value.includes("..") && !value.includes("//");
 
 function parseFields(lines, allowed) {
