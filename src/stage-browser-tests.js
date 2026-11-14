@@ -11,8 +11,8 @@ export function stageBrowserTests({ scenarios, sourceCheckout = ".automation-sou
   validateScenarios(scenarios);
   const sourceRoot = path.resolve(sourceCheckout);
   const runtimeRoot = path.resolve(runtimeCheckout);
-  const sourceTests = path.join(sourceRoot, "tests", "e2e");
-  const runtimeTests = path.join(runtimeRoot, "tests", "e2e");
+  const sourceTests = path.join(sourceRoot, "tests", "browser");
+  const runtimeTests = path.join(runtimeRoot, "tests", "browser");
   const sourceReal = fs.realpathSync(sourceTests);
   for (const file of scenarios) {
     const relative = path.relative("tests/browser", file);

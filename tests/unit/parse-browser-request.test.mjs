@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseBrowserRequest, validateScenarios } from "../../src/parse-browser-request.js";
 
-test("parses an browser issue request", () => {
+test("parses a browser issue request", () => {
   const result = parseBrowserRequest([
     "/browser run", "ref: feature/change", "scenarios:", "- tests/browser/sample.spec.ts", "description: smoke"
   ].join("\n"));
@@ -10,5 +10,5 @@ test("parses an browser issue request", () => {
 });
 test("rejects unsafe or duplicate scenario paths", () => {
   assert.throws(() => validateScenarios(["tests/browser/../secret.spec.ts"]), /tests\/browser/);
-  assert.throws(() => validateScenarios(["tests/browser/a.spec.ts", "tests/browser/a.spec.ts"]), /tests under/);
+  assert.throws(() => validateScenarios(["tests/browser/a.spec.ts", "tests/browser/a.spec.ts"]), /unique/);
 });

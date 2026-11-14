@@ -115,14 +115,14 @@ jobs:
           SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
           RUN_DESCRIPTION: ${{ steps.request.outputs.description || steps.reusable-request.outputs.description }}
           REQUESTED_REF: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
-          Browser_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+          BROWSER_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
         run: node src/run-browser-tests.js
 
       - name: Collect Apex debug logs
         if: always() && env.APEX_DEBUG_ENABLED == 'true'
         working-directory: .automation-runtime
         env:
-          Browser_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+          BROWSER_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
           SF_TARGET_ORG_ALIAS: housie-browser-agent
         run: node src/collect-apex-logs.js
 
