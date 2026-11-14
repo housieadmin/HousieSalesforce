@@ -1,4 +1,4 @@
-name: Housie E2E
+name: Housie Browser
 
 on:
   issue_comment:
@@ -7,25 +7,25 @@ on:
     inputs:
       source_ref: { required: true, type: string }
       scenarios_json: { required: true, type: string }
-      run_description: { required: false, type: string, default: E2E verification }
+      run_description: { required: false, type: string, default: Browser verification }
 
 permissions:
   contents: read
   issues: write
 
 concurrency:
-  group: e2e-${{ github.event.issue.number || github.run_id }}
+  group: browser-${{ github.event.issue.number || github.run_id }}
   cancel-in-progress: false
 
 jobs:
-  e2e:
-    name: Run selected Housie E2E tests
+  browser:
+    name: Run selected Housie Browser tests
     if: >-
       inputs.source_ref != '' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.number == 9 &&
        github.event.issue.pull_request == null &&
-       startsWith(github.event.comment.body, '/e2e run') &&
+       startsWith(github.event.comment.body, '/browser run') &&
        (github.event.comment.author_association == 'OWNER' ||
         github.event.comment.author_association == 'MEMBER' ||
         github.event.comment.author_association == 'COLLABORATOR'))
@@ -63,7 +63,7 @@ jobs:
           persist-credentials: false
           path: .automation-source
 
-      - name: Stage selected E2E tests into trusted runtime
+      - name: Stage selected Browser tests into trusted runtime
         env:
           SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
           SOURCE_CHECKOUT: .automation-source
@@ -108,38 +108,38 @@ jobs:
           SF_TARGET_ORG_ALIAS: housie-browser-agent
         run: node src/enable-apex-trace.js
 
-      - name: Execute selected E2E tests
+      - name: Execute selected Browser tests
         id: run
         working-directory: .automation-runtime
         env:
           SCENARIOS_JSON: ${{ steps.request.outputs.scenarios || steps.reusable-request.outputs.scenarios }}
           RUN_DESCRIPTION: ${{ steps.request.outputs.description || steps.reusable-request.outputs.description }}
           REQUESTED_REF: ${{ steps.request.outputs.ref || steps.reusable-request.outputs.ref }}
-          E2E_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+          Browser_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
         run: node src/run-browser-tests.js
 
       - name: Collect Apex debug logs
         if: always() && env.APEX_DEBUG_ENABLED == 'true'
         working-directory: .automation-runtime
         env:
-          E2E_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
+          Browser_ARTIFACT_DIR: artifacts/${{ github.run_id }}-${{ github.run_attempt }}
           SF_TARGET_ORG_ALIAS: housie-browser-agent
         run: node src/collect-apex-logs.js
 
-      - name: Upload E2E evidence
+      - name: Upload Browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: housie-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          name: housie-browser-${{ github.run_id }}-${{ github.run_attempt }}
           path: .automation-runtime/artifacts/${{ github.run_id }}-${{ github.run_attempt }}/
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Comment with E2E result
+      - name: Comment with Browser result
         if: always() && github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
           script: |
             const url = 'https://github.com/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId;
-            const body = ['Housie E2E execution finished.', '- Workflow run: ' + url, '- Requested ref: ${{ steps.request.outputs.ref }}', '- Scenarios: ${{ steps.request.outputs.scenarios }}', '- Evidence: download the workflow artifact.'].join('\\n');
+            const body = ['Housie Browser execution finished.', '- Workflow run: ' + url, '- Requested ref: ${{ steps.request.outputs.ref }}', '- Scenarios: ${{ steps.request.outputs.scenarios }}', '- Evidence: download the workflow artifact.'].join('\\n');
             await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 9, body });
