@@ -1,12 +1,13 @@
-# Repository guidance
+# Repository instructions
 
-- Start with `.project/README.md`; verify branch, commit and open PRs before relying on prior context.
-- Read only the relevant sections of `docs/SPEC.md`, `docs/DATA_MODEL.md` and affected source. Consult architecture, mapping, storage or workflow docs only when needed.
-- A work session owns its task end-to-end where practical. Do not create a handoff merely because work crosses disciplines or a chat session ends.
-- Design complete service behaviour before coding: authorization, state transitions, transaction boundaries, idempotency, concurrency, failure handling and audit/ledger effects.
-- Keep a cohesive service implementation together. Use focused tests to validate changed behaviour; do not expand into broad coverage work unless explicitly prioritized.
-- Distinguish source, test, deployment and runtime evidence. A compile, metadata validation or audit event does not prove a product workflow works.
-- Preserve data integrity and security invariants. Verify technical documentation against current source when changing architecture.
-- Keep detailed implementation decisions and validation evidence in the relevant PR. Update `docs/BUILD_STATUS.md` only when the factual implementation snapshot changes.
+- Read `.project/README.md` and relevant product specifications before changing application behavior.
+- Keep application modules in `src/`; each module has one responsibility.
+- Put unit tests in `tests/unit/` and Playwright browser tests in `tests/browser/`.
+- Keep Playwright configuration, fixtures and helpers inside the root package under `tests/`; do not introduce a separate test-runner package.
+- Keep project-specific pages, scenarios, org settings, manifests and business rules in Housie.
+- Keep reusable Salesforce functions in `packages/sf-augment`. No Housie names, org aliases, paths, URLs, credentials or business rules in that package.
+- Inspect existing code and dependencies before adding functionality. Reuse Salesforce CLI, Playwright and library capabilities before writing wrappers.
+- Keep each reusable function small, explicit and independently testable. Pass orgs, paths and URLs as arguments.
+- Keep workflows to triggers, permissions, checkout, setup, secrets, artifacts and calls into `src/`.
+- Run `npm test` after Node changes. Run browser tests only against the configured test org.
 - Do not deploy, merge or change org/security settings without explicit authorization.
-- Use `.project/sessions/SESSION_TEMPLATE.md` only for substantial unfinished work that genuinely needs a handoff.

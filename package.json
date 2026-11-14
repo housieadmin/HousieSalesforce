@@ -1,0 +1,21 @@
+{
+  "name": "housie-salesforce",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "test": "npm run test:unit && npm run test:shared",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:shared": "npm test --workspace=sf-augment",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "sf-augment": "1.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.18.0",
+    "typescript": "^5.9.3"
+  }
+}

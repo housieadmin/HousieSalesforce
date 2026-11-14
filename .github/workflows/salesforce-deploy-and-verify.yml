@@ -18,7 +18,7 @@ on:
         default: none
         options: [none, specified, local]
       apex_test_classes: { required: false, type: string }
-      scenarios_json: { description: JSON array of browser-agent scenario paths, required: true, type: string }
+      scenarios_json: { description: JSON array of tests/browser paths, required: true, type: string }
       run_description: { required: false, type: string }
       confirm_deployment: { description: Type DEPLOY, required: true, type: string }
 
@@ -41,9 +41,9 @@ jobs:
     secrets: inherit
 
   browser:
-    name: Run browser scenarios after successful deployment
+    name: Run Browser tests after successful deployment
     needs: deploy
-    uses: ./.github/workflows/browser-agent.yml
+    uses: ./.github/workflows/browser-tests.yml
     with:
       source_ref: ${{ inputs.source_ref }}
       scenarios_json: ${{ inputs.scenarios_json }}
