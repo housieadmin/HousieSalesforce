@@ -10,12 +10,12 @@ test("parses a deploy request into workflow inputs", () => {
   assert.equal(result.workflowId, "salesforce-ai-iteration-deploy.yml");
   assert.equal(result.inputs.source_ref, "feature/change");
 });
-test("parses E2E scenario paths and rejects invalid input", () => {
+test("parses browser scenario paths and rejects invalid input", () => {
   const result = parseIssueCommand([
     "/sf deploy-and-verify", "ref: feature/change", "paths:", "- force-app/classes/Example.cls",
-    "scenarios:", "- tests/e2e/sample.spec.ts", "confirm: DEPLOY"
+    "scenarios:", "- tests/browser/sample.spec.ts", "confirm: DEPLOY"
   ].join("\n"));
-  assert.equal(result.inputs.scenarios_json, '["tests/e2e/sample.spec.ts"]');
+  assert.equal(result.inputs.scenarios_json, '["tests/browser/sample.spec.ts"]');
   assert.throws(() => parseIssueCommand("/sf deploy", "MEMBER"), /repository owners/);
   assert.throws(() => parseIssueCommand([
     "/sf deploy", "ref: main", "paths:", "- force-app/../bad", "confirm: DEPLOY"

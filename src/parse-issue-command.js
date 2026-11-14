@@ -93,10 +93,10 @@ export function parseIssueCommand(body, authorAssociation = "OWNER") {
     if (kind === "deploy-and-verify") {
       const scenarios = (fields.scenarios || "").split("\n").map(x => x.trim()).filter(Boolean);
       if (!scenarios.length || scenarios.length > 10 || new Set(scenarios).size !== scenarios.length || scenarios.some(x => !validScenarioPath(x))) {
-        throw new Error("Provide 1-10 unique scenario files under tests/e2e/.");
+        throw new Error("Provide 1-10 unique scenario files under tests/browser/.");
       }
       inputs.scenarios_json = JSON.stringify(scenarios);
-      inputs.run_description = (fields.description || "AI deploy and E2E verification").slice(0, 300);
+      inputs.run_description = (fields.description || "AI deploy and browser verification").slice(0, 300);
     }
     return { kind, workflowId: workflows[kind], ref, paths, inputs };
   }

@@ -1,41 +1,44 @@
 # GitHub Actions
 
-## Workflows
+## Workflow responsibilities
 
-| Workflow | Purpose |
+Workflows are thin orchestration layers. They define triggers and permissions, check out source, install required tools, map secrets, invoke application modules, and publish artifacts.
+
+Application logic lives in `src/`. Reusable Salesforce functions live in `packages/sf-augment/src/`. Housie-specific test fixtures, browser tests and redaction rules stay in `tests/`.
+
+| Workflow | Responsibility |
 |---|---|
-| Node tests | Runs unit tests for Housie and `sf-augment` |
-| Salesforce PR Validation | Metadata dry run and org-local Apex tests |
-| Salesforce Manual Validation | Validates a selected ref and manifest |
-| Salesforce AI Iteration Deploy | Deploys selected feature-branch metadata |
-| Salesforce Deploy and Browser Verification | Deploys, then runs selected E2E tests |
-| Salesforce AI Iteration Restore | Restores selected metadata from a known-good ref |
-| Salesforce Controlled Deployment | Deploys a reviewed release manifest from `main` |
-| Salesforce Org Metadata Sync | Retrieves selected metadata and opens a PR |
-| Salesforce Issue Commands | Validates and dispatches `/sf` commands |
-| Housie E2E | Runs selected Playwright tests |
+| Node tests | Unit tests for Housie modules and the shared package |
+| Salesforce PR Validation | Metadata validation and org-local Apex tests |
+| Salesforce Manual Validation | Validate a selected source ref and manifest |
+| Salesforce AI Iteration Deploy | Deploy selected feature-branch metadata |
+| Salesforce Deploy and Browser Verification | Deploy, then run selected browser tests |
+| Salesforce AI Iteration Restore | Restore selected metadata from a known-good ref |
+| Salesforce Controlled Deployment | Deploy a reviewed release manifest |
+| Salesforce Org Metadata Sync | Retrieve selected org metadata and open a PR |
+| Salesforce Issue Commands | Validate and dispatch owner-only `/sf` commands |
+| Housie Browser | Run selected Playwright browser tests |
 
-Workflows are orchestration only. Application logic is in `src/`; reusable Salesforce functions are in `packages/sf-augment/src/`.
+## Test layout and commands
 
-## E2E tests
-
-- Playwright config: `playwright.config.ts`
-- Scenarios: `tests/e2e/`
-- Fixtures/helpers: `tests/`
 - Unit tests: `tests/unit/`
-- Run locally: `npm install`, then `npm test` or `npm run e2e`
+- Browser tests: `tests/browser/`
+- Shared test fixtures and Housie helpers: `tests/`
+- Playwright configuration: `playwright.config.ts`
 
-Issue #9 accepts:
+Run unit and shared-package tests with `npm test`. Run browser tests against the configured test org with `npm run test:browser`.
+
+Issue #9 accepts the following command from repository owners, members or collaborators:
 
 ```text
-/e2e run
+/browser run
 ref: feature/my-change
 scenarios:
-- tests/e2e/inspect-housie-account.spec.ts
+- tests/browser/inspect-housie-account.spec.ts
 description: Verify the account flow
 ```
 
-The E2E workflow checks out trusted runtime code from `main`, checks out the requested scenario ref separately, stages only selected tests, then runs Playwright. Use only trusted refs; test code executes with access to the workflow environment.
+The browser workflow checks out trusted runtime code from `main`, checks out the requested test ref separately, stages only the selected test files, then runs Playwright. Browser test code executes with access to the workflow environment. Use only trusted refs.
 
 ## Salesforce commands
 
@@ -56,7 +59,7 @@ ref: feature/my-change
 paths:
 - force-app/main/default/classes/HousieAccountService.cls
 scenarios:
-- tests/e2e/inspect-housie-account.spec.ts
+- tests/browser/inspect-housie-account.spec.ts
 confirm: DEPLOY
 ```
 
@@ -80,13 +83,11 @@ Retrieve can also use one XML manifest under `manifest/`. With no path, it uses 
 ## Required GitHub configuration
 
 Repository Actions secrets:
-
 - `SF_CLIENT_ID`
 - `SF_USERNAME`
 - `SF_JWT_KEY`
 
 Repository Actions variable:
-
 - `SF_INSTANCE_URL`
 
 Use a dedicated least-privilege Salesforce integration user. Keep the JWT private key only in GitHub Secrets. Configure the `development` Environment for controlled deployments and allow Actions to create PRs for org sync.
@@ -98,4 +99,4 @@ Use a dedicated least-privilege Salesforce integration user. Keep the JWT privat
 - Workflows serialize writes to the shared development org.
 - Org retrieval creates a branch and PR; it never writes directly to `main`.
 - A metadata dry run is not a deployment. `RunLocalTests` runs tests already deployed in the org, not test classes that exist only on the source branch.
-- No E2E run has occurred as part of this PR; run against the configured test org before relying on it.
+- Live Salesforce deployment, retrieval and browser execution were not performed as part of this package redesign; those require configured org credentials and explicit execution.
