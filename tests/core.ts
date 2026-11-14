@@ -15,7 +15,7 @@ const safe = (s: string) => s.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$
 export const test = base.extend<Fixtures>({
   housie: async ({ page }, use, testInfo) => {
     const diagnostics = captureBrowserDiagnostics(page);
-    const root = path.resolve(process.env.E2E_ARTIFACT_DIR || "artifacts/local-run");
+    const root = path.resolve(process.env.BROWSER_ARTIFACT_DIR || "artifacts/browser-local-run");
     const name = safe(path.basename(testInfo.file) + "-" + testInfo.titlePath.join("-"));
 
     const housie: HousieBrowser = {
