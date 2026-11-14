@@ -6,8 +6,8 @@ import { validateScenarios } from "./parse-browser-request.js";
 export function runBrowserTests(env = process.env) {
   const scenarios = JSON.parse(env.SCENARIOS_JSON || "[]");
   validateScenarios(scenarios);
-  const files = scenarios.map(file => path.relative("tests/e2e", file));
-  const artifactDir = path.resolve(env.E2E_ARTIFACT_DIR || "artifacts/e2e");
+  const files = scenarios.map(file => path.relative("tests/browser", file));
+  const artifactDir = path.resolve(env.BROWSER_ARTIFACT_DIR || "artifacts/browser");
   fs.mkdirSync(artifactDir, { recursive: true });
   const result = spawnSync(process.execPath, [
     path.join(process.cwd(), "node_modules", "@playwright", "test", "cli.js"), "test", ...files
@@ -25,7 +25,7 @@ export function runBrowserTests(env = process.env) {
   });
   visit(report.suites);
   const summary = [
-    "# E2E execution summary", "",
+    "# Browser test execution summary", "",
     "- Tests observed: " + specs.length,
     "- Passed: " + specs.filter(x => x.status === "passed").length,
     "- Failed: " + specs.filter(x => ["failed", "timedOut"].includes(x.status)).length,

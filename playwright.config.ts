@@ -1,10 +1,10 @@
 import { defineConfig } from "@playwright/test";
 import path from "node:path";
 
-const artifactDir = path.resolve(process.env.E2E_ARTIFACT_DIR || "artifacts/e2e");
+const artifactDir = path.resolve(process.env.BROWSER_ARTIFACT_DIR || "artifacts/browser");
 
 export default defineConfig({
-  testDir: "./tests/e2e",
+  testDir: "./tests/browser",
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
   workers: 1,
